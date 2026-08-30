@@ -28,3 +28,5 @@ launcher/HarnessManagerLauncher.spec
 
 # TypeScript 증분 빌드 산출물
 *.tsbuildinfo
+
+CLAUDE.local.md
