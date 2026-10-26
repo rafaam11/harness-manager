@@ -3,3 +3,6 @@
 
 export * from "./provider-types.js";
 export * from "./api-types.js";
+export * from "./manifest-types.js";
+export * from "./doctor-types.js";
+export * from "./repo-sync-types.js";

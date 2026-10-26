@@ -20,6 +20,7 @@
     "hm": "node out/main/cli.js"
   },
   "dependencies": {
+    "diff": "^8.0.4",
     "dompurify": "^3.2.3",
     "electron-updater": "^6.8.9",
     "gray-matter": "^4.0.3",

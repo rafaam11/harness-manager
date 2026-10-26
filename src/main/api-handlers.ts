@@ -1,4 +1,5 @@
 import type { ApiChannel, ApiReturn, CleanupExecuteResult, ManifestEntry } from "@shared/api-types";
+import { CAPTURE_TARGET_IDS, type CaptureTargetId } from "@shared/manifest-types";
 import type { NormalizedConfigFile } from "@shared/provider-types";
 import { validateConfigContent } from "./lib/config-write.js";
 import { readConfig, safeWrite, listBackups, restoreBackup } from "./lib/safe-write.js";
@@ -7,12 +8,16 @@ import { archiveItems, restoreItem, listManifests } from "./lib/archive.js";
 import { readCatalogContent } from "./services/catalog.js";
 import { getPlugins } from "./services/plugins.js";
 import { scanCandidates } from "./services/scan.js";
+import { applyCapture, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
+import { validateManifest } from "./services/manifest/validate.js";
+import { runDoctor } from "./services/doctor/doctor.js";
 import { getProviders } from "./providers/registry.js";
 import {
   RequestError,
   booleanValue,
   externalUrl,
   nonEmptyString,
+  exactObject,
   nonEmptyStringArray,
   providerFilter,
   stringValue,
@@ -42,6 +47,19 @@ export interface ApiDependencies {
     check(): Promise<void>;
     install(): Promise<void> | void;
   };
+  /** 레포 클론을 찾기 시작할 위치(개발 빌드는 앱 경로가 곧 레포다). */
+  repoStartDirs(): string[];
+  /** OS 폴더 선택 창. 취소하면 null. */
+  chooseDirectory(title: string): Promise<string | null>;
+}
+
+function captureIds(value: unknown): CaptureTargetId[] {
+  const ids = nonEmptyStringArray(value, "ids", CAPTURE_TARGET_IDS.length);
+  for (const id of ids) {
+    if (!CAPTURE_TARGET_IDS.includes(id as CaptureTargetId)) throw new RequestError(400, `unknown capture target: ${id}`);
+  }
+  if (new Set(ids).size !== ids.length) throw new RequestError(400, "ids has duplicates");
+  return ids as CaptureTargetId[];
 }
 
 async function findConfigFile(id: string): Promise<NormalizedConfigFile> {
@@ -158,5 +176,24 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     },
     "cleanup:restore": (archivedPath) => restoreItem(nonEmptyString(archivedPath, "archivedPath")),
     "cleanup:manifest": () => listManifests(),
+
+    "capture:plan": async () => planCapture(await resolveRepoRoot({ startDirs: deps.repoStartDirs() })),
+    "capture:apply": async (ids, fingerprints) => {
+      const targets = captureIds(ids);
+      const prints = exactObject(fingerprints, targets, "fingerprints");
+      const checked = Object.fromEntries(targets.map((id) => [id, nonEmptyString(prints[id], `fingerprints.${id}`)]));
+      return applyCapture(await resolveRepoRoot({ startDirs: deps.repoStartDirs() }), targets, checked);
+    },
+    "capture:choose-repo": async () => {
+      const chosen = await deps.chooseDirectory("harness-manager 레포 폴더 선택");
+      return chosen ? rememberRepoRoot(chosen) : null;
+    },
+    "manifest:validate": async () => {
+      const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
+      if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
+      return validateManifest(repoRoot);
+    },
+
+    "doctor:run": async () => runDoctor(await resolveRepoRoot({ startDirs: deps.repoStartDirs() })),
   };
 }

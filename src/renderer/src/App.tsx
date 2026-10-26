@@ -15,7 +15,7 @@ import { applyTheme, useResolvedTheme } from "./theme";
 import { REPOSITORY_URL, buildTitleBarMenus } from "./title-bar-menu";
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>("catalog");
+  const [page, setPage] = useState<PageKey>(PAGE_ORDER[0]!);
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>(DEFAULT_PROVIDER_FILTER);
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
   const [appVersion, setAppVersion] = useState("");

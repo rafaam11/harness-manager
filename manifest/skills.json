@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "external": [
+    {
+      "id": "find-skills",
+      "source": "vercel-labs/skills",
+      "profiles": [
+        "core",
+        "dev",
+        "full"
+      ]
+    }
+  ]
+}

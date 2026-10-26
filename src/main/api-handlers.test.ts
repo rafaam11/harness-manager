@@ -58,6 +58,8 @@ const deps: ApiDependencies = {
     state: () => ({ maximized: false, fullScreen: false }),
   },
   updater: { status: () => ({ state: "idle" }), check: vi.fn(async () => undefined), install: vi.fn() },
+  repoStartDirs: () => [],
+  chooseDirectory: vi.fn(async () => null),
 };
 const handlers = createApiHandlers(deps);
 
@@ -179,5 +181,19 @@ describe("external links", () => {
     expect(() => handlers["app:open-external"]("file:///C:/x")).toThrow(expect.objectContaining({ statusCode: 400 }));
     handlers["app:open-external"]("https://example.com/a");
     expect(deps.openExternal).toHaveBeenCalledWith("https://example.com/a");
+  });
+});
+
+describe("capture channels", () => {
+  it("모르는 대상 id나 지문 키를 400으로 거절한다", async () => {
+    await expect(handlers["capture:apply"](["nope"], {})).rejects.toMatchObject({ statusCode: 400 });
+    await expect(handlers["capture:apply"](["mcp"], { mcp: "x", agents: "y" })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(handlers["capture:apply"](["mcp", "mcp"], { mcp: "x" })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(handlers["capture:apply"](["mcp"], { mcp: "" })).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("폴더 선택을 취소하면 아무것도 기억하지 않는다", async () => {
+    await expect(handlers["capture:choose-repo"]()).resolves.toBeNull();
+    expect(deps.chooseDirectory).toHaveBeenCalledOnce();
   });
 });

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "servers": [
+    {
+      "name": "cua-driver",
+      "command": "~/.cua-driver/packages/current/cua-driver.exe",
+      "args": [
+        "mcp"
+      ],
+      "targets": [
+        "claude",
+        "codex"
+      ],
+      "profiles": [
+        "dev",
+        "full"
+      ]
+    }
+  ]
+}

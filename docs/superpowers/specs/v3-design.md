@@ -44,6 +44,7 @@
 | D19 | **설정 백업은 `~/.harness-manager/backups` 한 곳**(M2). v2의 `~/.claude/backups/harness-manager`는 Q3과 같은 방식으로 Cleanup 후보로 다룬다 |
 | D20 | **Codex는 같은 마켓플레이스를 공유하되 `plugins/*`만 enable한다**(M3, 옛 Q12). codex-cli 0.162.1 실측: `codex plugin marketplace add <레포>`가 `.claude-plugin/marketplace.json`을 그대로 읽어 6개를 모두 보여 주고, `jinmin-skills`의 스킬은 `jinmin-skills:<이름>`으로 모델 프롬프트에 들어간다. hook mod도 설치는 되지만(캐시에 복사) Codex는 `hooks.json`의 `modules`를 실행하지 않아 아무 효과가 없다. 오류는 없다. 그래서 `plugins.json`은 provider별 enable 목록을 둔다 |
 | D21 | **레포 일괄 최신화(repo-sync)는 HM 엔진·CLI와 mcw 트리거로 나눈다**(M3.5). 업무 프로젝트→레포 매핑은 mcw만 가지므로 HM은 경로 목록만 받는다. 버튼과 세션 시작 트리거는 mcw가 맡고, 자동 실행은 mcw가 띄운 세션만 대상으로 한다. 세션 브리프에는 최대 3초를 기다린 요약을 넣는다. 명령은 `fetch --prune` + `merge --ff-only @{u}`, 기본값은 쿨다운 10분·동시 4개다. untracked만 있으면 진행한다. HM이 없는 PC는 mcw 대체 구현이 같은 계약을 따른다. 계약은 `docs/contracts/repo-sync.md` |
+| D22 | **capture 정책**(M4, 옛 Q10). 공개·개인을 나눠 개인 값은 `~/.harness-manager/profile/`로 보낸다. 비공개 낱말은 로컬 `profile/private-terms.json`에 두고, 이 파일이 없으면 적용을 막는다. 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 막는다. 관리 키는 `home/managed-keys.json`에 둔다. plugins·mcp·skills는 더하기만 하고 MCP env 값은 자리표시로 적는다. AGENTS.md는 마커 블록(`<!-- >>> harness-manager >>> -->`)이 있으면 그 안이, 없으면 레포 템플릿에 제목이 있는 섹션만 공개다. PS 프로필·gitconfig·WT capture는 마커 merge가 생기는 M6로 미룬다 |
 | D17 | **jk-external-api 흡수**: 공개 색인 사이트였던 jk-external-api(한국 생활·지역 외부 정보원, k-skill 스냅샷, 청사진)를 앱 기능 **"외부 API"** 섹션으로 다시 만든다(M12, v3.0.0 릴리스 뒤). 소스는 단순 복사한다. GitHub Pages 사이트, Cloudflare Worker 미리보기, 주간 자동 PR은 폐기하고 원 레포는 archive한다 |
 | D16 | **mod version 규약**: `mods/*`는 고칠 때마다 `plugin.json` version을 올린다. GitHub 소스에서 version이 그대로면 update를 건너뛰기 때문이다. `plugins/*`에는 version을 두지 않고 커밋 SHA를 따라가게 한다 |
 
@@ -54,7 +55,6 @@
 - Q13 외부 API 실시간 미리보기: jk-external-api Worker가 하던 날씨·대기·교통 등 미리보기를 앱 main에서 사용자 키로 로컬 호출할지 정한다. 기본은 제외하고 공식 링크만 제공한다(M12)
 - Q7 cua-driver의 공식 설치 명령, 릴리스 URL, 텔레메트리를 끄는 키(M6에서 `--help`와 문서로 확인)
 - Q8 대화형 로그인: node-pty를 쓸지 외부 터미널을 쓸지. 외부 터미널 쪽이 단순하다
-- Q10 public 노출 점검 자동화: 커밋 전에 `home/`·`manifest/`에서 개인 경로와 회사명을 검사한다. PC마다 다른 값은 로컬 오버레이로 분리한다
 - Q11 Linux 지원 범위: 설치 엔진은 Windows를 먼저 지원한다. Linux는 doctor와 설정만 지원할지 정한다
 
 ## 3. 레포 레이아웃(목표)
@@ -176,7 +176,7 @@ interface Step {
 - 파일을 통째로 덮어쓰지 않는다. 레포는 **관리 키 목록**만 갖고 그 키들만 deep-merge한다.
 - 쓰기는 `lib/safe-write.ts` 경로를 탄다: baseHash 비교 → 검증 → `.bak`(20개 순환) → temp → atomic rename. 백업 위치는 `~/.harness-manager/backups` 하나로 합친다.
 - TOML은 smol-toml로 읽고 관리 테이블만 바꾼다. 주석과 순서가 보존되지 않으면 마커 블록 방식으로 바꾼다.
-- 텍스트 파일(AGENTS.md, PS 프로필)은 `# >>> harness-manager >>>` … `# <<< harness-manager <<<` 마커 블록만 관리한다.
+- 텍스트 파일(PS 프로필 등)은 `# >>> harness-manager >>>` … `# <<< harness-manager <<<` 마커 블록. 마크다운은 `#`이 제목이라 `<!-- >>> harness-manager >>> -->` 짝을 쓴다. 이 마커 블록만 관리한다.
 - Codex의 profile toml과 `multi-cli-work.config.toml`은 읽기 전용이다.
 - PC마다 다른 값(예: 특정 도구 경로가 들어간 permission)은 로컬 오버레이로 분리한다.
 

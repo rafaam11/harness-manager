@@ -65,8 +65,8 @@
 | M2 | mcw 기반 승계(Electron 43, 토큰·테마·toast·TitleBar·window-*·updater·json-store 등), 타입드 IPC 전환 | 완료 |
 | M3 | jinmin-mods 흡수(`mods/`, 마켓플레이스, `plugins/jinmin-skills`) | 완료 |
 | M3.5 | 업무 프로젝트 레포 일괄 최신화(repo-sync) 엔진과 `hm-cli` 골격. mcw가 CLI로 호출한다(`docs/contracts/repo-sync.md`) | 완료(확인 대기) |
-| M4 | manifest 스키마와 capture 엔진 | |
-| M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | |
+| M4 | manifest 스키마와 capture 엔진 | 완료 |
+| M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료(확인 대기) |
 | M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | |
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | |
@@ -79,7 +79,7 @@
 - **사용자 설정 불가침.** CLI가 직접 쓰는 파일(`settings.json`, `~/.claude.json`, `config.toml`)은 통째로 덮어쓰지 않는다.
   - JSON은 레포가 정의한 **관리 키만** deep-merge한다.
   - TOML은 관리 테이블만 바꾼다. 주석이 보존되지 않으면 마커 블록 방식으로 전환한다.
-  - 텍스트 파일(AGENTS.md, PS 프로필)은 `# >>> harness-manager >>>` … `# <<< harness-manager <<<` 마커 블록만 관리한다.
+  - 텍스트 파일(PS 프로필 등)은 `# >>> harness-manager >>>` … `# <<< harness-manager <<<` 마커 블록만 관리한다. 마크다운(AGENTS.md)은 `#`이 제목이라 `<!-- >>> harness-manager >>> -->` … `<!-- <<< harness-manager <<< -->`를 쓴다.
   - 쓰기는 반드시 `lib/safe-write.ts` 경로를 탄다.
 - **경로 allowlist는 경로 단위로 연다.** manifest에서 정확한 경로 목록을 파생하고, 폴더 전체를 열지 않는다.
 - **렌더러는 step id만 보낸다.** 실행 파일과 인자는 main이 manifest에서 정한다. 렌더러가 보낸 임의 문자열은 실행하지 않는다.
@@ -173,6 +173,31 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
+  - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.
+  - 프로필은 `~/.harness-manager/settings.json`의 `profile`(없으면 full). CLI는 `hm doctor [--profile p] [--all] [--json]`.
+  - 섹션별로 보는 것:
+    - 툴체인: PATH
+    - Claude: CLAUDE.md, 관리 키
+    - Codex: AGENTS.md 공개 섹션, 관리 키
+    - 플러그인: 마켓플레이스 소스(self는 레포 폴더나 GitHub), provider별 활성, mod 의존성, claude-hud 잔여 폴더
+    - 스킬: 외부 스킬, 깨진 링크, 플러그인으로 옮긴 스킬의 낡은 사본
+    - MCP: provider별 등록과 명령
+    - cua-driver: 설치 위치
+    - dotfiles: M6
+  - 화면: 첫 화면 "상태판"(`pages/Dashboard.tsx`)은 카드 그리드와 섹션 탭(상태 / 이름 / 상세 표)으로 되어 있고 읽기 전용이다.
+- **manifest와 capture(M4)**
+  - 레포 `manifest/{packages,tools,plugins,mcp,skills}.json`: 형태는 `src/shared/manifest-types.ts`, 검사는 `services/manifest/validate.ts`(모르는 키는 경고, 절대경로·directory 소스는 오류). `validate.test.ts`가 커밋된 manifest를 검사한다.
+  - 레포 `home/`: 배포 템플릿. `home/managed-keys.json`이 settings.json·config.toml에서 관리할 키 목록이다. 템플릿 값은 capture가 채운다.
+  - `services/capture/`: 현재 PC → 레포 템플릿. 대상은 agents, claude-md, claude-settings, codex-config, plugins, mcp, skills.
+    - 공개·개인 분리: 개인 값은 `~/.harness-manager/profile/`(AGENTS.local.md, `*.local.json`, `manifest.local.json`)로 보낸다.
+    - 비공개 낱말 목록은 `profile/private-terms.json`(`{"terms":[…]}`)이다. **이 파일이 없으면 미리보기만 되고 적용은 막힌다.**
+    - 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 적용을 막는다.
+    - plugins·mcp·skills는 더하기만 한다(빼기는 사람이 manifest를 직접 고친다). MCP env 값은 옮기지 않고 `${이름}` 자리표시로 적는다.
+    - 적용: 렌더러는 대상 id와 미리보기 지문만 보내고, main이 다시 계획해 지문이 같을 때만 계획한 파일을 쓴다(파일 단위 allowlist, 원본 백업, temp → rename). 다르면 409다.
+  - 레포 위치: `HM_REPO` → `~/.harness-manager/repo.json`(화면의 "레포 폴더 선택") → 개발 빌드는 앱 경로. CLI는 `--repo`도 받는다.
+  - CLI: `hm capture [--dry-run]`, `hm capture --apply --only <id,…> --yes`, `hm manifest validate`(실패 시 종료 코드 3).
+  - 화면: "가져오기" 페이지(`pages/Capture.tsx`)가 항목별 diff·노트·노출 경고를 보여 주고 고른 항목만 적용한다.
 - `config.ts`: 경로 상수와 정책 값의 단일 출처다(`ALLOWED_ROOTS`, `CONFIG_FILES`, `STALE_DAYS`, `BACKUP_KEEP`, `APP_STATE_DIR=~/.harness-manager` 등).
 - `providers/`: `ProviderAdapter`(claude, codex)와 `registry`. provider별 home·설정 파일·카탈로그·MCP·실행 감지를 맡는다.
   - 인터페이스는 `listConfigFiles`·`readMcpServers`·`listCatalog`·`detectRunning`만 갖는다(세션·프로젝트·계획 조회는 M1에서 제거).

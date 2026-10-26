@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "claudeSettings": [
+    "model",
+    "language",
+    "effortLevel",
+    "modelSettings",
+    "worktree",
+    "autoUpdatesChannel",
+    "tui",
+    "theme",
+    "awaySummaryEnabled",
+    "preferredNotifChannel",
+    "remoteControlAtStartup",
+    "inputNeededNotifEnabled",
+    "agentPushNotifEnabled",
+    "permissions.defaultMode",
+    "permissions.allow"
+  ],
+  "codexConfig": [
+    "model",
+    "model_reasoning_effort",
+    "plan_mode_reasoning_effort",
+    "personality",
+    "service_tier",
+    "windows.sandbox"
+  ]
+}

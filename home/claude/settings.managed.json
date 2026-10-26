@@ -1,0 +1,31 @@
+{
+  "model": "opus",
+  "language": "한국어",
+  "effortLevel": "xhigh",
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "high"
+    }
+  },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "autoUpdatesChannel": "latest",
+  "tui": "fullscreen",
+  "theme": "dark",
+  "awaySummaryEnabled": false,
+  "preferredNotifChannel": "auto",
+  "remoteControlAtStartup": false,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(cp:*)",
+      "Bash(git config *)",
+      "Bash(gh auth *)",
+      "Bash(gh api *)"
+    ]
+  }
+}

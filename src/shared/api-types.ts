@@ -1,5 +1,7 @@
 // renderer ↔ main IPC 계약의 단일 출처. 채널 이름·인자·반환 타입을 여기 한 곳에서만 정의하고,
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
+import type { DoctorReport } from "./doctor-types";
+import type { CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
@@ -148,6 +150,17 @@ export interface ApiChannels {
   "cleanup:execute": (paths: string[], dryRun: boolean) => CleanupExecuteResult;
   "cleanup:restore": (archivedPath: string) => ManifestEntry;
   "cleanup:manifest": () => ManifestDay[];
+
+  /** 현재 PC → 레포 템플릿 미리보기. 레포 위치를 모르면 repoRoot가 null이다. */
+  "capture:plan": () => CapturePlan;
+  /** ids와 미리보기 때의 지문만 보낸다. main이 다시 계획해 지문이 같을 때만 쓴다(다르면 409). */
+  "capture:apply": (ids: CaptureTargetId[], fingerprints: Partial<Record<CaptureTargetId, string>>) => CaptureApplyResult;
+  /** 폴더 선택 창으로 레포 클론 위치를 고르고 기억한다. 취소하면 null. */
+  "capture:choose-repo": () => string | null;
+  "manifest:validate": () => ManifestFileReport[];
+
+  /** 카드 8개 상태판. 레포 위치를 모르면 cards가 비고 repoError가 있다. */
+  "doctor:run": () => DoctorReport;
 }
 
 export type ApiChannel = keyof ApiChannels;
@@ -180,6 +193,11 @@ export const API_CHANNELS = [
   "cleanup:execute",
   "cleanup:restore",
   "cleanup:manifest",
+  "capture:plan",
+  "capture:apply",
+  "capture:choose-repo",
+  "manifest:validate",
+  "doctor:run",
 ] as const satisfies readonly ApiChannel[];
 
 // 목록에서 빠진 채널이 있으면 여기서 컴파일 에러가 난다(맵과 목록이 어긋나지 않게).

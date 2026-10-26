@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "tools": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "profiles": ["core", "dev", "full"],
+      "install": { "kind": "powershell-script", "ref": "https://claude.ai/install.ps1" },
+      "verify": { "command": "claude", "args": ["--version"] }
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "profiles": ["core", "dev", "full"],
+      "install": { "kind": "npm", "ref": "@openai/codex" },
+      "verify": { "command": "codex", "args": ["--version"] }
+    },
+    {
+      "id": "cua-driver",
+      "name": "cua-driver",
+      "profiles": ["dev", "full"],
+      "version": "0.37.0",
+      "install": { "kind": "manual", "ref": "공식 설치 명령은 M6에서 확정한다(스펙 Q7)" },
+      "verify": { "command": "cua-driver", "args": ["doctor"] },
+      "notes": "설치 위치 ~/.cua-driver/packages/current. 텔레메트리는 끈다"
+    }
+  ]
+}

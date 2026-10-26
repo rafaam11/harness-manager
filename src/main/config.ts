@@ -1,12 +1,25 @@
 import os from "node:os";
 import path from "node:path";
 
-export const CLAUDE_HOME = path.join(os.homedir(), ".claude");
-export const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
-export const CODEX_HOME = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 // HM_HOME은 엔진 테스트와 hm-cli 시험 실행이 실제 홈을 건드리지 않게 하는 격리 장치다(v3 원칙).
+// HM_CLAUDE_HOME·HM_CODEX_HOME은 provider 홈만 따로 바꾼다.
 export const HM_USER_HOME = process.env.HM_HOME ? path.resolve(process.env.HM_HOME) : os.homedir();
+export const CLAUDE_HOME = process.env.HM_CLAUDE_HOME
+  ? path.resolve(process.env.HM_CLAUDE_HOME)
+  : path.join(HM_USER_HOME, ".claude");
+export const CLAUDE_JSON = path.join(HM_USER_HOME, ".claude.json");
+export const CODEX_HOME = process.env.HM_CODEX_HOME
+  ? path.resolve(process.env.HM_CODEX_HOME)
+  : process.env.CODEX_HOME || path.join(HM_USER_HOME, ".codex");
 export const APP_STATE_DIR = path.join(HM_USER_HOME, ".harness-manager");
+// 공개 레포에 넣지 않는 개인 부분(AGENTS.local.md, 로컬 오버레이, private-terms.json). capture가 쓴다.
+export const PROFILE_DIR = path.join(APP_STATE_DIR, "profile");
+// 앱 설정(고른 프로필 core/dev/full 등). 위저드(M7)가 쓰고 doctor·install이 읽는다.
+export const APP_SETTINGS_FILE = path.join(APP_STATE_DIR, "settings.json");
+// 앱이 기억하는 레포 클론 위치({"path": "..."}). 설치본은 자기 위치로 레포를 알 수 없다.
+export const REPO_LOCATION_FILE = path.join(APP_STATE_DIR, "repo.json");
+// 외부 스킬(npx skills)의 설치 기록. capture가 manifest/skills.json의 원본으로 읽는다.
+export const AGENTS_SKILL_LOCK = path.join(HM_USER_HOME, ".agents", ".skill-lock.json");
 
 // 모든 파일 연산이 허용되는 경로. path-guard가 이 목록으로 검사한다.
 export const ALLOWED_ROOTS = [CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, APP_STATE_DIR];

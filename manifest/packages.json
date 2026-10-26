@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    { "id": "git", "source": "winget", "name": "Git.Git", "profiles": ["core", "dev", "full"], "bin": "git" },
+    { "id": "gh", "source": "winget", "name": "GitHub.cli", "profiles": ["core", "dev", "full"], "bin": "gh" },
+    { "id": "nvm", "source": "winget", "name": "CoreyButler.NVMforWindows", "profiles": ["core", "dev", "full"], "bin": "nvm", "description": "Node 22는 nvm으로 설치한다" },
+    { "id": "ripgrep", "source": "winget", "name": "BurntSushi.ripgrep.GNU", "profiles": ["core", "dev", "full"], "bin": "rg" },
+    { "id": "uv", "source": "winget", "name": "astral-sh.uv", "profiles": ["dev", "full"], "bin": "uv" },
+    { "id": "python", "source": "winget", "name": "Python.Python.3.13", "profiles": ["dev", "full"], "bin": "python" },
+    { "id": "rustup", "source": "winget", "name": "Rustlang.Rustup", "profiles": ["full"], "bin": "rustup" },
+    { "id": "scoop", "source": "winget", "name": "ScoopInstaller.Scoop", "profiles": ["dev", "full"], "bin": "scoop", "description": "scoop 패키지보다 먼저 설치한다" },
+    { "id": "fd", "source": "scoop", "name": "fd", "profiles": ["dev", "full"], "bin": "fd" },
+    { "id": "fzf", "source": "scoop", "name": "fzf", "profiles": ["dev", "full"], "bin": "fzf" },
+    { "id": "task", "source": "scoop", "name": "task", "profiles": ["full"], "bin": "task" }
+  ]
+}

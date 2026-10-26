@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "marketplaces": [
+    {
+      "name": "claude-plugins-official",
+      "source": {
+        "kind": "github",
+        "repo": "anthropics/claude-plugins-official"
+      },
+      "providers": [
+        "claude"
+      ]
+    },
+    {
+      "name": "jinmin",
+      "source": {
+        "kind": "self"
+      },
+      "providers": [
+        "claude",
+        "codex"
+      ]
+    }
+  ],
+  "claude": {
+    "enabled": [
+      "superpowers@claude-plugins-official",
+      "frontend-design@claude-plugins-official",
+      "rust-analyzer-lsp@claude-plugins-official",
+      "jinmin-hud@jinmin",
+      "guard@jinmin",
+      "codex-watch@jinmin",
+      "mcw-companion@jinmin",
+      "mcw-chips@jinmin",
+      "jinmin-skills@jinmin"
+    ]
+  },
+  "codex": {
+    "enabled": [
+      "github@openai-curated",
+      "jinmin-skills@jinmin"
+    ]
+  }
+}

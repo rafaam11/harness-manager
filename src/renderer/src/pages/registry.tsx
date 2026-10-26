@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import type { ProviderFilter } from "@shared/provider-types";
+import Capture from "./Capture";
 import Catalog from "./Catalog";
 import Cleanup from "./Cleanup";
 import ConfigEditor from "./ConfigEditor";
+import Dashboard from "./Dashboard";
 
 export interface PageContext {
   providerFilter: ProviderFilter;
@@ -20,11 +22,14 @@ export interface PageDefinition {
  * (mcw App.tsx가 2,800줄까지 불어난 것을 반면교사로, 화면별 분기를 App에 두지 않는다).
  */
 export const PAGES = {
+  dashboard: { label: "상태판", render: () => <Dashboard /> },
   catalog: { label: "카탈로그", wide: true, render: ({ providerFilter }) => <Catalog providerFilter={providerFilter} /> },
   cleanup: { label: "정리", render: () => <Cleanup /> },
   configs: { label: "설정 편집기", render: ({ providerFilter }) => <ConfigEditor providerFilter={providerFilter} /> },
+  capture: { label: "가져오기", render: () => <Capture /> },
 } satisfies Record<string, PageDefinition>;
 
 export type PageKey = keyof typeof PAGES;
 
-export const PAGE_ORDER: PageKey[] = ["catalog", "cleanup", "configs"];
+// 첫 화면은 상태판이다(D: 상태판 + 섹션 탭).
+export const PAGE_ORDER: PageKey[] = ["dashboard", "catalog", "cleanup", "configs", "capture"];

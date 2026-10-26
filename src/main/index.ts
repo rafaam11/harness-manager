@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import path from "node:path";
 import { WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
 import { createApiHandlers } from "./api-handlers.js";
@@ -124,6 +124,13 @@ if (!app.requestSingleInstanceLock()) {
           state: () => (mainWindow ? chromeState(mainWindow) : { maximized: false, fullScreen: false }),
         },
         updater: { status: updaterStatus, check: checkForUpdates, install: installUpdateAndQuit },
+        // 개발 빌드는 앱 경로가 곧 레포 클론이다. 설치본은 asar라 repo.json(폴더 선택)이 필요하다.
+        repoStartDirs: () => (app.isPackaged ? [] : [app.getAppPath()]),
+        chooseDirectory: async (title) => {
+          const options = { title, properties: ["openDirectory" as const] };
+          const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
       }),
       (event) => isMainWindowSender(mainWindow, event),
     );

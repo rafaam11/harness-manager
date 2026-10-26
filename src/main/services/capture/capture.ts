@@ -1,0 +1,252 @@
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {
+  CAPTURE_TARGET_IDS,
+  type CaptureApplyResult,
+  type CaptureItem,
+  type CapturePlan,
+  type CaptureTargetId,
+} from "@shared/manifest-types";
+import { AGENTS_SKILL_LOCK, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
+import { withLock } from "../../lib/lock.js";
+import { ConflictError, sha256 } from "../../lib/safe-write.js";
+import { scanExposure } from "./exposure.js";
+import { TARGET_PLANNERS, readText, type CaptureContext, type PlannedFile, type TargetPlan } from "./targets.js";
+import { unifiedDiff } from "./text.js";
+
+export class CaptureRequestError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: number,
+  ) {
+    super(message);
+  }
+}
+
+// ───────────────────────────── 레포 위치 ─────────────────────────────
+
+/** 이 앱의 레포 클론인지. package.json 이름과 루트 마켓플레이스로 판별한다. */
+export async function isHarnessRepo(candidate: string): Promise<boolean> {
+  try {
+    const pkg = JSON.parse(await fs.readFile(path.join(candidate, "package.json"), "utf8")) as { name?: unknown };
+    await fs.access(path.join(candidate, ".claude-plugin", "marketplace.json"));
+    return pkg.name === "harness-manager";
+  } catch {
+    return false;
+  }
+}
+
+async function walkUp(start: string): Promise<string | null> {
+  let current = path.resolve(start);
+  for (;;) {
+    if (await isHarnessRepo(current)) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+/**
+ * 레포 클론을 찾는다: 명시값 → `HM_REPO` → `~/.harness-manager/repo.json` → 주어진 출발점에서 위로.
+ * 설치본은 asar 안에서 돌아 자기 위치로는 레포를 알 수 없어서 repo.json이 필요하다.
+ */
+export async function resolveRepoRoot(options: { explicit?: string; startDirs?: string[] } = {}): Promise<string | null> {
+  const direct = [options.explicit, process.env.HM_REPO];
+  for (const candidate of direct) if (candidate && (await isHarnessRepo(candidate))) return path.resolve(candidate);
+  try {
+    const saved = JSON.parse(await fs.readFile(REPO_LOCATION_FILE, "utf8")) as { path?: unknown };
+    if (typeof saved.path === "string" && (await isHarnessRepo(saved.path))) return path.resolve(saved.path);
+  } catch {
+    // 기록이 없으면 다음 후보로 간다.
+  }
+  for (const start of options.startDirs ?? []) {
+    const found = await walkUp(start);
+    if (found) return found;
+  }
+  return null;
+}
+
+export async function rememberRepoRoot(candidate: string): Promise<string> {
+  if (!(await isHarnessRepo(candidate))) throw new CaptureRequestError("harness-manager 레포 폴더가 아닙니다", 400);
+  const resolved = path.resolve(candidate);
+  await fs.mkdir(path.dirname(REPO_LOCATION_FILE), { recursive: true });
+  await fs.writeFile(REPO_LOCATION_FILE, `${JSON.stringify({ path: resolved }, null, 2)}\n`, "utf8");
+  return resolved;
+}
+
+// ───────────────────────────── 계획 ─────────────────────────────
+
+async function readPrivateTerms(profileDir: string): Promise<string[] | null> {
+  const text = await readText(path.join(profileDir, "private-terms.json")).catch(() => null);
+  if (text === null) return null;
+  try {
+    const value = JSON.parse(text) as { terms?: unknown };
+    return Array.isArray(value.terms) ? value.terms.filter((term): term is string => typeof term === "string" && term.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+export const MISSING_TERMS_WARNING =
+  "~/.harness-manager/profile/private-terms.json이 없어 회사명 같은 비공개 낱말을 가려낼 수 없습니다. 이 파일을 만들기 전에는 적용할 수 없습니다. 형식: {\"terms\": [\"회사명\", …]} (가릴 낱말이 없으면 빈 배열)";
+
+export async function defaultCaptureContext(
+  repoRoot: string,
+): Promise<{ context: CaptureContext; warnings: string[]; termsMissing: boolean }> {
+  const terms = await readPrivateTerms(PROFILE_DIR);
+  const warnings = terms === null ? [MISSING_TERMS_WARNING] : [];
+  return {
+    context: {
+      repoRoot,
+      home: HM_USER_HOME,
+      claudeHome: CLAUDE_HOME,
+      claudeJson: CLAUDE_JSON,
+      codexHome: CODEX_HOME,
+      skillLock: AGENTS_SKILL_LOCK,
+      profileDir: PROFILE_DIR,
+      privateTerms: terms ?? [],
+    },
+    warnings,
+    termsMissing: terms === null,
+  };
+}
+
+function fingerprint(plan: TargetPlan): string {
+  return sha256(
+    JSON.stringify({ error: plan.error ?? null, files: plan.files.map((file) => [file.displayPath, file.before, file.after]) }),
+  );
+}
+
+function toItem(plan: TargetPlan, ctx: CaptureContext): CaptureItem {
+  const changes = plan.files.map((file) => {
+    const changed = (file.before ?? "") !== file.after || file.before === null;
+    return {
+      scope: file.scope,
+      displayPath: file.displayPath,
+      existed: file.before !== null,
+      changed,
+      diff: changed ? unifiedDiff(file.displayPath, file.before, file.after) : "",
+      // 로컬 파일은 이 PC에만 남으므로 검사하지 않는다.
+      exposure: file.scope === "repo" ? scanExposure(file.after, { home: ctx.home, privateTerms: ctx.privateTerms }) : [],
+    };
+  });
+  const anyChange = changes.some((change) => change.changed);
+  const exposed = changes.some((change) => change.exposure.length > 0);
+  return {
+    id: plan.id,
+    label: plan.label,
+    sources: plan.sources,
+    changes,
+    notes: plan.notes,
+    ...(plan.error ? { error: plan.error } : {}),
+    applicable: !plan.error && anyChange && !exposed,
+    fingerprint: fingerprint(plan),
+  };
+}
+
+async function planTarget(id: CaptureTargetId, ctx: CaptureContext): Promise<TargetPlan> {
+  try {
+    return await TARGET_PLANNERS[id](ctx);
+  } catch (error) {
+    return { id, label: id, sources: [], files: [], notes: [], error: (error as Error).message };
+  }
+}
+
+export async function planCaptureWith(ctx: CaptureContext, ids: readonly CaptureTargetId[] = CAPTURE_TARGET_IDS): Promise<{
+  items: CaptureItem[];
+  plans: TargetPlan[];
+}> {
+  const plans: TargetPlan[] = [];
+  // 차례대로 돈다: plugins·mcp·skills가 같은 로컬 오버레이 파일을 읽는다.
+  for (const id of ids) plans.push(await planTarget(id, ctx));
+  return { plans, items: plans.map((plan) => toItem(plan, ctx)) };
+}
+
+export async function planCapture(repoRoot: string | null): Promise<CapturePlan> {
+  if (!repoRoot) {
+    return {
+      repoRoot: null,
+      repoError: "harness-manager 레포 클론 위치를 모릅니다. 레포 폴더를 지정하세요.",
+      profileDir: PROFILE_DIR,
+      warnings: [],
+      items: [],
+    };
+  }
+  const { context, warnings, termsMissing } = await defaultCaptureContext(repoRoot);
+  const { items } = await planCaptureWith(context);
+  // 비공개 낱말 목록이 없으면 회사 마켓플레이스 같은 것이 공개 레포로 샐 수 있다. 미리보기만 허용한다.
+  const gated = termsMissing ? items.map((item) => ({ ...item, applicable: false })) : items;
+  return { repoRoot, profileDir: PROFILE_DIR, warnings, items: gated };
+}
+
+// ───────────────────────────── 적용 ─────────────────────────────
+
+async function backupExisting(filePath: string, content: string): Promise<void> {
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  await fs.writeFile(path.join(BACKUP_DIR, `${path.basename(filePath)}.${stamp}.bak`), content, "utf8");
+}
+
+/**
+ * 계획한 파일만 쓴다(경로 allowlist를 폴더가 아니라 파일 단위로 연다). 계획 뒤에 누가 파일을 바꿨으면 409다.
+ * 원래 있던 파일은 앱 백업 폴더에 남긴 뒤 temp → rename으로 바꾼다.
+ */
+async function writePlannedFile(file: PlannedFile): Promise<void> {
+  const current = await readText(file.absPath);
+  if ((current === null ? null : sha256(current)) !== (file.before === null ? null : sha256(file.before))) {
+    throw new ConflictError(`${file.displayPath}이(가) 계획 뒤에 바뀌었습니다. 다시 불러온 뒤 적용하세요.`);
+  }
+  if (current !== null) await backupExisting(file.absPath, current);
+  await fs.mkdir(path.dirname(file.absPath), { recursive: true });
+  const temp = `${file.absPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temp, file.after, "utf8");
+    await fs.rename(temp, file.absPath);
+  } finally {
+    await fs.rm(temp, { force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * 렌더러는 항목 id와 화면에 보였던 지문만 보낸다. main이 다시 계획해 지문이 같을 때만 쓴다 — 렌더러가 보낸
+ * 내용이나 경로는 쓰지 않는다. plugins·mcp·skills는 같은 로컬 파일을 고치므로 항목마다 쓰기 직전에 다시 계획한다.
+ */
+export async function applyCaptureWith(
+  ctx: CaptureContext,
+  ids: CaptureTargetId[],
+  fingerprints: Partial<Record<CaptureTargetId, string>>,
+): Promise<CaptureApplyResult> {
+  return withLock(async () => {
+    const { items } = await planCaptureWith(ctx, ids);
+    for (const item of items) {
+      if (fingerprints[item.id] !== item.fingerprint) {
+        throw new ConflictError(`${item.label}: 화면의 미리보기와 지금 상태가 다릅니다. 다시 불러온 뒤 적용하세요.`);
+      }
+      if (!item.applicable) {
+        throw new CaptureRequestError(`${item.label}: 적용할 수 없는 항목입니다(변경 없음, 오류 또는 노출 경고).`, 422);
+      }
+    }
+    const written: string[] = [];
+    for (const id of ids) {
+      const plan = await planTarget(id, ctx);
+      for (const file of plan.files) {
+        if (file.before === file.after) continue;
+        await writePlannedFile(file);
+        written.push(file.displayPath);
+      }
+    }
+    return { applied: ids, written };
+  });
+}
+
+export async function applyCapture(
+  repoRoot: string | null,
+  ids: CaptureTargetId[],
+  fingerprints: Partial<Record<CaptureTargetId, string>>,
+): Promise<CaptureApplyResult> {
+  if (!repoRoot) throw new CaptureRequestError("harness-manager 레포 클론 위치를 모릅니다", 409);
+  const { context, termsMissing } = await defaultCaptureContext(repoRoot);
+  if (termsMissing) throw new CaptureRequestError(MISSING_TERMS_WARNING, 422);
+  return applyCaptureWith(context, ids, fingerprints);
+}
