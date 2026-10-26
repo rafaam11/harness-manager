@@ -112,7 +112,7 @@ function short(value: unknown): string {
   return text.length > 60 ? `${text.slice(0, 57)}…` : text;
 }
 
-interface Manifests {
+export interface Manifests {
   packages: PackageEntry[];
   tools: ToolEntry[];
   plugins: PluginsManifest;
@@ -124,7 +124,7 @@ interface Manifests {
   skills: { entry: ExternalSkillEntry; local: boolean }[];
 }
 
-async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
+export async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
   const file = (name: string) => readJson(path.join(ctx.repoRoot, "manifest", `${name}.json`));
   const [packages, tools, plugins, mcp, skills, overlay] = await Promise.all([
     file("packages"),
@@ -214,7 +214,7 @@ function managedKeyChecks(
   });
 }
 
-async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings: string[]; codexConfig: string[] }> {
+export async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings: string[]; codexConfig: string[] }> {
   const value = await readJson(path.join(ctx.repoRoot, "home", "managed-keys.json"));
   const strings = (key: string) => (isRecord(value) && Array.isArray(value[key]) ? (value[key] as unknown[]).filter((entry): entry is string => typeof entry === "string") : []);
   return { claudeSettings: strings("claudeSettings"), codexConfig: strings("codexConfig") };

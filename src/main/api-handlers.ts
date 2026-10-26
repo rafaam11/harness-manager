@@ -10,7 +10,12 @@ import { getPlugins } from "./services/plugins.js";
 import { scanCandidates } from "./services/scan.js";
 import { applyCapture, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
 import { validateManifest } from "./services/manifest/validate.js";
-import { runDoctor } from "./services/doctor/doctor.js";
+import { readSelectedProfile, runDoctor } from "./services/doctor/doctor.js";
+import { defaultInstallContext, planInstallWith, runInstallWith } from "./services/install/engine.js";
+import { installProgress, type InstallSession } from "./services/install/session.js";
+import { APP_SETTINGS_FILE } from "./config.js";
+import type { InstallEvent } from "@shared/install-types";
+import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
 import { getProviders } from "./providers/registry.js";
 import {
   RequestError,
@@ -51,6 +56,11 @@ export interface ApiDependencies {
   repoStartDirs(): string[];
   /** OS 폴더 선택 창. 취소하면 null. */
   chooseDirectory(title: string): Promise<string | null>;
+  install: {
+    session: InstallSession;
+    emit(event: InstallEvent): void;
+    setProgress(progress: TaskbarProgress): void;
+  };
 }
 
 function captureIds(value: unknown): CaptureTargetId[] {
@@ -195,5 +205,43 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     },
 
     "doctor:run": async () => runDoctor(await resolveRepoRoot({ startDirs: deps.repoStartDirs() })),
+
+    "install:plan": async () => {
+      const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
+      if (!repoRoot) {
+        return {
+          repoRoot: null,
+          repoError: "harness-manager 레포 클론 위치를 모릅니다. 가져오기 화면에서 레포 폴더를 지정하세요.",
+          profile: await readSelectedProfile(APP_SETTINGS_FILE),
+          steps: [],
+        };
+      }
+      return planInstallWith(await defaultInstallContext(repoRoot));
+    },
+    "install:run": async (ids) => {
+      const requested = nonEmptyStringArray(ids, "ids", 1_000);
+      const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
+      if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
+      const ctx = await defaultInstallContext(repoRoot);
+      // 렌더러가 보낸 id는 지금 계획에 있는 step이어야 한다. 실행할 명령은 main이 manifest에서 다시 만든다.
+      const known = new Set((await planInstallWith(ctx)).steps.map((step) => step.id));
+      const unknown = requested.filter((id) => !known.has(id));
+      if (unknown.length > 0) throw new RequestError(400, `unknown install step: ${unknown.join(", ")}`);
+      const progress = installProgress();
+      return deps.install.session.run((signal) =>
+        runInstallWith(
+          ctx,
+          requested,
+          (event) => {
+            deps.install.emit(event);
+            const report = progress(event);
+            if (report === "clear") deps.install.setProgress(aggregateTaskbarProgress([]));
+            else if (report) deps.install.setProgress(aggregateTaskbarProgress([report]));
+          },
+          signal,
+        ),
+      );
+    },
+    "install:cancel": () => deps.install.session.cancel(),
   };
 }

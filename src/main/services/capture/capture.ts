@@ -193,6 +193,15 @@ async function backupExisting(filePath: string, content: string): Promise<void> 
  * 원래 있던 파일은 앱 백업 폴더에 남긴 뒤 temp → rename으로 바꾼다.
  */
 async function writePlannedFile(file: PlannedFile): Promise<void> {
+  await writeFileChecked(file.absPath, file.before, file.after, file.displayPath);
+}
+
+/**
+ * 읽어 둔 내용(before, 없던 파일이면 null)이 지금도 그대로일 때만 쓴다. capture와 install이 함께 쓴다.
+ * 원래 있던 파일은 앱 백업 폴더(~/.harness-manager/backups)에 남긴 뒤 temp → rename으로 바꾼다.
+ */
+export async function writeFileChecked(absPath: string, before: string | null, after: string, displayPath = absPath): Promise<void> {
+  const file = { absPath, before, after, displayPath };
   const current = await readText(file.absPath);
   if ((current === null ? null : sha256(current)) !== (file.before === null ? null : sha256(file.before))) {
     throw new ConflictError(`${file.displayPath}이(가) 계획 뒤에 바뀌었습니다. 다시 불러온 뒤 적용하세요.`);

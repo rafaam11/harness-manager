@@ -66,8 +66,8 @@
 | M3 | jinmin-mods 흡수(`mods/`, 마켓플레이스, `plugins/jinmin-skills`) | 완료 |
 | M3.5 | 업무 프로젝트 레포 일괄 최신화(repo-sync) 엔진과 `hm-cli` 골격. mcw가 CLI로 호출한다(`docs/contracts/repo-sync.md`) | 완료(확인 대기) |
 | M4 | manifest 스키마와 capture 엔진 | 완료 |
-| M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료(확인 대기) |
-| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | |
+| M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료 |
+| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 엔진·화면 완료(확인 대기). PS 프로필·gitconfig·WT capture/install은 남음 |
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
@@ -173,6 +173,26 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **install(M6)**: `services/install/`
+  - step은 doctor 검사에서 만든다(`engine.ts`). id 체계가 같아서, 실행 뒤 같은 검사로 다시 확인한다. 이미 정상이면 건너뛰므로 멱등이다.
+  - 실행 순서: 패키지 → 도구 → 전역 CLAUDE.md·AGENTS.md → Claude 설정·마켓플레이스·플러그인 → Codex → MCP → 외부 스킬.
+  - 렌더러·CLI는 step id만 보낸다. 명령과 인자는 manifest에서 main이 만든다.
+  - 실행기(`exec.ts`)는 셸을 쓰지 않는다. `.cmd` 심만 cmd.exe로 돌리고, cmd 특수문자가 든 인자는 거절한다. 시간 제한을 넘기거나 취소하면 프로세스 트리를 끝낸다.
+  - 파일 merge(`merge.ts`)
+    - JSON: 관리 키만 바꾸고, 문자열 배열은 합친다.
+    - TOML: 관리 키 줄만 바꾸거나 넣는다. 주석·순서는 보존하고, 결과를 다시 파싱해 확인한다. 스칼라만 다룬다.
+    - 마크다운: `<!-- >>> harness-manager >>> -->` 블록만 바꾼다. 마커 없던 AGENTS.md는 관리 섹션을 블록으로 옮긴다.
+    - 쓰기는 capture와 같은 `writeFileChecked`로 한다(원본 대조, 백업, temp → rename).
+  - 같은 이름 마켓플레이스의 소스가 다르면 remove → add 하고, 그 마켓플레이스에서 빠진 플러그인을 같은 step에서 다시 설치한다.
+  - MCP env 자리표시는 실행 환경에서 채운다. 값은 미리보기와 로그에서 가린다.
+  - 한 step이 실패해도 다음 step은 계속한다.
+  - 앱 연결
+    - 실행은 한 번에 하나만 한다(`InstallSession`, 409).
+    - 진행은 `install:event`와 작업표시줄 막대로 보인다.
+    - 설치 중 종료는 QuitCoordinator가 묻고 취소한 뒤 끝나기를 기다린다.
+  - 화면: "설치" 페이지(`pages/Install.tsx`)는 할 일 목록, 명령, 파일 diff, `LogTerminal`로 되어 있다.
+  - CLI: `hm install`(미리보기), `hm install --run --only <id,…|all> --yes`(실패 step이 있으면 종료 코드 5)
+  - self 마켓플레이스 소스는 `~/.harness-manager/settings.json`의 `selfMarketplaceSource`(directory 기본 / github)이고, CLI는 `--self-source`로 바꾼다.
 - **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
   - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.
   - 프로필은 `~/.harness-manager/settings.json`의 `profile`(없으면 full). CLI는 `hm doctor [--profile p] [--all] [--json]`.

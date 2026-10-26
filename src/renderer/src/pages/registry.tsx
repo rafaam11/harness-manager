@@ -5,6 +5,7 @@ import Catalog from "./Catalog";
 import Cleanup from "./Cleanup";
 import ConfigEditor from "./ConfigEditor";
 import Dashboard from "./Dashboard";
+import Install from "./Install";
 
 export interface PageContext {
   providerFilter: ProviderFilter;
@@ -23,6 +24,7 @@ export interface PageDefinition {
  */
 export const PAGES = {
   dashboard: { label: "상태판", render: () => <Dashboard /> },
+  install: { label: "설치", render: () => <Install /> },
   catalog: { label: "카탈로그", wide: true, render: ({ providerFilter }) => <Catalog providerFilter={providerFilter} /> },
   cleanup: { label: "정리", render: () => <Cleanup /> },
   configs: { label: "설정 편집기", render: ({ providerFilter }) => <ConfigEditor providerFilter={providerFilter} /> },
@@ -32,4 +34,4 @@ export const PAGES = {
 export type PageKey = keyof typeof PAGES;
 
 // 첫 화면은 상태판이다(D: 상태판 + 섹션 탭).
-export const PAGE_ORDER: PageKey[] = ["dashboard", "catalog", "cleanup", "configs", "capture"];
+export const PAGE_ORDER: PageKey[] = ["dashboard", "install", "catalog", "cleanup", "configs", "capture"];

@@ -46,6 +46,7 @@ vi.mock("./lib/archive.js", async () => ({
 }));
 
 import { createApiHandlers, type ApiDependencies } from "./api-handlers.js";
+import { InstallSession } from "./services/install/session.js";
 
 const deps: ApiDependencies = {
   appVersion: () => "0.0.0",
@@ -60,6 +61,7 @@ const deps: ApiDependencies = {
   updater: { status: () => ({ state: "idle" }), check: vi.fn(async () => undefined), install: vi.fn() },
   repoStartDirs: () => [],
   chooseDirectory: vi.fn(async () => null),
+  install: { session: new InstallSession(), emit: vi.fn(), setProgress: vi.fn() },
 };
 const handlers = createApiHandlers(deps);
 
@@ -195,5 +197,11 @@ describe("capture channels", () => {
   it("폴더 선택을 취소하면 아무것도 기억하지 않는다", async () => {
     await expect(handlers["capture:choose-repo"]()).resolves.toBeNull();
     expect(deps.chooseDirectory).toHaveBeenCalledOnce();
+  });
+});
+
+describe("install channels", () => {
+  it("빈 id 목록은 400이다", async () => {
+    await expect(handlers["install:run"]([])).rejects.toMatchObject({ statusCode: 400 });
   });
 });

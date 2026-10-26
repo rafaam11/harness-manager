@@ -4,12 +4,13 @@
  * `ELECTRON_RUN_AS_NODE=1`로 앱 실행 파일을 node처럼 띄워 이 파일을 돌린다.
  *
  * 출력 규약: 결과는 stdout, 진단은 stderr. 종료 코드 0은 "명령이 끝까지 돌았다"이지 "모든 레포가 성공했다"가
- * 아니다 — 레포 실패는 결과 JSON에 담긴다. 2는 사용법 오류, 3은 `manifest validate`의 검사 실패, 4는 capture 적용 거절이다.
+ * 아니다 — 레포 실패는 결과 JSON에 담긴다. 2는 사용법 오류, 3은 `manifest validate`의 검사 실패, 4는 capture 적용 거절, 5는 install에서 실패한 step이 있음이다.
  */
 import type { RepoSyncReport } from "@shared/repo-sync-types";
 import { REPO_FAIL_LABELS, REPO_SKIP_LABELS } from "@shared/repo-sync-types";
 import { CAPTURE_USAGE, runCaptureCli } from "./cli-capture.js";
 import { DOCTOR_USAGE, runDoctorCli } from "./cli-doctor.js";
+import { INSTALL_USAGE, runInstallCli } from "./cli-install.js";
 import { REPO_SYNC_DIR } from "./config.js";
 import { lastRepoSyncReport, startRepoSync } from "./services/repo-sync/runner.js";
 
@@ -22,7 +23,8 @@ const USAGE = `사용법:
                처리해 기록한 뒤 종료한다.
 
 ${CAPTURE_USAGE}
-${DOCTOR_USAGE}`;
+${DOCTOR_USAGE}
+${INSTALL_USAGE}`;
 
 class UsageError extends Error {}
 
@@ -134,6 +136,7 @@ function write(report: RepoSyncReport, json: boolean): void {
 export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "capture" || argv[0] === "manifest") return runCaptureCli(argv);
   if (argv[0] === "doctor") return runDoctorCli(argv);
+  if (argv[0] === "install") return runInstallCli(argv);
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(argv);

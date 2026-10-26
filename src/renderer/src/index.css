@@ -1127,3 +1127,70 @@ button.btn.danger { background: var(--err); }
 .doctor-empty {
   padding: 16px 0;
 }
+
+/* ============================ 설치(install) ============================ */
+.install-progress,
+.install-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+  font: var(--type-ui);
+}
+
+.install-summary-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-secondary);
+}
+
+.install-detail {
+  margin-top: 6px;
+}
+
+.install-action {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: var(--type-secondary-size);
+  word-break: break-all;
+}
+
+.log-terminal {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+}
+
+.log-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font: var(--type-secondary);
+}
+
+.log-terminal-body {
+  height: 240px;
+  margin: 0;
+  overflow: auto;
+  padding: 8px 10px;
+  font-family: var(--font-family-mono);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-line-height);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-line.stderr {
+  color: var(--err);
+}
+
+.log-line.info {
+  color: var(--muted);
+}

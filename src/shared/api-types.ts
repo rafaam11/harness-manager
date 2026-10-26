@@ -1,6 +1,7 @@
 // renderer ↔ main IPC 계약의 단일 출처. 채널 이름·인자·반환 타입을 여기 한 곳에서만 정의하고,
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
 import type { DoctorReport } from "./doctor-types";
+import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
 
@@ -161,6 +162,12 @@ export interface ApiChannels {
 
   /** 카드 8개 상태판. 레포 위치를 모르면 cards가 비고 repoError가 있다. */
   "doctor:run": () => DoctorReport;
+
+  /** 정상이 아닌 항목마다 step과 할 일(명령·파일 diff). */
+  "install:plan": () => InstallPlan;
+  /** step id만 보낸다. 진행은 `install:event`로 흐르고, 끝나면 결과로 풀린다. 이미 도는 중이면 409. */
+  "install:run": (ids: string[]) => InstallRunResult;
+  "install:cancel": () => void;
 }
 
 export type ApiChannel = keyof ApiChannels;
@@ -198,6 +205,9 @@ export const API_CHANNELS = [
   "capture:choose-repo",
   "manifest:validate",
   "doctor:run",
+  "install:plan",
+  "install:run",
+  "install:cancel",
 ] as const satisfies readonly ApiChannel[];
 
 // 목록에서 빠진 채널이 있으면 여기서 컴파일 에러가 난다(맵과 목록이 어긋나지 않게).
@@ -217,15 +227,17 @@ export type ApiResult<T = unknown> =
 
 export const UPDATER_EVENT_CHANNEL = "updater:event";
 export const WINDOW_STATE_EVENT_CHANNEL = "window:state-changed";
+export const INSTALL_EVENT_CHANNEL = "install:event";
 
 export interface ApiEvents {
   [UPDATER_EVENT_CHANNEL]: UpdaterStatus;
   [WINDOW_STATE_EVENT_CHANNEL]: WindowChromeState;
+  [INSTALL_EVENT_CHANNEL]: InstallEvent;
 }
 
 export type ApiEvent = keyof ApiEvents;
 
-export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL] as const satisfies readonly ApiEvent[];
+export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, INSTALL_EVENT_CHANNEL] as const satisfies readonly ApiEvent[];
 
 // --- preload가 노출하는 표면 -----------------------------------------------------
 

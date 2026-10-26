@@ -1,9 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import path from "node:path";
-import { WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
+import { INSTALL_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
 import { createApiHandlers } from "./api-handlers.js";
 import { installHmCliShim } from "./cli-shim.js";
 import { HM_CLI_BIN_DIR } from "./config.js";
+import { InstallSession } from "./services/install/session.js";
 import { registerMainIpc } from "./ipc.js";
 import { openExternalSafely } from "./lib/open-external.js";
 import { isMainWindowSender, sendToMainWindow } from "./main-window.js";
@@ -22,8 +23,27 @@ if (process.env.HARNESS_MANAGER_USER_DATA) {
 
 let mainWindow: BrowserWindow | null = null;
 
-// 종료 경로(창 닫기·업데이트 재시작)를 한 관문으로 모은다. 설치 엔진(M6)이 들어오면 실행 중 작업 확인이 여기에 붙는다.
-const quitCoordinator = new QuitCoordinator(async () => undefined);
+// 설치가 도는 중이면 종료 전에 취소하고 지금 명령이 정리될 때까지 기다린다.
+const installSession = new InstallSession();
+
+// 종료 경로(창 닫기·업데이트 재시작)를 한 관문으로 모은다.
+const quitCoordinator = new QuitCoordinator(() => installSession.cancelAndWait());
+
+/** 설치 중에 끄려 하면 묻는다. 도는 명령(winget 등)이 반쯤 끝난 채 남을 수 있어서다. */
+async function confirmQuitDuringInstall(): Promise<boolean> {
+  if (!installSession.running) return true;
+  const options = {
+    type: "warning" as const,
+    buttons: ["설치 취소하고 종료", "계속 설치"],
+    defaultId: 1,
+    cancelId: 1,
+    title: "설치 중",
+    message: "설치가 진행 중입니다.",
+    detail: "지금 끄면 도는 명령을 멈춥니다. 끝난 step은 그대로 남고, 나머지는 다음에 다시 실행하면 됩니다.",
+  };
+  const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
+  return result.response === 0;
+}
 
 function chromeState(window: BrowserWindow): WindowChromeState {
   return { maximized: window.isMaximized(), fullScreen: window.isFullScreen() };
@@ -86,13 +106,13 @@ function showMainWindow(): void {
 
 async function requestQuit(): Promise<void> {
   if (quitCoordinator.isCommitted()) return;
-  await quitCoordinator.request({ confirm: async () => true, exit: () => app.quit() });
+  await quitCoordinator.request({ confirm: confirmQuitDuringInstall, exit: () => app.quit() });
 }
 
 // 업데이트 재시작도 같은 관문을 지난다 — 설치 중 작업을 끊지 않게.
 async function installUpdateAndQuit(): Promise<void> {
   if (quitCoordinator.isCommitted()) return;
-  await quitCoordinator.request({ confirm: async () => true, exit: quitAndInstall });
+  await quitCoordinator.request({ confirm: confirmQuitDuringInstall, exit: quitAndInstall });
 }
 
 // 단일 인스턴스 강제: 쓰기 직렬화(lib/lock.ts)가 프로세스 하나를 전제한다.
@@ -130,6 +150,15 @@ if (!app.requestSingleInstanceLock()) {
           const options = { title, properties: ["openDirectory" as const] };
           const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
           return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+        install: {
+          session: installSession,
+          emit: (event) => {
+            if (mainWindow && !mainWindow.isDestroyed()) sendToMainWindow(mainWindow, INSTALL_EVENT_CHANNEL, event);
+          },
+          setProgress: ({ value, mode }) => {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(value, { mode });
+          },
         },
       }),
       (event) => isMainWindowSender(mainWindow, event),
