@@ -69,7 +69,7 @@ export default function App() {
 
   return (
     <div className="app-frame">
-      <TitleBar menus={menus} onAction={handleMenuAction} theme={theme} onToggleTheme={toggleTheme} />
+      <TitleBar menus={menus} onAction={handleMenuAction} theme={theme} onToggleTheme={toggleTheme} onOpenWizard={() => setPage("wizard")} />
       <div className="layout">
         <nav>
           {PAGE_ORDER.map((key) => (
@@ -109,7 +109,7 @@ export default function App() {
               설정 저장·정리 실행 시 충돌에 주의하세요.
             </div>
           )}
-          {current.render({ providerFilter })}
+          {current.render({ providerFilter, navigate: setPage })}
         </main>
       </div>
       <Toaster />

@@ -7,6 +7,13 @@
 
 ---
 
+## "설치해줘" — 이 PC 개발환경 셋업
+
+사용자가 이 레포에서 "설치해줘", "셋업해줘", "개발환경 맞춰줘"라고 하면 `plugins/jinmin-skills/skills/jinmin-setup/SKILL.md`를 읽고 그 절차를 그대로 따른다. 클론 직후에는 플러그인이 아직 설치되지 않았으므로 스킬로 뜨지 않는다. 그래서 이 파일이 길잡이다.
+- 요약: `hm`을 찾거나 만든다(`npm ci && npm run build` → `node out/main/cli.js`) → `doctor --json` → 프로필·마켓플레이스 소스를 묻는다(`settings`) → `install --json`으로 할 일을 보여 주고 고르게 한다 → 확인받고 `install --run --only … --yes` → 로그인 안내 → `doctor` 다시 실행
+- 설정 파일을 직접 고치거나 manifest에 없는 명령을 실행하지 않는다. 모든 변경은 hm을 거친다.
+- 새 PC에 레포도 없으면 `scripts/bootstrap.ps1`(PowerShell)이 git·gh·node를 깔고 클론·빌드한 뒤 doctor와 install 미리보기까지 보여 준다.
+
 ## v3 전환
 
 ### 목표
@@ -67,8 +74,8 @@
 | M3.5 | 업무 프로젝트 레포 일괄 최신화(repo-sync) 엔진과 `hm-cli` 골격. mcw가 CLI로 호출한다(`docs/contracts/repo-sync.md`) | 완료(확인 대기) |
 | M4 | manifest 스키마와 capture 엔진 | 완료 |
 | M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료 |
-| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 엔진·화면 완료(확인 대기). PS 프로필·gitconfig·WT capture/install은 남음 |
-| M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | |
+| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 엔진·화면 완료. PS 프로필·gitconfig·WT capture/install은 남음 |
+| M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료(확인 대기) |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
 | M10 | v3.0.0 릴리스 | |
@@ -173,6 +180,14 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **셋업 위저드(M7)**
+  - `pages/Wizard.tsx`는 8단계다: 환영(레포 위치) → 진단(카드) → 프로필·마켓플레이스 소스 → 항목 고르기 → 미리보기(dry-run 선택) → 실행(LogTerminal) → 로그인 안내 → 최종 카드.
+  - 내비게이션에 없고 타이틀바의 "셋업 위저드" 버튼으로 연다(`PageContext.navigate`).
+  - 앱 설정 `~/.harness-manager/settings.json`(`profile`, `selfMarketplaceSource`)은 `services/settings.ts`가 읽고 쓴다(모르는 키 보존). 채널은 `settings:get`·`settings:set`, CLI는 `hm settings`.
+  - AI 위저드: `plugins/jinmin-skills/skills/jinmin-setup/SKILL.md`. 위의 "설치해줘" 절차와 같다.
+  - `scripts/bootstrap.ps1`: 새 PC의 첫 진입점. PowerShell 5.1이 읽도록 **UTF-8 BOM으로 저장한다**(BOM이 없으면 한글이 깨진다).
+    - 순서: winget으로 git·gh·node 설치 → 클론 또는 ff-only pull → `npm ci`(Electron 바이너리는 받지 않음) + 빌드 → settings → doctor → install 미리보기
+    - 옵션: `-Run`은 전부 실행, `-InstallApp`은 최신 릴리스 설치 파일 실행, `-DryRun`은 출력만 한다.
 - **install(M6)**: `services/install/`
   - step은 doctor 검사에서 만든다(`engine.ts`). id 체계가 같아서, 실행 뒤 같은 검사로 다시 확인한다. 이미 정상이면 건너뛰므로 멱등이다.
   - 실행 순서: 패키지 → 도구 → 전역 CLAUDE.md·AGENTS.md → Claude 설정·마켓플레이스·플러그인 → Codex → MCP → 외부 스킬.

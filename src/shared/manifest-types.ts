@@ -8,6 +8,13 @@ export type Profile = "core" | "dev" | "full";
 export const PROFILES: readonly Profile[] = ["core", "dev", "full"];
 
 export type ProviderTarget = "claude" | "codex";
+
+/** 이 PC에서 고른 값(`~/.harness-manager/settings.json`). 위저드가 쓰고 doctor·install이 읽는다. */
+export interface AppSettings {
+  profile: Profile;
+  /** 이 레포 마켓플레이스(jinmin)를 붙일 소스. 개발 PC는 레포 폴더, 새 PC는 GitHub(D15). */
+  selfMarketplaceSource: "directory" | "github";
+}
 export const PROVIDER_TARGETS: readonly ProviderTarget[] = ["claude", "codex"];
 
 export type PackageSource = "winget" | "scoop" | "npm" | "cargo" | "uv";

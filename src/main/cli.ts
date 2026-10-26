@@ -11,6 +11,7 @@ import { REPO_FAIL_LABELS, REPO_SKIP_LABELS } from "@shared/repo-sync-types";
 import { CAPTURE_USAGE, runCaptureCli } from "./cli-capture.js";
 import { DOCTOR_USAGE, runDoctorCli } from "./cli-doctor.js";
 import { INSTALL_USAGE, runInstallCli } from "./cli-install.js";
+import { SETTINGS_USAGE, runSettingsCli } from "./cli-settings.js";
 import { REPO_SYNC_DIR } from "./config.js";
 import { lastRepoSyncReport, startRepoSync } from "./services/repo-sync/runner.js";
 
@@ -24,7 +25,8 @@ const USAGE = `사용법:
 
 ${CAPTURE_USAGE}
 ${DOCTOR_USAGE}
-${INSTALL_USAGE}`;
+${INSTALL_USAGE}
+${SETTINGS_USAGE}`;
 
 class UsageError extends Error {}
 
@@ -137,6 +139,7 @@ export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "capture" || argv[0] === "manifest") return runCaptureCli(argv);
   if (argv[0] === "doctor") return runDoctorCli(argv);
   if (argv[0] === "install") return runInstallCli(argv);
+  if (argv[0] === "settings") return runSettingsCli(argv);
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(argv);

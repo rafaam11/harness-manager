@@ -205,3 +205,15 @@ describe("install channels", () => {
     await expect(handlers["install:run"]([])).rejects.toMatchObject({ statusCode: 400 });
   });
 });
+
+describe("settings channels", () => {
+  it("모르는 키·값은 400, 설치 중에는 409", async () => {
+    await expect(handlers["settings:set"]({ profile: "max" })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(handlers["settings:set"]({ theme: "dark" })).rejects.toMatchObject({ statusCode: 400 });
+    let release!: () => void;
+    const running = deps.install.session.run(() => new Promise<void>((resolve) => (release = resolve)));
+    await expect(handlers["settings:set"]({ profile: "dev" })).rejects.toMatchObject({ statusCode: 409 });
+    release();
+    await running;
+  });
+});

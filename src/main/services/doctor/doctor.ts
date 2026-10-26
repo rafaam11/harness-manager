@@ -22,6 +22,7 @@ import type {
 } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR } from "../../config.js";
 import { findOnPath } from "../../providers/provider-launch.js";
+import { readAppSettings } from "../settings.js";
 import { tildify } from "../capture/exposure.js";
 import { SELF_MARKETPLACE } from "../capture/targets.js";
 import { getPath, normalizeNewlines, splitMarkdownSections } from "../capture/text.js";
@@ -610,13 +611,6 @@ export function readVersionLine(executable: string, args: string[]): Promise<str
   });
 }
 
-/** `~/.harness-manager/settings.json`의 profile. 위저드(M7)가 고른다. 없으면 full로 본다(전부 검사). */
-export async function readSelectedProfile(settingsFile: string): Promise<Profile> {
-  const value = await readJson(settingsFile);
-  const profile = isRecord(value) ? value.profile : undefined;
-  return profile === "core" || profile === "dev" || profile === "full" ? profile : "full";
-}
-
 export async function defaultDoctorContext(repoRoot: string, profile?: Profile): Promise<DoctorContext> {
   return {
     repoRoot,
@@ -626,7 +620,7 @@ export async function defaultDoctorContext(repoRoot: string, profile?: Profile):
     codexHome: CODEX_HOME,
     agentsSkillsDir: path.join(HM_USER_HOME, ".agents", "skills"),
     profileDir: PROFILE_DIR,
-    profile: profile ?? (await readSelectedProfile(APP_SETTINGS_FILE)),
+    profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
     findExecutable: (command) => findOnPath(command),
     readVersion: readVersionLine,
     now: () => new Date(),
@@ -638,7 +632,7 @@ export async function runDoctor(repoRoot: string | null, profile?: Profile): Pro
     return {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
-      profile: profile ?? (await readSelectedProfile(APP_SETTINGS_FILE)),
+      profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
       repoRoot: null,
       repoError: "harness-manager 레포 클론 위치를 모릅니다. 가져오기 화면에서 레포 폴더를 지정하세요.",
       cards: [],

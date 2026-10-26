@@ -1194,3 +1194,119 @@ button.btn.danger { background: var(--err); }
 .log-line.info {
   color: var(--muted);
 }
+
+/* 타이틀바의 위저드 버튼: 창 버튼과 같은 줄이지만 글자 라벨이 있는 버튼이다. */
+.window-controls .title-bar-wizard {
+  width: auto;
+  gap: 6px;
+  margin: 5px 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: var(--type-ui-size);
+}
+
+/* ============================ 셋업 위저드 ============================ */
+.wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.wizard-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  font: var(--type-secondary);
+}
+
+.wizard-steps li.current {
+  border-color: var(--teal);
+  color: var(--text);
+  font: var(--type-secondary-semibold);
+}
+
+.wizard-steps li.done {
+  color: var(--text);
+}
+
+.wizard-step-index {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--active-bg);
+  font: var(--type-caption-semibold);
+}
+
+.wizard-steps li.current .wizard-step-index {
+  background: var(--teal);
+  color: var(--surface);
+}
+
+.wizard-body {
+  min-height: 240px;
+  font: var(--type-ui);
+}
+
+.wizard-choice {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.wizard-choice legend {
+  padding: 0 4px;
+  font: var(--type-ui-semibold);
+}
+
+.wizard-choice label {
+  display: grid;
+  grid-template-columns: 18px minmax(120px, auto) 1fr;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wizard-choice-title {
+  font: var(--type-ui-semibold);
+}
+
+.wizard-dry-run {
+  margin-top: 12px;
+}
+
+.wizard-results {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wizard-results li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wizard-nav {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}

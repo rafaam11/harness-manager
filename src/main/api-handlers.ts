@@ -10,9 +10,11 @@ import { getPlugins } from "./services/plugins.js";
 import { scanCandidates } from "./services/scan.js";
 import { applyCapture, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
 import { validateManifest } from "./services/manifest/validate.js";
-import { readSelectedProfile, runDoctor } from "./services/doctor/doctor.js";
+import { runDoctor } from "./services/doctor/doctor.js";
 import { defaultInstallContext, planInstallWith, runInstallWith } from "./services/install/engine.js";
 import { installProgress, type InstallSession } from "./services/install/session.js";
+import { readAppSettings, updateAppSettings } from "./services/settings.js";
+import { PROFILES, type AppSettings, type Profile } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE } from "./config.js";
 import type { InstallEvent } from "@shared/install-types";
 import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
@@ -212,7 +214,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
         return {
           repoRoot: null,
           repoError: "harness-manager 레포 클론 위치를 모릅니다. 가져오기 화면에서 레포 폴더를 지정하세요.",
-          profile: await readSelectedProfile(APP_SETTINGS_FILE),
+          profile: (await readAppSettings(APP_SETTINGS_FILE)).profile,
           steps: [],
         };
       }
@@ -243,5 +245,24 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       );
     },
     "install:cancel": () => deps.install.session.cancel(),
+
+    "settings:get": () => readAppSettings(APP_SETTINGS_FILE),
+    "settings:set": async (patch) => {
+      const value = exactObject(patch, ["profile", "selfMarketplaceSource"], "settings");
+      const next: Partial<AppSettings> = {};
+      if (value.profile !== undefined) {
+        if (!PROFILES.includes(value.profile as Profile)) throw new RequestError(400, "profile must be core, dev or full");
+        next.profile = value.profile as Profile;
+      }
+      if (value.selfMarketplaceSource !== undefined) {
+        if (value.selfMarketplaceSource !== "directory" && value.selfMarketplaceSource !== "github") {
+          throw new RequestError(400, "selfMarketplaceSource must be directory or github");
+        }
+        next.selfMarketplaceSource = value.selfMarketplaceSource;
+      }
+      // 설치 중에 프로필을 바꾸면 도는 실행과 계획이 어긋난다.
+      if (deps.install.session.running) throw new RequestError(409, "설치가 진행 중입니다");
+      return updateAppSettings(APP_SETTINGS_FILE, next);
+    },
   };
 }

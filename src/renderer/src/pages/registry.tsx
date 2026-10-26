@@ -6,9 +6,12 @@ import Cleanup from "./Cleanup";
 import ConfigEditor from "./ConfigEditor";
 import Dashboard from "./Dashboard";
 import Install from "./Install";
+import Wizard from "./Wizard";
 
 export interface PageContext {
   providerFilter: ProviderFilter;
+  /** 다른 화면으로 옮긴다(위저드가 끝나면 상태판으로). */
+  navigate(page: PageKey): void;
 }
 
 export interface PageDefinition {
@@ -29,6 +32,8 @@ export const PAGES = {
   cleanup: { label: "정리", render: () => <Cleanup /> },
   configs: { label: "설정 편집기", render: ({ providerFilter }) => <ConfigEditor providerFilter={providerFilter} /> },
   capture: { label: "가져오기", render: () => <Capture /> },
+  // 내비게이션에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.
+  wizard: { label: "셋업 위저드", render: ({ navigate }) => <Wizard onFinish={() => navigate("dashboard")} /> },
 } satisfies Record<string, PageDefinition>;
 
 export type PageKey = keyof typeof PAGES;

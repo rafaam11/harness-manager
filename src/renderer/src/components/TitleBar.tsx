@@ -1,5 +1,5 @@
 import { WINDOW_STATE_EVENT_CHANNEL } from "@shared/api-types";
-import { Copy, Minus, Moon, Square, Sun, Wrench, X } from "lucide-react";
+import { Copy, Minus, Moon, Square, Sun, Wand2, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { call } from "../api/client";
 import type { TitleBarEntry, TitleBarMenu } from "../title-bar-menu";
@@ -10,13 +10,15 @@ interface TitleBarProps {
   onAction(id: string): void;
   theme: "dark" | "light";
   onToggleTheme(): void;
+  /** 셋업 위저드를 연다. 첫 화면은 상태판이고 위저드는 이 버튼으로만 연다(스펙 §5-9). */
+  onOpenWizard(): void;
 }
 
 /**
  * 창의 기본 캡션을 없앴으므로(window-chrome.ts) 메뉴·제목·창 버튼을 직접 그린다.
  * 바 전체가 드래그 영역이고, 누르는 것들만 `-webkit-app-region: no-drag`로 빠진다.
  */
-export function TitleBar({ menus, onAction, theme, onToggleTheme }: TitleBarProps) {
+export function TitleBar({ menus, onAction, theme, onToggleTheme, onOpenWizard }: TitleBarProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false);
   const menuButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -130,6 +132,10 @@ export function TitleBar({ menus, onAction, theme, onToggleTheme }: TitleBarProp
       <div className="title-bar-title">하네스 매니저</div>
 
       <div className="window-controls">
+        <button type="button" className="title-bar-wizard" onClick={onOpenWizard}>
+          <Wand2 size={14} />
+          셋업 위저드
+        </button>
         <button
           type="button"
           className="title-bar-theme"

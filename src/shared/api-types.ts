@@ -2,7 +2,7 @@
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
 import type { DoctorReport } from "./doctor-types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
-import type { CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
+import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
@@ -168,6 +168,10 @@ export interface ApiChannels {
   /** step id만 보낸다. 진행은 `install:event`로 흐르고, 끝나면 결과로 풀린다. 이미 도는 중이면 409. */
   "install:run": (ids: string[]) => InstallRunResult;
   "install:cancel": () => void;
+
+  "settings:get": () => AppSettings;
+  /** 바꿀 키만 보낸다. 모르는 키나 값은 400. */
+  "settings:set": (patch: Partial<AppSettings>) => AppSettings;
 }
 
 export type ApiChannel = keyof ApiChannels;
@@ -208,6 +212,8 @@ export const API_CHANNELS = [
   "install:plan",
   "install:run",
   "install:cancel",
+  "settings:get",
+  "settings:set",
 ] as const satisfies readonly ApiChannel[];
 
 // 목록에서 빠진 채널이 있으면 여기서 컴파일 에러가 난다(맵과 목록이 어긋나지 않게).

@@ -13,6 +13,7 @@ import type {
 } from "@shared/install-types";
 import type { MarketplaceEntry, McpEntry, PackageEntry, Profile, ToolEntry } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE } from "../../config.js";
+import { readAppSettings } from "../settings.js";
 import { writeFileChecked } from "../capture/capture.js";
 import { tildify } from "../capture/exposure.js";
 import { SELF_MARKETPLACE } from "../capture/targets.js";
@@ -461,13 +462,25 @@ function buildStepDefs(manifests: Manifests): StepDef[] {
     .map(({ def }) => def);
 }
 
+/**
+ * step 한 줄 설명. 관리 키처럼 검사가 많은 step은 앞의 셋과 개수만 적는다 — 키마다 값을 늘어놓으면
+ * 목록 화면에서 한 항목이 여러 줄을 차지한다. 자세한 비교는 미리보기의 diff가 보여 준다.
+ */
+export function stepDetail(checks: DoctorCheck[]): string {
+  const off = checks.filter((check) => check.state !== "ok");
+  if (off.length === 0) return "";
+  if (checks.length === 1) return off[0]!.detail;
+  if (off.length <= 3) return off.map((check) => `${check.title}: ${check.detail}`).join(" · ");
+  const missing = off.filter((check) => check.state === "missing" || check.state === "error").length;
+  const drift = off.filter((check) => check.state === "drift").length;
+  const counts = [missing > 0 ? `없음 ${missing}` : "", drift > 0 ? `다름 ${drift}` : ""].filter(Boolean).join(" · ");
+  return `${off.slice(0, 3).map((check) => check.title).join(", ")} 외 ${off.length - 3}개 (${counts})`;
+}
+
 async function describe(def: StepDef, report: DoctorReport, ctx: InstallContext): Promise<InstallStep> {
   const checks = def.checks(report);
   const state = worstState(checks);
-  const detail = checks
-    .filter((check) => check.state !== "ok")
-    .map((check) => (checks.length > 1 ? `${check.title}: ${check.detail}` : check.detail))
-    .join(" · ");
+  const detail = stepDetail(checks);
   const manual = Boolean(def.manual);
   const actionable = needsWork(state) && !manual;
   let actions: InstallAction[] = [];
@@ -547,16 +560,6 @@ export async function runInstallWith(
 
 // ───────────────────────────── 실제 PC용 기본값 ─────────────────────────────
 
-/** `~/.harness-manager/settings.json`의 selfMarketplaceSource. 없으면 레포 폴더(directory)다. */
-export async function readSelfSource(settingsFile: string): Promise<"directory" | "github"> {
-  try {
-    const value = JSON.parse(await fs.readFile(settingsFile, "utf8")) as { selfMarketplaceSource?: unknown };
-    return value.selfMarketplaceSource === "github" ? "github" : "directory";
-  } catch {
-    return "directory";
-  }
-}
-
 export async function defaultInstallContext(
   repoRoot: string,
   options: { profile?: Profile; selfSource?: "directory" | "github" } = {},
@@ -564,7 +567,7 @@ export async function defaultInstallContext(
   return {
     ...(await defaultDoctorContext(repoRoot, options.profile)),
     runner: processRunner,
-    selfSource: options.selfSource ?? (await readSelfSource(APP_SETTINGS_FILE)),
+    selfSource: options.selfSource ?? (await readAppSettings(APP_SETTINGS_FILE)).selfMarketplaceSource,
     env: process.env,
   };
 }

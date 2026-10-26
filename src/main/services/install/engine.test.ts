@@ -266,3 +266,16 @@ describe("install 엔진", () => {
     expect(report.cards.find((card) => card.section === "codex")!.checks.find((check) => check.id === "codex.agents-md")!.state).toBe("ok");
   });
 });
+
+describe("stepDetail", () => {
+  const check = (title: string, state: "ok" | "missing" | "drift") => ({ id: title, title, state, detail: `${title} 상세` });
+  it("검사가 많으면 앞의 셋과 개수만 적는다", async () => {
+    const { stepDetail } = await import("./engine.js");
+    expect(stepDetail([check("a", "ok")])).toBe("");
+    expect(stepDetail([check("a", "missing")])).toBe("a 상세");
+    expect(stepDetail([check("a", "missing"), check("b", "ok"), check("c", "drift")])).toBe("a: a 상세 · c: c 상세");
+    expect(stepDetail(["a", "b", "c", "d", "e"].map((title, index) => check(title, index < 4 ? "missing" : "drift")))).toBe(
+      "a, b, c 외 2개 (없음 4 · 다름 1)",
+    );
+  });
+});
