@@ -1,0 +1,39 @@
+{
+  "name": "jinmin",
+  "description": "JinminKim의 Claude Code mod 실험장과 개인 스킬 (harness-manager가 호스팅)",
+  "owner": {
+    "name": "JinminKim"
+  },
+  "plugins": [
+    {
+      "name": "mcw-companion",
+      "source": "./mods/mcw-companion",
+      "description": "multi-cli-work 세션 정보 /mcw, 긴 턴·한도 90% 토스트"
+    },
+    {
+      "name": "jinmin-hud",
+      "source": "./mods/jinmin-hud",
+      "description": "claude-hud 대체 상황판: 입력창 위 테두리 카드(창 크기에 따라 1~10줄) + /hud 사이드 패널"
+    },
+    {
+      "name": "mcw-chips",
+      "source": "./mods/mcw-chips",
+      "description": "multi-cli-work 패인 머리줄 칩·진행선: 할 일·컨텍스트·에이전트·테스트·백그라운드 작업 (jk)"
+    },
+    {
+      "name": "guard",
+      "source": "./mods/guard",
+      "description": "되돌리기 어려운 셸 명령을 실행 전에 붙잡아 영향을 보여 주고 확인받는 가드"
+    },
+    {
+      "name": "codex-watch",
+      "source": "./mods/codex-watch",
+      "description": "Codex 리뷰·작업이 도는 동안 입력창 위 한 줄, 끝나면 토스트·알림"
+    },
+    {
+      "name": "jinmin-skills",
+      "source": "./plugins/jinmin-skills",
+      "description": "개인 범용 스킬: agents-md-sync, handoff-to-codex, ship-release"
+    }
+  ]
+}

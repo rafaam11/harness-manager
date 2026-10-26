@@ -1,0 +1,39 @@
+{
+  "name": "jinmin-hud",
+  "version": "0.6.0",
+  "description": "claude-hud 대체 상황판: 입력창 아래(또는 위) 테두리 카드. 모델·추론 강도·권한 모드·컨텍스트·비용·사용 한도·git(브랜치·변경·원격·최근 커밋·마지막 수정)·이번 턴. /hud로 사이드 패널",
+  "author": {
+    "name": "JinminKim"
+  },
+  "userConfig": {
+    "placement": {
+      "type": "string",
+      "title": "상황판 위치",
+      "description": "below: 입력창 아래(기본), above: 입력창 위",
+      "options": [
+        "below",
+        "above"
+      ],
+      "default": "below"
+    },
+    "promptCacheTtlSeconds": {
+      "type": "number",
+      "title": "프롬프트 캐시 TTL(초)",
+      "description": "마지막 응답 뒤 캐시 카운트다운 길이. 0이면 숨김. Max는 3600",
+      "default": 300
+    },
+    "sevenDayThreshold": {
+      "type": "number",
+      "title": "7일 사용량 표시 기준(%)",
+      "description": "7일 사용량이 이 값 이상일 때만 표시. 0이면 항상",
+      "default": 80
+    },
+    "maxRows": {
+      "type": "number",
+      "title": "밴드 최대 줄 수",
+      "description": "창이 충분히 높을 때 쓰는 최대 줄 수(1~10). 창 높이에 따라 자동으로 줄어든다",
+      "default": 10
+    }
+  },
+  "types": "./types/index.d.ts"
+}

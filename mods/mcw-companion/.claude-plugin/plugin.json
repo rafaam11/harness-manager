@@ -1,0 +1,9 @@
+{
+  "name": "mcw-companion",
+  "version": "0.2.0",
+  "description": "multi-cli-work 세션 정보 /mcw, 긴 턴·한도 90% 토스트 (화면 표시는 jinmin-hud)",
+  "author": {
+    "name": "JinminKim"
+  },
+  "types": "./types/index.d.ts"
+}

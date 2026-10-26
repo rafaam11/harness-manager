@@ -1,0 +1,7 @@
+{
+  "name": "codex-watch",
+  "version": "0.1.0",
+  "description": "codex 플러그인의 리뷰·작업이 도는 동안 입력창 위에 한 줄로 보여 주고, 끝나면 토스트와 알림",
+  "author": { "name": "JinminKim" },
+  "types": "./types/index.d.ts"
+}

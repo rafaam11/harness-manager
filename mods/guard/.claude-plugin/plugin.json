@@ -1,0 +1,7 @@
+{
+  "name": "guard",
+  "version": "0.1.0",
+  "description": "되돌리기 어려운 셸 명령(rm -r, 강제 push, reset --hard, clean -f, branch -D 등)을 실행 전에 붙잡아 영향을 보여 주고 확인받는 가드",
+  "author": { "name": "JinminKim" },
+  "types": "./types/index.d.ts"
+}
