@@ -56,6 +56,7 @@ export function createRemoteFixture(): RemoteFixture {
       git(other, "push", "-q");
     },
     head: (cwd) => git(cwd, "rev-parse", "HEAD").trim(),
-    cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
+    // Windows에서는 막 끝난 git 프로세스가 파일을 잠깐 쥐고 있어 EBUSY가 난다.
+    cleanup: () => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }),
   };
 }

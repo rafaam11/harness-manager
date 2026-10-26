@@ -95,12 +95,15 @@ describe("startRepoSync", () => {
     const release = await lockfile.lock(target, { realpath: false, lockfilePath: `${target}.lock` });
     const { run, stats } = fakeGit();
 
-    const pending = syncRepos({ paths: [repo!], stateDir, git: run, cloudRoots: [], force: true });
+    // 러너의 시계를 고정하고 다른 쪽 결과를 그보다 뒤에 끝난 것으로 적는다. 실제 시계를 쓰면 부하에서
+    // 러너가 기록보다 늦게 기다리기 시작해 "기다린 뒤에 끝난 결과"가 아니게 될 수 있다.
+    const startedAt = new Date("2026-10-26T00:00:00.000Z");
+    const pending = syncRepos({ paths: [repo!], stateDir, git: run, cloudRoots: [], force: true, now: () => startedAt });
     await sleep(300);
     await recordRepoResult(
       stateDir,
       key,
-      { path: repo!, status: "updated", commits: 3, finishedAt: new Date().toISOString(), cached: false },
+      { path: repo!, status: "updated", commits: 3, finishedAt: new Date(startedAt.getTime() + 1_000).toISOString(), cached: false },
       new Date(),
     );
     await release();
@@ -120,9 +123,10 @@ describe("startRepoSync", () => {
 
   it("끝나기 전의 보고서는 남은 레포를 pending과 '진행 중'으로 보여 주고, 끝나면 기록에 남긴다", async () => {
     const [fast, slow] = repoDirs(2);
-    const { run } = fakeGit((cwd) => (cwd === slow ? 400 : 0));
+    const { run } = fakeGit((cwd) => (cwd === slow ? 2_000 : 0));
     const runHandle = startRepoSync({ paths: [fast!, slow!], stateDir, git: run, cloudRoots: [] });
-    await sleep(150);
+    // 고정 대기는 전체 테스트가 몰릴 때 흔들린다. 빠른 레포가 끝날 때까지 본다.
+    for (let waited = 0; runHandle.snapshot().results.length === 0 && waited < 1_500; waited += 20) await sleep(20);
     const early = runHandle.snapshot();
     expect(early.results.map((result) => result.path)).toEqual([fast]);
     expect(early.pending).toEqual([slow]);

@@ -12,6 +12,9 @@ export default defineConfig({
     globals: false,
     pool: "forks",
     clearMocks: true,
+    // repo-sync·capture 테스트는 실제 git과 임시 파일을 쓴다. Windows에서 fork들이 몰리면 기본 5초를 넘긴다.
+    testTimeout: 20_000,
+    hookTimeout: 30_000,
   },
   // electron.vite.config.ts의 renderer와 같은 별칭(@shared 값 import가 테스트에서도 풀리게).
   resolve: {
