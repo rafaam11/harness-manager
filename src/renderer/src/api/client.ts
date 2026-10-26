@@ -1,4 +1,5 @@
-import type { ApiMethod, ApiResult } from "@shared/types";
+import type { ApiArgs, ApiChannel, ApiReturn } from "@shared/api-types";
+import { errorMessage } from "../ipc-error";
 
 export class ApiError extends Error {
   constructor(
@@ -9,19 +10,21 @@ export class ApiError extends Error {
   }
 }
 
-// 전송 계층만 IPC로 교체. 공개 표면(api.get/put/post, ApiError, fmt*)은 HTTP 시절과 동일하다.
-// main이 throw 대신 ApiResult 봉투를 resolve하므로 여기서 statusCode를 복원해 ApiError로 던진다.
-async function call<T>(method: ApiMethod, url: string, body?: unknown): Promise<T> {
-  const res: ApiResult = await window.api.invoke({ method, url, body });
-  if (!res.ok) throw new ApiError(res.statusCode, res.error);
-  return res.data as T;
+/**
+ * main 호출의 유일한 입구. 채널·인자·반환 타입은 api-types.ts의 맵에서 온다.
+ * main은 throw 대신 봉투를 돌려주므로, 여기서 statusCode를 되살려 ApiError로 던진다(409 충돌 등을 구분하게).
+ */
+export async function call<K extends ApiChannel>(channel: K, ...args: ApiArgs<K>): Promise<ApiReturn<K>> {
+  let result;
+  try {
+    result = await window.hm.invoke(channel, ...args);
+  } catch (error) {
+    // preload가 거절했거나 IPC 자체가 실패한 경우 — main의 상태코드가 없다.
+    throw new ApiError(500, errorMessage(error));
+  }
+  if (!result.ok) throw new ApiError(result.statusCode, result.error);
+  return result.data;
 }
-
-export const api = {
-  get: <T>(url: string) => call<T>("GET", url),
-  put: <T>(url: string, body: unknown) => call<T>("PUT", url, body),
-  post: <T>(url: string, body?: unknown) => call<T>("POST", url, body ?? {}),
-};
 
 export function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -33,32 +36,7 @@ export function fmtDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** 로컬 타임존 YYYY-MM-DD. Timeline 그룹 키(전역 fmtDate는 UTC라 시각과 어긋나므로 분리). */
-export function fmtDay(ms: number): string {
-  const d = new Date(ms);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-/** 로컬 타임존 HH:MM. Timeline 항목의 시각 표시용. */
-export function fmtTime(ms: number): string {
-  const d = new Date(ms);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-/** 로컬 타임존 HH:MM:SS. 마지막 읽음 시각처럼 초 단위까지 필요한 표시용(fmtTime의 확장). */
-export function fmtClock(ms: number): string {
-  const d = new Date(ms);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
-}
-
-/** "오늘/어제/N일 전" 형태의 상대 시간. 회상 표면에서 "마지막 활동"을 직관적으로 보여준다. */
+/** "오늘/어제/N일 전" 형태의 상대 시간. */
 export function fmtRelative(ms: number): string {
   if (!ms) return "—";
   const day = 86400000;
@@ -76,10 +54,4 @@ export function fmtRelative(ms: number): string {
   if (dayDiff === 1) return "어제";
   if (dayDiff < 7) return `${dayDiff}일 전`;
   return fmtDate(ms);
-}
-
-/** GitHub 스타 수 축약(1000 이상은 "12.3k"). GitHub Stars 목록의 star 배지용. */
-export function fmtStars(n: number): string {
-  if (n < 1000) return String(n);
-  return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
 }

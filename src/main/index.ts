@@ -1,99 +1,153 @@
-import { app, BrowserWindow, session } from "electron";
-import { join } from "path";
-import { registerIpcHandlers } from "./ipc.js";
-import { initUpdater } from "./updater.js";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import path from "node:path";
+import { WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
+import { createApiHandlers } from "./api-handlers.js";
+import { installHmCliShim } from "./cli-shim.js";
+import { HM_CLI_BIN_DIR } from "./config.js";
+import { registerMainIpc } from "./ipc.js";
 import { openExternalSafely } from "./lib/open-external.js";
+import { isMainWindowSender, sendToMainWindow } from "./main-window.js";
+import { discoverSessionEnvironment } from "./platform-env.js";
+import { QuitCoordinator } from "./quit-coordinator.js";
+import { checkForUpdates, initUpdater, openReleasesPage, quitAndInstall, updaterStatus } from "./updater.js";
+import { windowChromeOptions } from "./window-chrome.js";
+import { rendererTargetNavigationUrl, resolveRendererTarget, secureBrowserWindow } from "./window-security.js";
 
-/**
- * renderer가 로드/연결할 수 있는 대상을 제한한다. dev에서는 Vite가 eval/websocket을 쓰므로 건너뛴다.
- * index.html의 인라인 테마 스크립트와 React/vanilla-jsoneditor 인라인 스타일 때문에 script/style은 'unsafe-inline'.
- */
-function setupCsp(): void {
-  if (process.env["ELECTRON_RENDERER_URL"]) return;
-  const csp = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' https: data:",
-    "media-src 'self' https:",
-    "font-src 'self' data:",
-    "worker-src 'self' blob:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'none'",
-    "frame-src 'none'",
-  ].join("; ");
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp] },
-    });
-  });
+const APP_WINDOW_TITLE = "하네스 매니저";
+
+// e2e·통합 테스트가 실제 사용자 데이터를 건드리지 않게 userData를 바꿔 끼운다.
+if (process.env.HARNESS_MANAGER_USER_DATA) {
+  app.setPath("userData", path.resolve(process.env.HARNESS_MANAGER_USER_DATA));
+}
+
+let mainWindow: BrowserWindow | null = null;
+
+// 종료 경로(창 닫기·업데이트 재시작)를 한 관문으로 모은다. 설치 엔진(M6)이 들어오면 실행 중 작업 확인이 여기에 붙는다.
+const quitCoordinator = new QuitCoordinator(async () => undefined);
+
+function chromeState(window: BrowserWindow): WindowChromeState {
+  return { maximized: window.isMaximized(), fullScreen: window.isFullScreen() };
 }
 
 function createWindow(): BrowserWindow {
-  const win = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 900,
+    minHeight: 600,
     show: false,
-    autoHideMenuBar: true,
+    backgroundColor: "#121417",
+    title: APP_WINDOW_TITLE,
+    ...windowChromeOptions(process.platform),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: true,
       contextIsolation: true,
-      sandbox: false,
+      nodeIntegration: false,
     },
   });
 
-  win.on("ready-to-show", () => win.show());
-
-  // 카탈로그/계획 본문(marked)의 외부 링크는 새 창 대신 OS 브라우저로 연다.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalSafely(url);
-    return { action: "deny" };
+  window.once("ready-to-show", () => window.show());
+  // 렌더러가 최대화/복원 아이콘을 직접 그리므로, 요청하지 않은 상태 변화(드래그 영역 더블클릭, Win+Up)도 알려 준다.
+  const publishChromeState = () => {
+    if (!window.isDestroyed()) sendToMainWindow(window, WINDOW_STATE_EVENT_CHANNEL, chromeState(window));
+  };
+  window.on("maximize", publishChromeState);
+  window.on("unmaximize", publishChromeState);
+  window.on("enter-full-screen", publishChromeState);
+  window.on("leave-full-screen", publishChromeState);
+  window.on("close", (event) => {
+    if (quitCoordinator.isCommitted()) return;
+    event.preventDefault();
+    void requestQuit();
+  });
+  window.on("closed", () => {
+    if (mainWindow === window) mainWindow = null;
   });
 
-  // 단일 문서 SPA — 외부로의 최상위 네비게이션은 막고 OS 브라우저로 넘긴다.
-  win.webContents.on("will-navigate", (event, url) => {
-    if (url !== win.webContents.getURL()) {
-      event.preventDefault();
-      openExternalSafely(url);
-    }
+  const rendererTarget = resolveRendererTarget({
+    isPackaged: app.isPackaged,
+    rendererUrl: process.env.ELECTRON_RENDERER_URL,
+    rendererFilePath: path.join(__dirname, "../renderer/index.html"),
   });
-
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    void win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-  } else {
-    void win.loadFile(join(__dirname, "../renderer/index.html"));
-  }
-
-  return win;
+  // 카탈로그 본문의 외부 링크는 앱 안에서 열지 않고 OS 브라우저로 넘긴다.
+  secureBrowserWindow(window, rendererTargetNavigationUrl(rendererTarget), openExternalSafely);
+  if (rendererTarget.kind === "url") void window.loadURL(rendererTarget.value);
+  else void window.loadFile(rendererTarget.value);
+  return window;
 }
 
-// 단일 인스턴스 강제: 포트 바인딩이 사라졌으므로 board.json 동시 쓰기를 막는 1차 방어(lock.ts가 2차).
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+async function requestQuit(): Promise<void> {
+  if (quitCoordinator.isCommitted()) return;
+  await quitCoordinator.request({ confirm: async () => true, exit: () => app.quit() });
+}
+
+// 업데이트 재시작도 같은 관문을 지난다 — 설치 중 작업을 끊지 않게.
+async function installUpdateAndQuit(): Promise<void> {
+  if (quitCoordinator.isCommitted()) return;
+  await quitCoordinator.request({ confirm: async () => true, exit: quitAndInstall });
+}
+
+// 단일 인스턴스 강제: 쓰기 직렬화(lib/lock.ts)가 프로세스 하나를 전제한다.
+if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  let mainWindow: BrowserWindow | null = null;
+  app.on("second-instance", showMainWindow);
 
-  app.on("second-instance", () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+  void app.whenReady().then(async () => {
+    // 렌더러가 타이틀바를 직접 그린다. Electron 기본 메뉴는 영어 메뉴줄을 하나 더 얹을 뿐이다.
+    Menu.setApplicationMenu(null);
+    // GUI로 실행하면 셸 PATH를 못 받는다(Linux). 실행 파일 감지(findOnPath)가 이 PATH를 쓴다.
+    Object.assign(process.env, await discoverSessionEnvironment(process.env as Record<string, string>));
+
+    registerMainIpc(
+      ipcMain,
+      createApiHandlers({
+        appVersion: () => app.getVersion(),
+        openExternal: openExternalSafely,
+        openReleases: openReleasesPage,
+        window: {
+          minimize: () => mainWindow?.minimize(),
+          toggleMaximize: () => {
+            if (!mainWindow) return;
+            if (mainWindow.isMaximized()) mainWindow.unmaximize();
+            else mainWindow.maximize();
+          },
+          close: () => mainWindow?.close(),
+          state: () => (mainWindow ? chromeState(mainWindow) : { maximized: false, fullScreen: false }),
+        },
+        updater: { status: updaterStatus, check: checkForUpdates, install: installUpdateAndQuit },
+      }),
+      (event) => isMainWindowSender(mainWindow, event),
+    );
+
+    mainWindow = createWindow();
+    initUpdater({ getWindow: () => mainWindow });
+
+    // 설치본만 심을 적는다. 개발 빌드가 적으면 설치본의 심을 node_modules의 electron으로 덮어쓴다.
+    if (app.isPackaged && !process.env.HARNESS_MANAGER_USER_DATA) {
+      installHmCliShim(HM_CLI_BIN_DIR, process.execPath, path.join(app.getAppPath(), "out", "main", "cli.js")).catch(
+        (error: unknown) => console.warn("[hm-cli] 심을 쓰지 못함:", error),
+      );
     }
+
+    app.on("activate", showMainWindow);
   });
 
-  app.whenReady().then(() => {
-    setupCsp();
-    registerIpcHandlers();
-    mainWindow = createWindow();
-    initUpdater(mainWindow);
-
-    app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
-    });
+  app.on("before-quit", (event) => {
+    if (quitCoordinator.isCommitted()) return;
+    event.preventDefault();
+    void requestQuit();
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    if (process.platform !== "darwin") void requestQuit();
   });
 }

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { PluginsSnapshot } from "@shared/api-types";
 import { CLAUDE_HOME } from "../config.js";
 
 interface InstalledEntry {
@@ -11,7 +12,7 @@ interface InstalledEntry {
   lastUpdated?: string;
 }
 
-export async function getPlugins() {
+export async function getPlugins(): Promise<PluginsSnapshot> {
   const pluginsDir = path.join(CLAUDE_HOME, "plugins");
 
   const installed = JSON.parse(

@@ -30,3 +30,11 @@ export function groupRowsByProvider<T extends { provider?: ProviderId }>(
     .map((provider) => ({ provider, rows: rows.filter((row) => row.provider === provider) }))
     .filter((group) => group.rows.length > 0);
 }
+
+export function providerLabel(provider: ProviderId): string {
+  return provider === "claude" ? "Claude" : "Codex";
+}
+
+export function providerBadgeClass(provider: ProviderId): string {
+  return `provider-${provider}`;
+}

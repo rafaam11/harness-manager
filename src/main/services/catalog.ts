@@ -4,15 +4,9 @@ import matter from "gray-matter";
 import { CLAUDE_HOME, AGENT_SIZE_WARN_BYTES } from "../config.js";
 import { guardPath } from "../lib/path-guard.js";
 
-export interface CatalogItem {
-  name: string;
-  kind: "skill" | "agent" | "command" | "instruction" | "memory";
-  description: string;
-  path: string;
-  size: number;
-  mtime: number;
-  warn?: string;
-}
+import type { CatalogContent, CatalogItem } from "@shared/api-types";
+
+export type { CatalogContent, CatalogItem };
 
 async function readFrontmatterDescription(p: string): Promise<string> {
   try {
@@ -87,14 +81,6 @@ export async function getCatalog(): Promise<CatalogItem[]> {
   await walkCommands(commandsDir, "");
 
   return items;
-}
-
-export interface CatalogContent {
-  raw: string; // frontmatter를 제외한 본문(마크다운)
-  frontmatter: Record<string, unknown>;
-  size: number;
-  mtime: number;
-  truncated: boolean;
 }
 
 /**

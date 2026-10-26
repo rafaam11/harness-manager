@@ -3,13 +3,9 @@ import path from "node:path";
 import { CLAUDE_HOME, STALE_DAYS, TEMP_DIRS, AGENT_SIZE_WARN_BYTES } from "../config.js";
 import { getProjects } from "./projects.js";
 
-export interface CleanupCandidate {
-  path: string;
-  category: string; // archive 하위 디렉토리명
-  reason: string;
-  size: number;
-  ageDays: number;
-}
+import type { CleanupCandidate } from "@shared/api-types";
+
+export type { CleanupCandidate };
 
 /** 규칙 기반 정리 후보 스캔. 결과는 후보일 뿐 — 실행은 dry-run 검토 후. */
 export async function scanCandidates(): Promise<CleanupCandidate[]> {

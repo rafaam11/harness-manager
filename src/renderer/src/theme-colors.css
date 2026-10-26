@@ -1,0 +1,65 @@
+/*
+ * 색 토큰(multi-cli-work와 같은 값 — 두 앱이 한 계열로 읽히게). 타입·모션 토큰은 index.css에 있다.
+ * 상태색(--green/--amber/--red)은 상태에만 쓰고, provider 구분색(--brand-*)과 섞지 않는다.
+ */
+:root {
+  --bg: #161918;
+  --sidebar: #1c201f;
+  --surface: #202524;
+  --surface-raised: #252b29;
+  --surface-hover: #2a302e;
+  --line: #343b38;
+  --line-strong: #46504c;
+  --text: #e7ebe8;
+  --muted: #9aa49f;
+  --quiet: #717b76;
+  --teal: #4fb7a4;
+  --amber: #d8a24a;
+  --blue: #6ea8d8;
+  --red: #d46a6a;
+  --green: #73b987;
+  --violet: #aa8ccc;
+  --brand-claude: #d97757;
+  --brand-codex: #6ea8d8;
+  /* Surfaces and state colours that used to be written out by hand; the light theme swaps them. */
+  --header-bg: #191d1c;
+  --surface-accent: #242a28;
+  --surface-accent-soft: #1b201e;
+  --wash: rgb(255 255 255 / 8%);
+  --danger-text: #f09595;
+  --danger-line: #7a3b3b;
+  --warning-text: #d9b36f;
+}
+
+/*
+ * Light theme. Same token names, so every rule above and below follows without change. Text tokens
+ * keep at least 4.5:1 on --bg and --surface; state colours are darkened for the same reason (the dark
+ * theme's pastel reds and ambers wash out on white).
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f8f7;
+  --sidebar: #eef1ef;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-hover: #e7ecea;
+  --line: #d5dbd8;
+  --line-strong: #b3bcb8;
+  --text: #1d2321;
+  --muted: #4f5a55;
+  --quiet: #66716c;
+  --teal: #1b7867;
+  --amber: #946410;
+  --blue: #2c6aa3;
+  --red: #b33a3a;
+  --green: #2d7a45;
+  --violet: #7450a0;
+  --brand-codex: #2c6aa3;
+  --header-bg: #f0f3f1;
+  --surface-accent: #e1eeea;
+  --surface-accent-soft: #edf3f1;
+  --wash: rgb(0 0 0 / 6%);
+  --danger-text: #b42318;
+  --danger-line: #e0a3a3;
+  --warning-text: #875800;
+}

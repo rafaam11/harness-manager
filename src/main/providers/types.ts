@@ -1,10 +1,4 @@
-import type {
-  NormalizedConfigFile,
-  NormalizedPlan,
-  NormalizedProject,
-  NormalizedSession,
-  ProviderId,
-} from "@shared/provider-types";
+import type { NormalizedConfigFile, ProviderId } from "@shared/provider-types";
 import type { CatalogItem } from "../services/catalog.js";
 import type { McpServer } from "../services/mcp.js";
 
@@ -21,8 +15,5 @@ export interface ProviderAdapter {
   listConfigFiles(): Promise<NormalizedConfigFile[]>;
   readMcpServers(): Promise<McpServer[]>;
   listCatalog(): Promise<CatalogItem[]>;
-  listProjects(): Promise<NormalizedProject[]>;
-  listSessions(): Promise<NormalizedSession[]>;
-  listPlans(): Promise<NormalizedPlan[]>;
   detectRunning(): Promise<boolean>;
 }

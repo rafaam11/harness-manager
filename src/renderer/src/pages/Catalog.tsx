@@ -1,48 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, fmtSize, fmtDate } from "../api/client";
+import { call, fmtSize, fmtDate } from "../api/client";
 import { renderMarkdownSafe } from "../markdown";
+import type { CatalogContent, CatalogItem, McpServer, PluginInfo } from "@shared/api-types";
 import type { ProviderFilter, ProviderId } from "@shared/provider-types";
-import { providerLabel } from "./workspace-shared";
+import { providerLabel } from "../provider-ui";
 import { groupRowsByProvider, providerGroupLabel, providerToneClass } from "../provider-ui";
-
-interface CatalogItem {
-  name: string;
-  kind: "skill" | "agent" | "command" | "instruction" | "memory";
-  provider?: ProviderId;
-  description: string;
-  path: string;
-  size: number;
-  mtime: number;
-  warn?: string;
-}
-
-interface PluginInfo {
-  id: string;
-  enabledInSettings: boolean | null;
-  installs: { scope: string; projectPath?: string; version: string }[];
-  blocked: boolean;
-}
-
-interface McpServer {
-  name: string;
-  provider?: ProviderId;
-  scope: "user" | "project";
-  projectPath?: string;
-  transport: "stdio" | "http" | "sse" | "unknown";
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-  headers?: Record<string, string>;
-}
-
-interface CatalogContent {
-  raw: string;
-  frontmatter: Record<string, unknown>;
-  size: number;
-  mtime: number;
-  truncated: boolean;
-}
 
 // 좌측 종류 필터(세그먼트). skill/agent/command는 CatalogItem.kind, mcp/plugin은 별도 소스.
 type KindFilter = "all" | "skill" | "agent" | "command" | "instruction" | "memory" | "mcp" | "plugin";
@@ -111,19 +73,17 @@ export default function Catalog({ providerFilter }: Props) {
   const [catalogProviderFilter, setCatalogProviderFilter] = useState<ProviderFilter>(
     () => (localStorage.getItem("hm-cat-provider") as ProviderFilter | null) ?? providerFilter ?? "all",
   );
-  const providerQuery = "provider=all";
-
+  // 목록은 항상 전체를 받아 오고, provider 탭은 화면에서 거른다(탭마다 개수를 보여 주려고).
   useEffect(() => {
     setSelectedKey(null);
     setContent({});
     setError("");
-    api.get<CatalogItem[]>(`/api/catalog?${providerQuery}`).then(setItems).catch((e) => setError(e.message));
-    api
-      .get<{ plugins: PluginInfo[] }>("/api/plugins")
+    call("catalog:list", "all").then(setItems).catch((e) => setError(e.message));
+    call("plugins:list")
       .then((d) => setPlugins(d.plugins))
       .catch((e) => setError(e.message));
-    api.get<McpServer[]>(`/api/mcp?${providerQuery}`).then(setMcps).catch((e) => setError(e.message));
-  }, [providerQuery]);
+    call("mcp:list", "all").then(setMcps).catch((e) => setError(e.message));
+  }, []);
 
   const changeQuery = (v: string) => {
     setQuery(v);
@@ -144,9 +104,7 @@ export default function Catalog({ providerFilter }: Props) {
     setSelectedKey(key);
     if (path && !content[path]) {
       try {
-        const c = await api.get<CatalogContent>(
-          `/api/catalog/content?path=${encodeURIComponent(path)}`,
-        );
+        const c = await call("catalog:content", path);
         setContent((prev) => ({ ...prev, [path]: c }));
       } catch (e) {
         setError((e as Error).message);

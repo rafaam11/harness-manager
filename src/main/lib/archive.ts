@@ -9,12 +9,9 @@ import {
   type CleanupArchiveCategory,
 } from "./path-scope.js";
 
-export interface ManifestEntry {
-  original: string;
-  archived: string;
-  reason: string;
-  movedAt: string;
-}
+import type { ManifestDay, ManifestEntry } from "@shared/api-types";
+
+export type { ManifestEntry };
 
 interface JournalEntry extends ManifestEntry {
   done: boolean;
@@ -143,9 +140,9 @@ export async function restoreItem(archivedPath: string): Promise<ManifestEntry> 
 }
 
 /** 전체 manifest 조회 (모든 날짜 통합) */
-export async function listManifests() {
+export async function listManifests(): Promise<ManifestDay[]> {
   const dates = await fs.readdir(ARCHIVE_ROOT).catch(() => [] as string[]);
-  const out: { date: string; entries: ManifestEntry[] }[] = [];
+  const out: ManifestDay[] = [];
   for (const d of dates.sort().reverse()) {
     const entries = await readJsonArray<ManifestEntry>(
       path.join(ARCHIVE_ROOT, d, "manifest.json"),

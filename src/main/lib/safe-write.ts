@@ -19,7 +19,6 @@ export type SafeWriteValidator = (name: string, content: string) => void;
 
 export interface SafeWriteOptions {
   validate?: SafeWriteValidator;
-  backupDir?: string;
 }
 
 export async function readConfig(filePath: string) {
@@ -52,7 +51,7 @@ export async function safeWrite(
   return withLock(async () => {
     const p = guardPath(filePath);
     const validate = options.validate ?? validateConfig;
-    const backupDir = guardPath(options.backupDir ?? BACKUP_DIR);
+    const backupDir = guardPath(BACKUP_DIR);
 
     const current = await fs.readFile(p);
     const currentHash = sha256(current);
@@ -79,8 +78,9 @@ export async function safeWrite(
   });
 }
 
-export async function listBackups(fileBase: string) {
-  const safeBase = assertSafePathSegment(fileBase, "backup base");
+/** 이 설정 파일(basename 기준)의 백업 목록, 최신 순. */
+export async function listBackups(filePath: string) {
+  const safeBase = assertSafePathSegment(path.basename(filePath), "backup base");
   const entries = await fs.readdir(BACKUP_DIR).catch(() => [] as string[]);
   const mine = entries.filter((e) => e.startsWith(safeBase + ".")).sort().reverse();
   const out = [];
@@ -91,20 +91,29 @@ export async function listBackups(fileBase: string) {
   return out;
 }
 
-export async function restoreBackup(name: string, filePath: string, backupName: string) {
+export async function restoreBackup(
+  name: string,
+  filePath: string,
+  backupName: string,
+  options: SafeWriteOptions = {},
+) {
   return withLock(async () => {
     const p = guardPath(filePath);
     const safeBackupName = assertSafePathSegment(backupName, "backup name");
     const backupRoot = guardPath(BACKUP_DIR);
     const backupPath = assertInsideRoot(path.join(backupRoot, safeBackupName), backupRoot, "backup");
+    // 다른 파일의 백업을 이 파일로 복원하지 못하게 한다(basename 접두사로 소속을 판단).
+    if (!safeBackupName.startsWith(path.basename(p) + ".")) {
+      throw Object.assign(new Error("이 파일의 백업이 아닙니다"), { statusCode: 400 });
+    }
     const content = await fs.readFile(backupPath, "utf8");
-    validateConfig(name, content);
+    (options.validate ?? validateConfig)(name, content);
 
     // 복원 직전 현재본도 백업으로 남긴다
     const current = await fs.readFile(p);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     await fs.writeFile(
-      path.join(BACKUP_DIR, `${path.basename(p)}.${stamp}.pre-restore.bak`),
+      path.join(backupRoot, `${path.basename(p)}.${stamp}.pre-restore.bak`),
       current,
     );
 

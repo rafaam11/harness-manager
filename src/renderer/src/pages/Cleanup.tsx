@@ -1,16 +1,8 @@
 import { useEffect, useState } from "react";
-import { api, fmtSize, fmtRelative } from "../api/client";
+import type { CleanupCandidate as Candidate, ManifestDay } from "@shared/api-types";
+import { call, fmtSize, fmtRelative } from "../api/client";
+import { useConfirmDialog } from "../components/confirm-dialog";
 
-interface Candidate {
-  path: string;
-  category: string;
-  reason: string;
-  size: number;
-  ageDays: number;
-}
-
-interface ManifestEntry { original: string; archived: string; reason: string; movedAt: string }
-interface ManifestDay { date: string; entries: ManifestEntry[] }
 interface MovePreview { from: string; category: string }
 
 type View = "candidates" | "archive";
@@ -28,12 +20,12 @@ export default function Cleanup() {
   const [openDates, setOpenDates] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<MovePreview[] | null>(null);
   const [archiveQuery, setArchiveQuery] = useState("");
+  const { confirm, dialog } = useConfirmDialog();
 
   const scan = () => {
     setBusy(true);
     setPreview(null); // 후보가 바뀌므로 이전 dry-run 미리보기는 무효화
-    api
-      .post<Candidate[]>("/api/cleanup/scan")
+    call("cleanup:scan")
       .then((c) => {
         setCandidates(c);
         // 재스캔 후에도 여전히 존재하는 후보의 선택은 유지(예전엔 전부 초기화).
@@ -45,8 +37,7 @@ export default function Cleanup() {
   };
 
   const loadManifest = () =>
-    api
-      .get<ManifestDay[]>("/api/cleanup/manifest")
+    call("cleanup:manifest")
       .then((m) => {
         setManifests(m);
         // 최신(첫) 날짜만 기본 펼침.
@@ -93,19 +84,21 @@ export default function Cleanup() {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await api.post<{ dryRun: boolean; wouldMove?: MovePreview[]; moved?: unknown[] }>(
-        "/api/cleanup/execute",
-        { dryRun, items: selectedItems },
+      // 경로만 보낸다. main이 다시 스캔해 후보와 맞는 것만 옮긴다(카테고리도 main이 정한다).
+      const res = await call(
+        "cleanup:execute",
+        selectedItems.map((c) => c.path),
+        dryRun,
       );
-      if (dryRun) {
-        setPreview(res.wouldMove ?? []);
+      if (res.dryRun) {
+        setPreview(res.wouldMove);
         setMessage({
           kind: "warn",
-          text: `dry-run: ${res.wouldMove!.length}개 항목이 이동 대상입니다. 아래 목록을 확인하고 "실행"을 누르세요.`,
+          text: `dry-run: ${res.wouldMove.length}개 항목이 이동 대상입니다. 아래 목록을 확인하고 "실행"을 누르세요.`,
         });
       } else {
         setPreview(null);
-        setMessage({ kind: "ok", text: `${res.moved!.length}개 항목을 아카이브로 이동했습니다.` });
+        setMessage({ kind: "ok", text: `${res.moved.length}개 항목을 아카이브로 이동했습니다.` });
         scan();
         loadManifest();
       }
@@ -117,9 +110,10 @@ export default function Cleanup() {
   };
 
   const restore = async (archivedPath: string, original: string) => {
-    if (!confirm(`이 항목을 원위치로 복구할까요?\n${original}`)) return;
+    const ok = await confirm({ title: "원위치로 복구할까요?", message: original, confirmLabel: "복구" });
+    if (!ok) return;
     try {
-      await api.post("/api/cleanup/restore", { archivedPath });
+      await call("cleanup:restore", archivedPath);
       setMessage({ kind: "ok", text: `복구 완료: ${original}` });
       scan();
       loadManifest();
@@ -146,6 +140,7 @@ export default function Cleanup() {
 
   return (
     <div>
+      {dialog}
       <h2>Cleanup</h2>
       {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
 

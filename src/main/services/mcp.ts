@@ -1,17 +1,9 @@
 import fs from "node:fs/promises";
 import { CLAUDE_JSON } from "../config.js";
 
-export interface McpServer {
-  name: string;
-  scope: "user" | "project";
-  projectPath?: string;
-  transport: "stdio" | "http" | "sse" | "unknown";
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-  headers?: Record<string, string>;
-}
+import type { McpServer } from "@shared/api-types";
+
+export type { McpServer };
 
 function toServer(
   name: string,

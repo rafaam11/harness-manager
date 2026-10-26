@@ -1,151 +1,118 @@
-import { useEffect, useState } from "react";
-import { api } from "./api/client";
-import Timeline from "./pages/Timeline";
-import Workspace from "./pages/Workspace";
-import Catalog from "./pages/Catalog";
-import Cleanup from "./pages/Cleanup";
-import ConfigEditor from "./pages/ConfigEditor";
-import Usage from "./pages/Usage";
-import News from "./pages/News";
-import Glossary from "./pages/Glossary";
-import UpdateBadge from "./components/UpdateBadge";
+import { useEffect, useMemo, useState } from "react";
 import type { ProviderFilter, ProviderStatus } from "@shared/provider-types";
-import { providerLabel } from "./pages/workspace-shared";
-import { DEFAULT_PROVIDER_FILTER, PROVIDER_FILTER_OPTIONS, providerToneClass } from "./provider-ui";
-
-const PAGES = {
-  timeline: { label: "타임라인" },
-  workspace: { label: "워크스페이스" },
-  catalog: { label: "카탈로그" },
-  cleanup: { label: "정리" },
-  configs: { label: "설정 편집기" },
-  usage: { label: "사용량" },
-  news: { label: "뉴스" },
-  glossary: { label: "용어집" },
-} as const;
-
-type PageKey = keyof typeof PAGES;
-type Theme = "dark" | "light";
-
-const PRIMARY_PAGES: PageKey[] = ["timeline", "workspace", "catalog", "cleanup", "configs", "usage"];
-const SECONDARY_PAGES: PageKey[] = ["news", "glossary"];
-const WIDE_PAGES: PageKey[] = ["workspace", "catalog", "glossary", "news", "usage"];
+import { call } from "./api/client";
+import { TitleBar } from "./components/TitleBar";
+import { Toaster, showToast } from "./components/toast";
+import { UpdateBadge } from "./components/UpdateBadge";
+import { PAGE_ORDER, PAGES, type PageKey } from "./pages/registry";
+import {
+  DEFAULT_PROVIDER_FILTER,
+  PROVIDER_FILTER_OPTIONS,
+  providerLabel,
+  providerToneClass,
+} from "./provider-ui";
+import { applyTheme, useResolvedTheme } from "./theme";
+import { REPOSITORY_URL, buildTitleBarMenus } from "./title-bar-menu";
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>("timeline");
+  const [page, setPage] = useState<PageKey>("catalog");
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>(DEFAULT_PROVIDER_FILTER);
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("hm-theme") as Theme) || "dark",
-  );
+  const [appVersion, setAppVersion] = useState("");
+  const theme = useResolvedTheme();
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("hm-theme", theme);
-  }, [theme]);
+    void call("app:version").then(setAppVersion).catch(() => undefined);
+  }, []);
 
+  // 실행 중인 CLI가 설정을 다시 쓰면 저장이 충돌한다. 그래서 상단 경고용으로 주기적으로 확인한다.
   useEffect(() => {
     let alive = true;
-    const load = async () => {
-      const statuses = await api.get<ProviderStatus[]>("/api/provider/status");
-      if (alive) setProviderStatuses(statuses);
-    };
-    load().catch(() => {});
-    const id = window.setInterval(() => load().catch(() => {}), 5000);
+    const load = () =>
+      call("provider:status")
+        .then((statuses) => {
+          if (alive) setProviderStatuses(statuses);
+        })
+        .catch(() => undefined);
+    void load();
+    const id = window.setInterval(load, 5000);
     return () => {
       alive = false;
       window.clearInterval(id);
     };
   }, []);
 
-  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
-  const runningProviders = providerStatuses.filter((status) => status.running);
+  const toggleTheme = () => applyTheme(theme === "dark" ? "light" : "dark");
+  const menus = useMemo(() => buildTitleBarMenus({ appVersion, theme }), [appVersion, theme]);
 
-  const renderPage = () => {
-    switch (page) {
-      case "timeline":
-        return <Timeline providerFilter={providerFilter} />;
-      case "workspace":
-        return <Workspace providerFilter={providerFilter} />;
-      case "catalog":
-        return <Catalog providerFilter={providerFilter} />;
-      case "cleanup":
-        return <Cleanup />;
-      case "configs":
-        return <ConfigEditor providerFilter={providerFilter} />;
-      case "usage":
-        return <Usage providerFilter={providerFilter} />;
-      case "news":
-        return <News />;
-      case "glossary":
-        return <Glossary />;
-      default:
-        return null;
+  const handleMenuAction = (id: string) => {
+    switch (id) {
+      case "view.toggle-theme":
+        toggleTheme();
+        return;
+      case "help.check-updates":
+        void call("updater:check").catch((error: Error) =>
+          showToast({ tone: "error", title: "업데이트 확인 실패", detail: error.message }),
+        );
+        return;
+      case "help.release-notes":
+        void call("app:open-releases");
+        return;
+      case "help.repository":
+        void call("app:open-external", REPOSITORY_URL);
+        return;
     }
   };
 
+  const runningProviders = providerStatuses.filter((status) => status.running);
+  const current = PAGES[page];
+
   return (
-    <div className="layout">
-      <nav>
-        <div className="nav-head">
-          <h1>Harness Manager</h1>
-          <button
-            className="theme-toggle"
-            onClick={toggleTheme}
-            title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-            aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-          >
-            {theme === "dark" ? "☀" : "🌙"}
-          </button>
-        </div>
-        {PRIMARY_PAGES.map((k) => (
-          <button
-            key={k}
-            className={`nav-item${page === k ? " active" : ""}`}
-            onClick={() => setPage(k)}
-          >
-            {PAGES[k].label}
-          </button>
-        ))}
-        <div className="nav-divider" />
-        {SECONDARY_PAGES.map((k) => (
-          <button
-            key={k}
-            className={`nav-item${page === k ? " active" : ""}`}
-            onClick={() => setPage(k)}
-          >
-            {PAGES[k].label}
-          </button>
-        ))}
-        <div className="nav-provider">
-          <div className="nav-provider-label">Provider</div>
-          <div className="provider-filter" role="tablist" aria-label="Provider filter">
-            {PROVIDER_FILTER_OPTIONS.map(({ value, label, fullLabel }) => (
-              <button
-                key={value}
-                className={`${providerToneClass(value)}${providerFilter === value ? " active" : ""}`}
-                onClick={() => setProviderFilter(value)}
-                aria-label={fullLabel}
-                title={fullLabel}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
+    <div className="app-frame">
+      <TitleBar menus={menus} onAction={handleMenuAction} theme={theme} onToggleTheme={toggleTheme} />
+      <div className="layout">
+        <nav>
+          {PAGE_ORDER.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={`nav-item${page === key ? " active" : ""}`}
+              onClick={() => setPage(key)}
+            >
+              {PAGES[key].label}
+            </button>
+          ))}
+          <div className="nav-provider">
+            <div className="nav-provider-label">Provider</div>
+            <div className="provider-filter" role="tablist" aria-label="Provider filter">
+              {PROVIDER_FILTER_OPTIONS.map(({ value, label, fullLabel }) => (
+                <button
+                  key={value}
+                  className={`${providerToneClass(value)}${providerFilter === value ? " active" : ""}`}
+                  onClick={() => setProviderFilter(value)}
+                  aria-label={fullLabel}
+                  title={fullLabel}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="nav-spacer" />
-        <UpdateBadge />
-      </nav>
-      <main className={WIDE_PAGES.includes(page) ? "page-wide" : undefined}>
-        {runningProviders.length > 0 && (
-          <div className="banner warn">
-            실행 중인 provider: {runningProviders.map((status) => providerLabel(status.id)).join(", ")} —
-            설정 저장·정리 실행 시 충돌에 주의하세요.
-          </div>
-        )}
-        {renderPage()}
-      </main>
+          <div className="nav-spacer" />
+          <UpdateBadge />
+        </nav>
+        <main className={"wide" in current && current.wide ? "page-wide" : undefined}>
+          {runningProviders.length > 0 && (
+            <div className="banner warn">
+              실행 중인 provider: {runningProviders.map((status) => providerLabel(status.id)).join(", ")} —
+              설정 저장·정리 실행 시 충돌에 주의하세요.
+            </div>
+          )}
+          {current.render({ providerFilter })}
+        </main>
+      </div>
+      <Toaster />
     </div>
   );
 }

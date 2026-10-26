@@ -19,3 +19,10 @@ launcher/dist/
 __pycache__/
 *.pyc
 launcher/HarnessManagerLauncher.spec
+
+# Claude Code mod 개발 산출물(jinmin-mods에서 승계)
+.mcpb-cache/
+**/.claude-plugin/types/
+
+# TypeScript 증분 빌드 산출물
+*.tsbuildinfo

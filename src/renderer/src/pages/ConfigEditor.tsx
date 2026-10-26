@@ -1,34 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createJSONEditor, type Content } from "vanilla-jsoneditor";
 import "vanilla-jsoneditor/themes/jse-theme-dark.css";
-import { api, fmtSize, fmtDate, ApiError } from "../api/client";
+import type { BackupInfo, ConfigFileData as ConfigData } from "@shared/api-types";
+import { call, fmtSize, fmtDate, ApiError } from "../api/client";
+import { useConfirmDialog } from "../components/confirm-dialog";
+import { useResolvedTheme } from "../theme";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId } from "@shared/provider-types";
-import { providerBadgeClass, providerLabel } from "./workspace-shared";
+import { providerBadgeClass, providerLabel } from "../provider-ui";
 import { groupRowsByProvider, providerGroupLabel } from "../provider-ui";
-
-const LEGACY_CONFIGS = {
-  settings: { label: "settings.json" },
-  "settings-local": { label: "settings.local.json" },
-  "claude-json": { label: ".claude.json (읽기 전용)" },
-} as const;
-
-type LegacyConfigName = keyof typeof LEGACY_CONFIGS;
 
 interface Props {
   providerFilter: ProviderFilter;
-}
-
-interface ConfigData {
-  content: string;
-  sha256: string;
-  mtime: number;
-  descriptor: NormalizedConfigFile;
-}
-
-interface BackupInfo {
-  name: string;
-  size: number;
-  mtime: number;
 }
 
 type EditorInstance = ReturnType<typeof createJSONEditor>;
@@ -83,100 +65,6 @@ function JsonTreeEditor({
   return <div ref={container} className={`jse-wrap${isDark ? " jse-theme-dark" : ""}`} />;
 }
 
-function hookEntry(shell: "powershell" | "bash") {
-  return {
-    matcher: "Write|Edit|MultiEdit",
-    hooks: [
-      {
-        type: "command",
-        command: 'node "$HOME/.claude/hooks/stamp-plan-session.mjs"',
-        shell,
-      },
-    ],
-  };
-}
-
-function HookInstallPanel() {
-  const [content, setContent] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [os, setOs] = useState<"windows" | "unix">("windows");
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    api
-      .get<{ content: string }>("/api/hooks/stamp-plan-session")
-      .then((d) => setContent(d.content))
-      .catch(() => setFailed(true));
-  }, []);
-
-  if (failed || content === null) return null;
-
-  const prompt = [
-    "Claude Code 글로벌 환경에 '계획 파일에 작성 세션ID를 자동으로 새겨넣는' hook을 설치해줘.",
-    "",
-    "1. 아래 내용 그대로 `~/.claude/hooks/stamp-plan-session.mjs` 파일을 만들어줘(디렉토리가 없으면 만들어서):",
-    "",
-    "```javascript",
-    content,
-    "```",
-    "",
-    "2. `~/.claude/settings.json`을 읽어서 `hooks.PostToolUse` 배열(없으면 새로 만들어)에 아래 항목을 추가해줘",
-    "(이미 같은 command를 가진 항목이 있으면 건드리지 마):",
-    "",
-    "```json",
-    JSON.stringify(hookEntry(os === "windows" ? "powershell" : "bash"), null, 2),
-    "```",
-    "",
-    "3. 끝나면 아무 계획 파일이나 하나 저장(Write/Edit)해서 파일 맨 앞에",
-    "`<!-- claude-session: ... -->` 마커가 자동으로 붙는지 확인해줘.",
-  ].join("\n");
-
-  const copyPrompt = () => {
-    navigator.clipboard.writeText(prompt).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      },
-      () => {},
-    );
-  };
-
-  return (
-    <div>
-      <h3>다른 PC에 세션-계획 연결 Hook 설치</h3>
-      <p className="muted">
-        이 PC에는 계획 파일에 작성 세션ID를 자동으로 새겨넣는 hook이 설치돼 있습니다. 다른 PC의
-        Claude Code에 붙여넣을 설치 프롬프트를 복사하세요.
-      </p>
-      <p>
-        <button
-          className={`btn ghost${os === "windows" ? " active" : ""}`}
-          style={os === "windows" ? { borderColor: "var(--accent)" } : undefined}
-          onClick={() => setOs("windows")}
-        >
-          Windows
-        </button>
-        <button
-          className={`btn ghost${os === "unix" ? " active" : ""}`}
-          style={os === "unix" ? { borderColor: "var(--accent)" } : undefined}
-          onClick={() => setOs("unix")}
-        >
-          macOS / Linux
-        </button>
-      </p>
-      <p>
-        <button className="btn" onClick={copyPrompt}>
-          {copied ? "복사됨" : "설치 프롬프트 복사"}
-        </button>
-      </p>
-    </div>
-  );
-}
-
-function toLegacyConfigName(id: string): LegacyConfigName | null {
-  return id in LEGACY_CONFIGS ? (id as LegacyConfigName) : null;
-}
-
 function TextConfigEditor({
   value,
   readOnly,
@@ -206,67 +94,50 @@ export default function ConfigEditor({ providerFilter }: Props) {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "err" | "warn"; text: string } | null>(null);
   const [externalChange, setExternalChange] = useState(false);
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.getAttribute("data-theme") !== "light",
-  );
+  const isDark = useResolvedTheme() === "dark";
+  const { confirm, dialog } = useConfirmDialog();
   const editorRef = useRef<EditorInstance | null>(null);
-  const providerQuery = `provider=${encodeURIComponent(providerFilter)}`;
 
   const selectedFile = useMemo(
     () => files.find((file) => file.id === selectedId) ?? null,
     [files, selectedId],
   );
-  const legacyName = selectedFile ? toLegacyConfigName(selectedFile.id) : null;
   const isToml = selectedFile?.format === "toml";
   const isJson = selectedFile?.format === "json";
 
-  const loadSelected = useCallback(
-    (fileId: string, loadBackupList: boolean) => {
-      setMessage(null);
-      setExternalChange(false);
-      api
-        .get<ConfigData>(`/api/config/file/${encodeURIComponent(fileId)}`)
-        .then((d) => {
-          setData(d);
-          setText(d.content);
-          if (d.descriptor.format === "json") {
-            editorRef.current?.update({ text: d.content });
-          } else {
-            editorRef.current = null;
-          }
-        })
-        .catch((e) => setMessage({ kind: "err", text: e.message }));
-      if (loadBackupList) {
-        const name = toLegacyConfigName(fileId);
-        if (!name) {
-          setBackups([]);
-          return;
+  const loadSelected = useCallback((fileId: string) => {
+    setMessage(null);
+    setExternalChange(false);
+    call("config:read", fileId)
+      .then((d) => {
+        setData(d);
+        setText(d.content);
+        if (d.descriptor.format === "json") {
+          editorRef.current?.update({ text: d.content });
+        } else {
+          editorRef.current = null;
         }
-        api
-          .get<BackupInfo[]>(`/api/configs/${name}/backups`)
-          .then(setBackups)
-          .catch(() => setBackups([]));
-      } else {
-        setBackups([]);
-      }
-    },
-    [],
-  );
+      })
+      .catch((e) => setMessage({ kind: "err", text: e.message }));
+    // 백업은 쓰기 가능한 모든 설정 파일에 있다(main이 읽기 전용 파일엔 빈 목록을 준다).
+    call("config:backups", fileId)
+      .then(setBackups)
+      .catch(() => setBackups([]));
+  }, []);
 
   useEffect(() => {
     setMessage(null);
-    api
-      .get<NormalizedConfigFile[]>(`/api/config/files?${providerQuery}`)
+    call("config:list", providerFilter)
       .then((nextFiles) => {
         setFiles(nextFiles);
         setSelectedId((prev) => {
           if (nextFiles.some((file) => file.id === prev)) return prev;
-          const preferred = nextFiles.find((file) => toLegacyConfigName(file.id));
+          const preferred = nextFiles.find((file) => file.writable);
           return preferred?.id ?? nextFiles[0]?.id ?? "";
         });
       })
       .catch((e) => setMessage({ kind: "err", text: e.message }));
-  }, [providerQuery]);
+  }, [providerFilter]);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -276,14 +147,13 @@ export default function ConfigEditor({ providerFilter }: Props) {
       setExternalChange(false);
       return;
     }
-    loadSelected(selectedFile.id, Boolean(legacyName));
-  }, [legacyName, loadSelected, selectedFile]);
+    loadSelected(selectedFile.id);
+  }, [loadSelected, selectedFile]);
 
   useEffect(() => {
     if (!data || !selectedFile) return;
     const t = setInterval(() => {
-      api
-        .get<ConfigData>(`/api/config/file/${encodeURIComponent(selectedFile.id)}`)
+      call("config:read", selectedFile.id)
         .then((d) => {
           if (d.sha256 !== data.sha256) setExternalChange(true);
         })
@@ -291,13 +161,6 @@ export default function ConfigEditor({ providerFilter }: Props) {
     }, 5000);
     return () => clearInterval(t);
   }, [data, selectedFile]);
-
-  useEffect(() => {
-    const el = document.documentElement;
-    const obs = new MutationObserver(() => setIsDark(el.getAttribute("data-theme") !== "light"));
-    obs.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => obs.disconnect();
-  }, []);
 
   const jsonValid = !isJson
     ? true
@@ -313,15 +176,9 @@ export default function ConfigEditor({ providerFilter }: Props) {
   const save = async () => {
     if (!data || !selectedFile) return;
     try {
-      const res = await api.put<{ sha256: string; backup: string }>(
-        `/api/config/file/${encodeURIComponent(selectedFile.id)}`,
-        {
-          content: text,
-          baseHash: data.sha256,
-        },
-      );
+      const res = await call("config:write", selectedFile.id, text, data.sha256);
       setMessage({ kind: "ok", text: `저장 완료 (백업: ${res.backup})` });
-      loadSelected(selectedFile.id, Boolean(legacyName));
+      loadSelected(selectedFile.id);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setMessage({ kind: "err", text: "충돌(409): 파일이 외부에서 변경되었습니다. 다시 불러오세요." });
@@ -333,11 +190,18 @@ export default function ConfigEditor({ providerFilter }: Props) {
   };
 
   const restore = async (backup: string) => {
-    if (!legacyName || !confirm(`${backup} 으로 복원할까요? (현재본도 백업됩니다)`)) return;
+    if (!selectedFile) return;
+    const ok = await confirm({
+      title: "이 백업으로 복원할까요?",
+      message: `${backup}
+현재 내용도 백업으로 남깁니다.`,
+      confirmLabel: "복원",
+    });
+    if (!ok) return;
     try {
-      await api.post(`/api/configs/${legacyName}/restore`, { backup });
+      await call("config:restore", selectedFile.id, backup);
       setMessage({ kind: "ok", text: "복원 완료" });
-      loadSelected(legacyName, true);
+      loadSelected(selectedFile.id);
     } catch (e) {
       setMessage({ kind: "err", text: (e as Error).message });
     }
@@ -359,6 +223,7 @@ export default function ConfigEditor({ providerFilter }: Props) {
 
   return (
     <div>
+      {dialog}
       <h2>
         Config Editor{" "}
         <span className={`provider-badge ${providerFilter !== "all" ? providerBadgeClass(providerFilter) : ""}`}>
@@ -396,7 +261,7 @@ export default function ConfigEditor({ providerFilter }: Props) {
       {externalChange && selectedFile && (
         <div className="banner warn">
           파일이 외부에서 변경되었습니다.{" "}
-          <button className="btn ghost" onClick={() => loadSelected(selectedFile.id, Boolean(legacyName))}>
+          <button className="btn ghost" onClick={() => loadSelected(selectedFile.id)}>
             다시 불러오기
           </button>
         </div>
@@ -453,7 +318,7 @@ export default function ConfigEditor({ providerFilter }: Props) {
             {dirty && jsonValid && <span className="tag muted">수정됨</span>}
           </p>
 
-          {legacyName && (
+          {data.descriptor.writable && (
             <>
               <h3>백업 ({backups.length})</h3>
               <table>
@@ -494,7 +359,6 @@ export default function ConfigEditor({ providerFilter }: Props) {
         </div>
       )}
 
-      {providerFilter !== "codex" && <HookInstallPanel />}
     </div>
   );
 }

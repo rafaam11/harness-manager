@@ -1,8 +1,7 @@
-import type { AppApi, RendererApi } from "@shared/types";
+import type { HarnessBridge } from "@shared/api-types";
 
 declare global {
   interface Window {
-    api: RendererApi;
-    app: AppApi;
+    hm: HarnessBridge;
   }
 }
