@@ -43,6 +43,13 @@ async function writeJsonAtomic(p: string, data: unknown) {
 }
 
 async function moveAcrossVolumes(src: string, dest: string) {
+  // 링크(심볼릭·junction)는 링크 자체만 옮긴다. 복사로 넘어가면 대상 폴더 내용이 통째로 복사되거나,
+  // 대상이 없는 링크는 복사가 실패한 채 원본만 지워질 수 있다.
+  const stat = await fs.lstat(src);
+  if (stat.isSymbolicLink()) {
+    await fs.rename(src, dest);
+    return;
+  }
   try {
     await fs.rename(src, dest);
   } catch {

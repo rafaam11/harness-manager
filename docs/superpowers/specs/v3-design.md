@@ -41,17 +41,16 @@
 | D14 | **statusLine은 jinmin-hud로 확정**했다(Q6 해결). claude-hud 플러그인·마켓플레이스와 `statusLine`은 이미 제거했다. capture 초기값에 넣지 않는다. 남은 마켓플레이스는 claude-plugins-official, 회사 마켓플레이스, jinmin이다 |
 | D15 | **마켓플레이스 소스는 PC별로 고른다.** 개발 PC는 `directory`(레포 폴더), 새 PC는 GitHub(`rafaam11/harness-manager`)를 쓴다. `manifest/plugins.json`과 위저드에서 선택한다 |
 | D18 | **Electron 43.2.0 + electron-builder 26 적용**(Q9 해결, M2). `sandbox:true`, 커스텀 타이틀바, mcw `installer.nsh`(WMI 정지 PC의 NSIS 무한 대기 회피) |
-| D19 | **설정 백업은 `~/.harness-manager/backups` 한 곳**(M2). v2의 `~/.claude/backups/harness-manager`는 Q3과 같은 방식으로 Cleanup 후보로 다룬다 |
+| D19 | **설정 백업은 `~/.harness-manager/backups` 한 곳**(M2). v2의 `~/.claude/backups/harness-manager`는 정리 화면의 `leftovers` 후보로 다룬다(D24) |
 | D20 | **Codex는 같은 마켓플레이스를 공유하되 `plugins/*`만 enable한다**(M3, 옛 Q12). codex-cli 0.162.1 실측: `codex plugin marketplace add <레포>`가 `.claude-plugin/marketplace.json`을 그대로 읽어 6개를 모두 보여 주고, `jinmin-skills`의 스킬은 `jinmin-skills:<이름>`으로 모델 프롬프트에 들어간다. hook mod도 설치는 되지만(캐시에 복사) Codex는 `hooks.json`의 `modules`를 실행하지 않아 아무 효과가 없다. 오류는 없다. 그래서 `plugins.json`은 provider별 enable 목록을 둔다 |
 | D21 | **레포 일괄 최신화(repo-sync)는 HM 엔진·CLI와 mcw 트리거로 나눈다**(M3.5). 업무 프로젝트→레포 매핑은 mcw만 가지므로 HM은 경로 목록만 받는다. 버튼과 세션 시작 트리거는 mcw가 맡고, 자동 실행은 mcw가 띄운 세션만 대상으로 한다. 세션 브리프에는 최대 3초를 기다린 요약을 넣는다. 명령은 `fetch --prune` + `merge --ff-only @{u}`, 기본값은 쿨다운 10분·동시 4개다. untracked만 있으면 진행한다. HM이 없는 PC는 mcw 대체 구현이 같은 계약을 따른다. 계약은 `docs/contracts/repo-sync.md` |
 | D22 | **capture 정책**(M4, 옛 Q10). 공개·개인을 나눠 개인 값은 `~/.harness-manager/profile/`로 보낸다. 비공개 낱말은 로컬 `profile/private-terms.json`에 두고, 이 파일이 없으면 적용을 막는다. 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 막는다. 관리 키는 `home/managed-keys.json`에 둔다. plugins·mcp·skills는 더하기만 하고 MCP env 값은 자리표시로 적는다. AGENTS.md는 마커 블록(`<!-- >>> harness-manager >>> -->`)이 있으면 그 안이, 없으면 레포 템플릿에 제목이 있는 섹션만 공개다. PS 프로필·gitconfig·WT capture는 마커 merge가 생기는 M6로 미룬다 |
 | D23 | **install은 doctor 검사에서 step을 만든다**(M6). 실행 전후로 같은 검사를 돌려 멱등과 결과 판정을 한다. 실행기는 셸 없이 돌리고 `.cmd` 심만 cmd.exe에 엄격히 인용해 넘긴다. self 마켓플레이스 소스가 다르면 remove → add 뒤 빠진 플러그인을 같은 step에서 다시 설치한다(M11의 1–3단계를 이 step이 한다). 소스는 `settings.json`의 `selfMarketplaceSource`(directory/github). PS 프로필·gitconfig·WT는 템플릿 capture가 먼저 필요해 M6 후속으로 남긴다 |
+| D24 | **정리 확장**(M8, 옛 Q3 결론). v2 앱 데이터와 v2 백업은 지우지 않고 `leftovers` 후보로 보인다. 중복 스킬은 해당 provider에서 플러그인이 켜져 있을 때만 후보로 한다. Codex는 오래된 로그만 다루고 세션·DB는 다루지 않는다. doctor와 정리 화면은 같은 탐색 함수를 쓴다 |
 | D17 | **jk-external-api 흡수**: 공개 색인 사이트였던 jk-external-api(한국 생활·지역 외부 정보원, k-skill 스냅샷, 청사진)를 앱 기능 **"외부 API"** 섹션으로 다시 만든다(M12, v3.0.0 릴리스 뒤). 소스는 단순 복사한다. GitHub Pages 사이트, Cloudflare Worker 미리보기, 주간 자동 PR은 폐기하고 원 레포는 archive한다 |
 | D16 | **mod version 규약**: `mods/*`는 고칠 때마다 `plugin.json` version을 올린다. GitHub 소스에서 version이 그대로면 update를 건너뛰기 때문이다. `plugins/*`에는 version을 두지 않고 커밋 SHA를 따라가게 한다 |
 
 ### 미결 (해당 마일스톤에서 결정)
-- Q3 앱 데이터 처리: `~/.harness-manager/board.json`, `projects.json`, `~/.claude/harness-manager/*`
-  - 권장: v3 첫 실행 때 그대로 둔다. Cleanup에서 아카이브 후보로 보여 준다.
 - Q4 같은 스킬의 사본 두 개(`~/.claude/skills` vs `~/.agents/skills`)가 다를 때 어느 쪽이 최신인지 확인(M9)
 - Q13 외부 API 실시간 미리보기: jk-external-api Worker가 하던 날씨·대기·교통 등 미리보기를 앱 main에서 사용자 키로 로컬 호출할지 정한다. 기본은 제외하고 공식 링크만 제공한다(M12)
 - Q7 cua-driver의 공식 설치 명령, 릴리스 URL, 텔레메트리를 끄는 키(M6에서 `--help`와 문서로 확인)

@@ -5,7 +5,10 @@ export class PathScopeError extends Error {
   statusCode = 403;
 }
 
-export type CleanupArchiveCategory = "projects" | `temp/${string}`;
+/** v3에서 더한 정리 분류(M8). services/cleanup-targets.ts가 만드는 이름과 같아야 한다. */
+export const V3_CLEANUP_CATEGORIES = ["broken-links", "duplicate-skills", "leftovers", "codex-logs"] as const;
+
+export type CleanupArchiveCategory = "projects" | `temp/${string}` | (typeof V3_CLEANUP_CATEGORIES)[number];
 
 function fail(label: string, value: string): never {
   throw new PathScopeError(`${label} is outside allowed scope: ${value}`);
@@ -38,6 +41,7 @@ export function assertSafeRelativePath(value: string, label: string): string {
 
 export function assertCleanupCategory(value: string): CleanupArchiveCategory {
   if (value === "projects") return value;
+  if ((V3_CLEANUP_CATEGORIES as readonly string[]).includes(value)) return value as CleanupArchiveCategory;
   for (const dir of TEMP_DIRS) {
     const allowed = `temp/${dir}` as CleanupArchiveCategory;
     if (value === allowed) return allowed;

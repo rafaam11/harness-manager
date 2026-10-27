@@ -5,6 +5,19 @@ import { useConfirmDialog } from "../components/confirm-dialog";
 
 interface MovePreview { from: string; category: string }
 
+/** 분류 이름(main이 정한 값) → 화면 라벨. 모르는 분류는 이름 그대로 보인다. */
+const CATEGORY_LABELS: Record<string, string> = {
+  projects: "오래된 프로젝트",
+  "broken-links": "깨진 스킬 링크",
+  "duplicate-skills": "중복 스킬(플러그인으로 옮겨짐)",
+  leftovers: "남은 흔적(claude-hud·v2)",
+  "codex-logs": "오래된 Codex 로그",
+};
+
+function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] ?? (category.startsWith("temp/") ? `임시 파일 ${category.slice(5)}` : category);
+}
+
 type View = "candidates" | "archive";
 
 export default function Cleanup() {
@@ -141,7 +154,7 @@ export default function Cleanup() {
   return (
     <div>
       {dialog}
-      <h2>Cleanup</h2>
+      <h2>정리</h2>
       {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
 
       <div className="ws-detail-mode cleanup-mode">
@@ -196,7 +209,7 @@ export default function Cleanup() {
               <div className="cleanup-preview-list">
                 {preview.map((p) => (
                   <div className="cleanup-preview-row" key={p.from}>
-                    <span className="tag muted">{p.category}</span>
+                    <span className="tag muted">{categoryLabel(p.category)}</span>
                     <span className="mono cleanup-preview-path">{p.from}</span>
                   </div>
                 ))}
@@ -221,7 +234,7 @@ export default function Cleanup() {
                       {warnOnly ? (
                         <span className="tag warn">경고</span>
                       ) : (
-                        <span className="tag muted">{g.category}</span>
+                        <span className="tag muted">{categoryLabel(g.category)}</span>
                       )}
                       <span className="cat-count">{g.items.length}</span>
                     </button>

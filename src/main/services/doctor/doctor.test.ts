@@ -156,6 +156,11 @@ describe("doctor", () => {
   });
 
   it("스킬: 외부 스킬 설치, 깨진 링크, 플러그인으로 옮겨진 스킬의 낡은 사본을 잡는다", async () => {
+    // 플러그인이 꺼져 있으면 loose 사본이 아직 유일한 사본이라 중복이 아니다.
+    expect(Object.values(checksOf(await runDoctorWith(ctx), "skills")).some((check) => check.title.startsWith("중복"))).toBe(false);
+    const settingsPath = path.join(ctx.claudeHome, "settings.json");
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    write(settingsPath, { ...settings, enabledPlugins: { ...settings.enabledPlugins, "jinmin-skills@jinmin": true } });
     const checks = Object.values(checksOf(await runDoctorWith(ctx), "skills"));
     expect(checks.find((check) => check.id === "skills.external.find-skills")!.state).toBe("missing");
     expect(checks.find((check) => check.title === "깨진 링크 broken")!.state).toBe("drift");

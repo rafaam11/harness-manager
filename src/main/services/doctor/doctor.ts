@@ -22,6 +22,7 @@ import type {
 } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR } from "../../config.js";
 import { findOnPath } from "../../providers/provider-launch.js";
+import { findBrokenLinks, findDuplicateSkills, findLeftovers, skillDirs, type CleanupScanContext } from "../cleanup-targets.js";
 import { readAppSettings } from "../settings.js";
 import { tildify } from "../capture/exposure.js";
 import { SELF_MARKETPLACE } from "../capture/targets.js";
@@ -391,15 +392,14 @@ async function checkPlugins(ctx: DoctorContext, manifests: Manifests): Promise<D
   }
 
   // 제거한 claude-hud가 남긴 폴더(스펙 §5-3). 지우지 않고 정리 화면에서 아카이브한다.
-  for (const leftover of [path.join(ctx.claudeHome, "plugins", "cache", "claude-hud"), path.join(ctx.claudeHome, "plugins", "claude-hud")]) {
-    if (await exists(leftover)) {
-      checks.push({
-        id: `plugins.leftover.${path.basename(path.dirname(leftover))}`,
-        title: "claude-hud 잔여 폴더",
-        state: "drift",
-        detail: `${tildify(leftover, ctx.home)} — 정리 화면에서 아카이브하세요`,
-      });
-    }
+  for (const leftover of await findLeftovers(cleanupScanContext(ctx))) {
+    if (!leftover.path.toLowerCase().includes("claude-hud")) continue;
+    checks.push({
+      id: `plugins.leftover.${path.basename(path.dirname(leftover.path))}`,
+      title: "claude-hud 잔여 폴더",
+      state: "drift",
+      detail: `${tildify(leftover.path, ctx.home)} — 정리 화면에서 아카이브하세요`,
+    });
   }
   return checks;
 }
@@ -421,17 +421,17 @@ async function findFile(root: string, name: string, depth: number): Promise<stri
   return null;
 }
 
-/** 이 레포 plugins 폴더 아래 각 플러그인의 skills 이름. 같은 이름의 loose 스킬은 옮기기 전 사본이다. */
-async function repoPluginSkills(repoRoot: string): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
-  const pluginsDir = path.join(repoRoot, "plugins");
-  const plugins = await fs.readdir(pluginsDir, { withFileTypes: true }).catch(() => []);
-  for (const plugin of plugins) {
-    if (!plugin.isDirectory()) continue;
-    const skills = await fs.readdir(path.join(pluginsDir, plugin.name, "skills"), { withFileTypes: true }).catch(() => []);
-    for (const skill of skills) if (skill.isDirectory()) result.set(skill.name, plugin.name);
-  }
-  return result;
+function cleanupScanContext(ctx: DoctorContext): CleanupScanContext {
+  return {
+    home: ctx.home,
+    claudeHome: ctx.claudeHome,
+    codexHome: ctx.codexHome,
+    agentsSkillsDir: ctx.agentsSkillsDir,
+    appStateDir: path.dirname(ctx.profileDir),
+    repoRoot: ctx.repoRoot,
+    staleDays: 30,
+    now: ctx.now().getTime(),
+  };
 }
 
 async function checkSkills(ctx: DoctorContext, manifests: Manifests): Promise<DoctorCheck[]> {
@@ -446,37 +446,23 @@ async function checkSkills(ctx: DoctorContext, manifests: Manifests): Promise<Do
     checks.push({ id, title: entry.id, state: installed ? "ok" : "missing", detail: installed ? `${entry.source}` : `${entry.source}에서 설치되지 않음`, local });
   }
 
-  const pluginSkills = await repoPluginSkills(ctx.repoRoot);
-  const dirs = [path.join(ctx.claudeHome, "skills"), ctx.agentsSkillsDir, path.join(ctx.codexHome, "skills")];
-  for (const dir of dirs) {
-    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isSymbolicLink()) {
-        let target: string | null = null;
-        try {
-          target = await fs.readlink(full);
-          await fs.stat(full);
-        } catch {
-          checks.push({
-            id: `skills.broken.${tildify(full, ctx.home)}`,
-            title: `깨진 링크 ${entry.name}`,
-            state: "drift",
-            detail: `${tildify(full, ctx.home)} → ${target ? tildify(target, ctx.home) : "?"} (대상 없음)`,
-          });
-          continue;
-        }
-      }
-      const plugin = pluginSkills.get(entry.name);
-      if (plugin && (entry.isDirectory() || entry.isSymbolicLink())) {
-        checks.push({
-          id: `skills.duplicate.${tildify(full, ctx.home)}`,
-          title: `중복 스킬 ${entry.name}`,
-          state: "drift",
-          detail: `${tildify(full, ctx.home)}는 플러그인 ${plugin}로 옮겨진 스킬의 낡은 사본입니다`,
-        });
-      }
-    }
+  // 정리 화면과 같은 함수로 찾는다 — 상태판이 노랑으로 알리는 것을 정리 화면이 그대로 후보로 보인다.
+  const scan = cleanupScanContext(ctx);
+  for (const link of await findBrokenLinks(skillDirs(scan).map((entry) => entry.dir))) {
+    checks.push({
+      id: `skills.broken.${tildify(link.path, ctx.home)}`,
+      title: `깨진 링크 ${path.basename(link.path)}`,
+      state: "drift",
+      detail: `${tildify(link.path, ctx.home)} → ${link.target ? tildify(link.target, ctx.home) : "?"} (대상 없음) — 정리 화면에서 아카이브하세요`,
+    });
+  }
+  for (const duplicate of await findDuplicateSkills(scan)) {
+    checks.push({
+      id: `skills.duplicate.${tildify(duplicate.path, ctx.home)}`,
+      title: `중복 스킬 ${path.basename(duplicate.path)}`,
+      state: "drift",
+      detail: `${tildify(duplicate.path, ctx.home)}는 플러그인 ${duplicate.plugin}로 옮겨진 스킬의 낡은 사본입니다 — 정리 화면에서 아카이브하세요`,
+    });
   }
   return checks;
 }

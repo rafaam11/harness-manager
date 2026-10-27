@@ -20,9 +20,11 @@ export const APP_SETTINGS_FILE = path.join(APP_STATE_DIR, "settings.json");
 export const REPO_LOCATION_FILE = path.join(APP_STATE_DIR, "repo.json");
 // 외부 스킬(npx skills)의 설치 기록. capture가 manifest/skills.json의 원본으로 읽는다.
 export const AGENTS_SKILL_LOCK = path.join(HM_USER_HOME, ".agents", ".skill-lock.json");
+// npx skills·Codex가 함께 쓰는 스킬 폴더. 정리(M8)가 깨진 링크·중복 사본을 옮기려면 이 폴더가 allowlist에 있어야 한다.
+export const AGENTS_SKILLS_DIR = path.join(HM_USER_HOME, ".agents", "skills");
 
 // 모든 파일 연산이 허용되는 경로. path-guard가 이 목록으로 검사한다.
-export const ALLOWED_ROOTS = [CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, APP_STATE_DIR];
+export const ALLOWED_ROOTS = [CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, APP_STATE_DIR, AGENTS_SKILLS_DIR];
 
 // 설정 파일 쓰기·복원의 .bak 백업 위치(앱 소유). v2의 ~/.claude/backups/harness-manager는 더 이상 쓰지 않는다.
 export const BACKUP_DIR = path.join(APP_STATE_DIR, "backups");

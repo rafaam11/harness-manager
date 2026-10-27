@@ -93,6 +93,8 @@ async function writableConfigFile(id: string): Promise<NormalizedConfigFile> {
 }
 
 export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
+  // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
+  const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
     "app:version": () => deps.appVersion(),
     "app:open-releases": () => deps.openReleases(),
@@ -160,12 +162,12 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
         )
       ).flat(),
 
-    "cleanup:scan": () => scanCandidates(),
+    "cleanup:scan": () => scanWithRepo(),
     "cleanup:execute": async (paths, dryRun): Promise<CleanupExecuteResult> => {
       const requested = new Set(nonEmptyStringArray(paths, "paths"));
       const isDryRun = booleanValue(dryRun, "dryRun");
       // 렌더러가 보낸 경로·카테고리를 믿지 않는다. 지금 다시 스캔한 후보 중 요청과 맞는 것만 옮긴다.
-      const candidates = (await scanCandidates()).filter((c) => requested.has(c.path));
+      const candidates = (await scanWithRepo()).filter((c) => requested.has(c.path));
       if (candidates.length !== requested.size) {
         throw new RequestError(409, "정리 후보가 바뀌었습니다. 다시 스캔한 뒤 선택하세요.");
       }

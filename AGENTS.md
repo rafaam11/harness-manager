@@ -75,8 +75,8 @@
 | M4 | manifest 스키마와 capture 엔진 | 완료 |
 | M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료 |
 | M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 엔진·화면 완료. PS 프로필·gitconfig·WT capture/install은 남음 |
-| M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료(확인 대기) |
-| M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | |
+| M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료 |
+| M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료(확인 대기) |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
 | M10 | v3.0.0 릴리스 | |
 | M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
@@ -180,6 +180,12 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **정리 확장(M8)**: `services/cleanup-targets.ts`가 v3 후보를 찾는다. doctor도 같은 함수를 쓴다(상태판의 노랑 = 정리 화면의 후보).
+  - `broken-links`: `~/.claude/skills`·`~/.agents/skills`·`~/.codex/skills`에서 대상이 없는 링크
+  - `duplicate-skills`: 이 레포 플러그인으로 옮긴 스킬의 loose 사본. **그 provider에서 플러그인이 켜져 있을 때만** 후보다(아니면 유일한 사본이다).
+  - `leftovers`: claude-hud 캐시·폴더, v2 앱 데이터(`~/.harness-manager/board.json`·`projects.json`, `~/.claude/harness-manager`, `~/.claude/backups/harness-manager`)
+  - `codex-logs`: `~/.codex`의 `sandbox*.log`와 `log/` 중 30일 넘은 것. 세션 기록·DB는 건드리지 않는다.
+  - 아카이브는 기존과 같은 `~/.claude/archive/<날짜>/<분류>/`이다. 링크는 링크 자체만 옮긴다(복사로 넘어가지 않는다). `~/.agents/skills`를 allowlist에 더했다.
 - **셋업 위저드(M7)**
   - `pages/Wizard.tsx`는 8단계다: 환영(레포 위치) → 진단(카드) → 프로필·마켓플레이스 소스 → 항목 고르기 → 미리보기(dry-run 선택) → 실행(LogTerminal) → 로그인 안내 → 최종 카드.
   - 내비게이션에 없고 타이틀바의 "셋업 위저드" 버튼으로 연다(`PageContext.navigate`).
@@ -237,7 +243,7 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 - `providers/`: `ProviderAdapter`(claude, codex)와 `registry`. provider별 home·설정 파일·카탈로그·MCP·실행 감지를 맡는다.
   - 인터페이스는 `listConfigFiles`·`readMcpServers`·`listCatalog`·`detectRunning`만 갖는다(세션·프로젝트·계획 조회는 M1에서 제거).
 - `services/`: `catalog`, `plugins`, `mcp`, `scan`, `projects`(stale 계산 `getProjects`·`guessOriginalPath`).
-- v2가 사용자 PC에 남긴 앱 데이터(`~/.harness-manager/board.json`·`projects.json`, `~/.claude/harness-manager/*`)는 더 이상 읽지 않는다. 처리 방식은 설계 스펙 Q3을 따른다.
+- v2가 사용자 PC에 남긴 앱 데이터(`~/.harness-manager/board.json`·`projects.json`, `~/.claude/harness-manager/*`)는 더 이상 읽지 않는다. 지우지 않고 정리 화면의 `leftovers` 후보로 보인다(스펙 D24).
 
 ### Renderer (`src/renderer/src/`, React 18)
 - 라우터와 상태관리 라이브러리를 쓰지 않는다. 화면 목록은 `pages/registry.tsx` 하나이고, `App.tsx`는 타이틀바·내비·본문을 그리는 셸만 맡는다.
