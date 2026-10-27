@@ -1,6 +1,7 @@
 // renderer ↔ main IPC 계약의 단일 출처. 채널 이름·인자·반환 타입을 여기 한 곳에서만 정의하고,
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
 import type { DoctorReport } from "./doctor-types";
+import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
@@ -172,6 +173,13 @@ export interface ApiChannels {
   "settings:get": () => AppSettings;
   /** 바꿀 키만 보낸다. 모르는 키나 값은 400. */
   "settings:set": (patch: Partial<AppSettings>) => AppSettings;
+
+  /** 외부 API 카탈로그(M12). 새로고침한 k-skill 스냅샷이 있으면 그것으로 만든다. */
+  "external-api:catalog": () => ExternalApiSnapshot;
+  /** k-skill을 GitHub에서 다시 받아 저장한다(네트워크는 main에서만). */
+  "external-api:refresh": () => ExternalApiSnapshot;
+  /** 정보원 공식 링크를 HEAD로 점검한다. */
+  "external-api:check-links": () => ExternalLinkCheck[];
 }
 
 export type ApiChannel = keyof ApiChannels;
@@ -214,6 +222,9 @@ export const API_CHANNELS = [
   "install:cancel",
   "settings:get",
   "settings:set",
+  "external-api:catalog",
+  "external-api:refresh",
+  "external-api:check-links",
 ] as const satisfies readonly ApiChannel[];
 
 // 목록에서 빠진 채널이 있으면 여기서 컴파일 에러가 난다(맵과 목록이 어긋나지 않게).

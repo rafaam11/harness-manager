@@ -5,6 +5,7 @@ import Catalog from "./Catalog";
 import Cleanup from "./Cleanup";
 import ConfigEditor from "./ConfigEditor";
 import Dashboard from "./Dashboard";
+import ExternalApi from "./ExternalApi";
 import Install from "./Install";
 import Wizard from "./Wizard";
 
@@ -32,6 +33,7 @@ export const PAGES = {
   cleanup: { label: "정리", render: () => <Cleanup /> },
   configs: { label: "설정 편집기", render: ({ providerFilter }) => <ConfigEditor providerFilter={providerFilter} /> },
   capture: { label: "가져오기", render: () => <Capture /> },
+  "external-api": { label: "외부 API", wide: true, render: () => <ExternalApi /> },
   // 내비게이션에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.
   wizard: { label: "셋업 위저드", render: ({ navigate }) => <Wizard onFinish={() => navigate("dashboard")} /> },
 } satisfies Record<string, PageDefinition>;
@@ -39,4 +41,4 @@ export const PAGES = {
 export type PageKey = keyof typeof PAGES;
 
 // 첫 화면은 상태판이다(D: 상태판 + 섹션 탭).
-export const PAGE_ORDER: PageKey[] = ["dashboard", "install", "catalog", "cleanup", "configs", "capture"];
+export const PAGE_ORDER: PageKey[] = ["dashboard", "install", "catalog", "cleanup", "configs", "capture", "external-api"];

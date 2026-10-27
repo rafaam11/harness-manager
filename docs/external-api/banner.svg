@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 200" width="920" height="200" role="img" aria-label="JK External API">
+  <defs>
+    <linearGradient id="jea-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2230"/>
+      <stop offset="1" stop-color="#0f131a"/>
+    </linearGradient>
+    <linearGradient id="jea-logobg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232c3d"/>
+      <stop offset="1" stop-color="#161c27"/>
+    </linearGradient>
+  </defs>
+  <rect width="920" height="200" rx="18" fill="url(#jea-bg)"/>
+  <rect x="0.5" y="0.5" width="919" height="199" rx="17.5" fill="none" stroke="#2a3242"/>
+
+  <!-- logo (motif from apps/site/public/favicon.svg — route cross + node) -->
+  <g transform="translate(56,58) scale(3.5)">
+    <rect x="1.32" y="1.32" width="21.36" height="21.36" rx="5.4" fill="url(#jea-logobg)"/>
+    <g stroke="#5b9bdb" stroke-width="2.6" stroke-linecap="round">
+      <line x1="6.5" y1="6.5" x2="6.5" y2="17.5"/>
+      <line x1="17.5" y1="6.5" x2="17.5" y2="17.5"/>
+      <line x1="6.5" y1="12" x2="17.5" y2="12"/>
+    </g>
+    <circle cx="12" cy="12" r="2.1" fill="url(#jea-logobg)" stroke="#5b9bdb" stroke-width="2.2"/>
+  </g>
+
+  <!-- title + tagline -->
+  <text x="186" y="92" font-family="Segoe UI, system-ui, sans-serif" font-size="40" font-weight="700" fill="#f3f5f9">JK External API</text>
+  <text x="188" y="125" font-family="Segoe UI, system-ui, sans-serif" font-size="17" fill="#98a2b3">정보원 · 기술 · k-skill · 청사진을 잇는 읽기 전용 색인 — 정적 사이트</text>
+
+  <!-- chips -->
+  <g font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600">
+    <rect x="188" y="146" width="102" height="25" rx="12.5" fill="#1a2130" stroke="#2a3242"/>
+    <text x="239" y="163" fill="#5b9bdb" text-anchor="middle">정적 사이트</text>
+    <rect x="300" y="146" width="150" height="25" rx="12.5" fill="#1a2130" stroke="#2a3242"/>
+    <text x="375" y="163" fill="#5b9bdb" text-anchor="middle">Cloudflare Worker</text>
+    <rect x="460" y="146" width="90" height="25" rx="12.5" fill="#1a2130" stroke="#2a3242"/>
+    <text x="505" y="163" fill="#5b9bdb" text-anchor="middle">읽기 전용</text>
+  </g>
+</svg>

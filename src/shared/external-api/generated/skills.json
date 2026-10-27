@@ -1,0 +1,1897 @@
+[
+  {
+    "id": "assembly-bill-vote-search",
+    "name": "assembly-bill-vote-search",
+    "description": "열린국회정보 Open API를 k-skill-proxy 경유로 호출해 의안 검색·상세와 국회의원 본회의 표결정보를 조회한다. 조회 전용.",
+    "category": "civic",
+    "upstreamPath": "assembly-bill-vote-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/assembly-bill-vote-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [
+      "ASSEMBLY_API_KEY",
+      "KSKILL_ASSEMBLY_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "biz-health-check",
+    "name": "biz-health-check",
+    "description": "사업자등록번호 하나로 \"이 사업자, 실제 문제 없나\"를 확인한다 — 국세청 사업자등록 상태·국민연금 가입 사업장·국세 체납 명단·금융위 법인개요·조달청 부정당제재·지방행정 인허가 영업상태를 무료 공공 데이터로 교차 조회해 사실만 병렬하는 실사 리포트(점수·등급·위험 판정 없음).",
+    "category": "business",
+    "upstreamPath": "biz-health-check/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/biz-health-check/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "bunjang-search",
+    "name": "bunjang-search",
+    "description": "번개장터 검색, 상세조회, 찜, 채팅, 대량 수집, AI TOON export를 bunjang-cli로 안내한다.",
+    "category": "marketplace",
+    "upstreamPath": "bunjang-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/bunjang-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "catchtable-sniper",
+    "name": "catchtable-sniper",
+    "description": "Monitor Catchtable for open reservation slots and attempt booking using a logged-in Chrome session.",
+    "category": "lifestyle",
+    "upstreamPath": "catchtable-sniper/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/catchtable-sniper/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Agent skill"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "cheap-gas-nearby",
+    "name": "cheap-gas-nearby",
+    "description": "Use when the user asks for nearby cheapest gas stations or 근처 가장 싼 주유소. Always ask the user's current location first, then use Kakao Map anchor resolution plus official Opinet fuel-price APIs.",
+    "category": "transport",
+    "upstreamPath": "cheap-gas-nearby/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/cheap-gas-nearby/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "OPINET_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "corporate-registration-consulting",
+    "name": "corporate-registration-consulting",
+    "description": "법인등기소/인터넷등기소 상업등기 신청을 처음 하는 사용자를 위해 일반 영리 주식회사 발기설립 절차, 정관·첨부서류 실제 HWP 양식 작성, 등록면허세·과밀억제권역 중과 체크, rhwp 기반 순차 검토 흐름을 참고용으로 안내한다.",
+    "category": "legal-documents",
+    "upstreamPath": "corporate-registration-consulting/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/corporate-registration-consulting/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "coupang-product-search",
+    "name": "coupang-product-search",
+    "description": "retention-corp/coupang_partners의 로컬 Coupang MCP 호환 레이어로 쿠팡 상품 검색, 로켓배송 필터, 가격대 검색, 상품 비교, 베스트 상품, 골드박스 특가를 조회한다.",
+    "category": "retail",
+    "upstreamPath": "coupang-product-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/coupang-product-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "COUPANG_ACCESS_KEY",
+      "COUPANG_SECRET_KEY",
+      "OPENCLAW_SHOPPING_BASE_URL",
+      "OPENCLAW_SHOPPING_CLIENT_ID"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "court-auction-notice-search",
+    "name": "court-auction-notice-search",
+    "description": "Browse 대법원경매정보(courtauction.go.kr) 부동산 매각공고 by 매각기일·법원·기일/기간 입찰, expand each notice into 사건번호·용도·주소·감정평가액·최저매각가, search property items by free conditions(지역·용도·가격·면적·유찰횟수), and look up a case directly by 법원+사건번호. Read-only, slow-by-design (~2s/call) to avoid IP blocks.",
+    "category": "real-estate",
+    "upstreamPath": "court-auction-notice-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/court-auction-notice-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "court-payment-order-assistant",
+    "name": "court-payment-order-assistant",
+    "description": "법원 전자소송 지급명령 신청을 위해 채권자·채무자·청구금액·청구원인·증빙 정보를 인터뷰하고, 신청서 초안과 공식 전자소송 브라우저 입력 handoff를 준비한다.",
+    "category": "legal",
+    "upstreamPath": "court-payment-order-assistant/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/court-payment-order-assistant/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "d2b-notice-search",
+    "name": "d2b-notice-search",
+    "description": "국방전자조달시스템(D2B) 공개 입찰공고 검색 화면에서 공고건명·공고구분·공고/개찰일·G2B공고번호·발주기관 조건으로 공고를 조회한다.",
+    "category": "procurement",
+    "upstreamPath": "d2b-notice-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/d2b-notice-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "daangn-cars-search",
+    "name": "daangn-cars-search",
+    "description": "당근중고차 공개 웹 데이터 표면으로 지역·가격 조건 기반 차량 검색과 상세 조회를 수행한다. 문의/구매 자동화는 제외한다.",
+    "category": "automotive",
+    "upstreamPath": "daangn-cars-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daangn-cars-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "daangn-jobs-search",
+    "name": "daangn-jobs-search",
+    "description": "당근알바 공개 웹 데이터 표면으로 키워드·지역 기반 알바 공고 검색과 상세 조회를 수행한다. 지원/채팅 자동화는 제외한다.",
+    "category": "jobs",
+    "upstreamPath": "daangn-jobs-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daangn-jobs-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "daangn-realty-search",
+    "name": "daangn-realty-search",
+    "description": "당근부동산(realty.daangn.com) 공개 웹 데이터로 지역 기반 부동산 매물 검색과 상세 확인을 수행한다. 문의/예약/계약 자동화는 제외한다.",
+    "category": "real-estate",
+    "upstreamPath": "daangn-realty-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daangn-realty-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "daangn-used-goods-search",
+    "name": "daangn-used-goods-search",
+    "description": "당근 중고거래 공개 웹 데이터 표면으로 키워드·지역 기반 매물 검색과 상세 조회를 수행한다. 로그인/채팅/찜/구매 자동화는 제외한다.",
+    "category": "marketplace",
+    "upstreamPath": "daangn-used-goods-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daangn-used-goods-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "daishin-report-search",
+    "name": "daishin-report-search",
+    "description": "대신증권 리포트 GitHub Pages 미러에서 최신 HTML 리포트 목록과 원문/설명 페이지를 조회한다.",
+    "category": "finance",
+    "upstreamPath": "daishin-report-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daishin-report-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "DAISHIN_GITHUB_TOKEN",
+      "GITHUB_TOKEN"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "daiso-product-search",
+    "name": "daiso-product-search",
+    "description": "Look up Daiso products by store name and product keyword using official Daiso Mall store/search/stock surfaces. Use when the user wants to know whether a product is available at a specific Daiso store.",
+    "category": "retail",
+    "upstreamPath": "daiso-product-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/daiso-product-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "PRE_AUTH_ENC_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "danawa-price-search",
+    "name": "danawa-price-search",
+    "description": "다나와 공개 검색/가격비교 표면으로 상품 후보를 찾고, 쇼핑몰별 최저가·배송비 포함 실구매가·카드 할인가·무이자 할부 정보를 보수적으로 비교한다.",
+    "category": "retail",
+    "upstreamPath": "danawa-price-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/danawa-price-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "delivery-tracking",
+    "name": "delivery-tracking",
+    "description": "Track CJ대한통운 and 우체국 parcels by invoice number with official carrier endpoints, and structure the workflow around a carrier adapter that can grow to more couriers later.",
+    "category": "logistics",
+    "upstreamPath": "delivery-tracking/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/delivery-tracking/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "donation-place-search",
+    "name": "donation-place-search",
+    "description": "Use when the user asks where to donate, 기부처 조회, or donation place recommendations by Korean location and category. Recommend recipients with best-effort 1365 verification-assist links and never execute donations.",
+    "category": "utility",
+    "upstreamPath": "donation-place-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/donation-place-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "emergency-room-beds",
+    "name": "emergency-room-beds",
+    "description": "Use when the user asks for nearby Korean emergency rooms, 응급실, ER, or emergency bed/병상 status near a location. Ask for the user's current location first unless a location was already provided.",
+    "category": "health",
+    "upstreamPath": "emergency-room-beds/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/emergency-room-beds/SKILL.md",
+    "sourceIds": [
+      "e-gen",
+      "data-go-kr"
+    ],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "express-bus-booking",
+    "name": "express-bus-booking",
+    "description": "Search and assist Korean 고속버스/KOBUS bookings using official HTTP/API-first flows; use for 고속버스 예매, 시간표, 좌석 조회, 임시 선점, and official checkout-entry handoff.",
+    "category": "travel",
+    "upstreamPath": "express-bus-booking/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/express-bus-booking/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "fine-dust-location",
+    "name": "fine-dust-location",
+    "description": "에어코리아 기반 미세먼지/초미세먼지를 지역명 또는 위치 힌트로 조회한다. 기본 경로는 k-skill-proxy의 report endpoint다.",
+    "category": "utility",
+    "upstreamPath": "fine-dust-location/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/fine-dust-location/SKILL.md",
+    "sourceIds": [
+      "airkorea",
+      "data-go-kr"
+    ],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "flight-ticket-search",
+    "name": "flight-ticket-search",
+    "description": "Google Flights 공개 검색 표면을 무료로 조회해 항공권 후보, 예약 검색 링크, 날짜/월/연도별 최저가·평균가 비교를 보수적으로 제공한다.",
+    "category": "travel",
+    "upstreamPath": "flight-ticket-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/flight-ticket-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "foresttrip-vacancy",
+    "name": "foresttrip-vacancy",
+    "description": "Look up available Korean national forest recreation lodging or camping slots on foresttrip.go.kr. Use when the user asks for 숲나들e or 자연휴양림 빈 객실/빈자리 조회, not for booking.",
+    "category": "travel",
+    "upstreamPath": "foresttrip-vacancy/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/foresttrip-vacancy/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "fsc-corporate-info",
+    "name": "fsc-corporate-info",
+    "description": "금융위원회 기업기본정보(법인 개요)를 공공데이터포털 API(k-skill-proxy 경유)로 조회한다. 법인명으로 대표자·설립일·업종 등 법인 개요를 확인하고, 응답에 사업자번호가 있으면 입력 번호와 교차검증한다.",
+    "category": "business",
+    "upstreamPath": "fsc-corporate-info/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/fsc-corporate-info/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "g2b-order-plan-search",
+    "name": "g2b-order-plan-search",
+    "description": "조달청 나라장터 발주계획현황서비스로 물품·공사·용역·외자 발주계획 목록을 검색한다.",
+    "category": "business",
+    "upstreamPath": "g2b-order-plan-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/g2b-order-plan-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "g2b-sanctioned-supplier",
+    "name": "g2b-sanctioned-supplier",
+    "description": "조달청 나라장터 부정당제재업체정보를 공공데이터포털 API(k-skill-proxy 경유)로 조회한다. 사업자등록번호 정확 일치로 조회시점 현재 유효한 입찰참가자격 제한(부정당제재)의 기간·제재기관·근거법률을 확인한다.",
+    "category": "business",
+    "upstreamPath": "g2b-sanctioned-supplier/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/g2b-sanctioned-supplier/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "gangnamunni-clinic-search",
+    "name": "gangnamunni-clinic-search",
+    "description": "강남언니 공개 검색 페이지에서 성형외과·피부과 병원 후보, 평점, 리뷰 수, 지원 언어, 공개 병원 링크를 조회한다.",
+    "category": "beauty",
+    "upstreamPath": "gangnamunni-clinic-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/gangnamunni-clinic-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "geeknews-search",
+    "name": "geeknews-search",
+    "description": "GeekNews public RSS/Atom feed로 긱뉴스 게시물을 조회, 검색, 상세 확인하는 읽기 전용 스킬.",
+    "category": "news",
+    "upstreamPath": "geeknews-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/geeknews-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "gongsijiga-search",
+    "name": "gongsijiga-search",
+    "description": "대한민국 국토교통부가 매년 공시하는 \"개별공시지가\"(원/㎡) 조회.\n지번 단위 토지의 정부 공시 단가로, 재산세·종부세·양도세 등\n세금 산정의 법적 기준이다. **시세/실거래가가 아니다.**\nUse when the user asks for 공시지가, 개별공시지가, 토지 공시단가,\n세무 계산용 토지 단가, or \"이 땅 공시지가 얼마야\".\nDo NOT use for 시세, 실거래가, 매매가, 호가, 공동주택가격\n(those need a different data source).",
+    "category": "real-estate",
+    "upstreamPath": "gongsijiga-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/gongsijiga-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "gov-overseas-trip-report",
+    "name": "gov-overseas-trip-report",
+    "description": "선관위·권익위·정보공개포털·주요 지방의회 등 검증된 공개 표면에서 공무국외출장/국외훈련 보고서·현황을 조회하고, 첨부 원문이 있으면 kordoc으로 사실·공개성·검토 신호만 구조화한다. 부정부패 판정 도구가 아니다.",
+    "category": "civic",
+    "upstreamPath": "gov-overseas-trip-report/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/gov-overseas-trip-report/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "han-river-water-level",
+    "name": "han-river-water-level",
+    "description": "한강홍수통제소 기반 현재 수위/유량을 관측소명 또는 관측소코드로 조회한다. 기본 경로는 k-skill-proxy의 han-river water-level endpoint다.",
+    "category": "utility",
+    "upstreamPath": "han-river-water-level/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/han-river-water-level/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "HRFCO_OPEN_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "hipass-receipt",
+    "name": "hipass-receipt",
+    "description": "공식 하이패스 홈페이지에서 사용자가 직접 로그인한 Chrome 세션을 재사용해 사용내역 조회와 영수증 팝업 진입을 돕는다.",
+    "category": "transport",
+    "upstreamPath": "hipass-receipt/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/hipass-receipt/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "hola-poke-yeoksam",
+    "name": "hola-poke-yeoksam",
+    "description": "올라포케 역삼점의 메뉴·매장 정보·이벤트 참여 흐름을 remote MCP 서버 기준으로 안내한다.",
+    "category": "food",
+    "upstreamPath": "hola-poke-yeoksam/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/hola-poke-yeoksam/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Agent skill"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "household-waste-info",
+    "name": "household-waste-info",
+    "description": "Use when the user asks for 생활쓰레기 배출 요일/시간/장소 정보 by 지역명(시군구) and wants official data.go.kr household waste guidance.",
+    "category": "utility",
+    "upstreamPath": "household-waste-info/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/household-waste-info/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "hwp",
+    "name": "hwp",
+    "description": "Use kordoc for agent-native HWP/HWPX document parsing, JSON extraction, diffing, form-field extraction, and Markdown→HWPX reverse conversion (read/convert only — for binary editing use rhwp-edit).",
+    "category": "documents",
+    "upstreamPath": "hwp/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/hwp/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "intercity-bus-booking",
+    "name": "intercity-bus-booking",
+    "description": "Search and assist Korean 시외버스/Tmoney bookings using official HTTP/API-first flows; use for 시외버스 예매, 시간표, 좌석/요금 조회, and official checkout-entry handoff.",
+    "category": "travel",
+    "upstreamPath": "intercity-bus-booking/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/intercity-bus-booking/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "iros-registry-automation",
+    "name": "iros-registry-automation",
+    "description": "인터넷등기소(IROS)에서 법인/부동산 등기부등본(등기사항증명서) 발급을 준비하고, 사용자가 직접 로그인·결제한 브라우저 흐름 안에서 장바구니·열람·저장을 안전하게 보조한다.",
+    "category": "legal-documents",
+    "upstreamPath": "iros-registry-automation/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/iros-registry-automation/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "job-posting-match",
+    "name": "job-posting-match",
+    "description": "한국 구직자의 이력서·경력요약과 희망조건을 바탕으로 잡코리아·사람인 공개 채용공고를 검색하고 적합도와 지원 전략을 정리합니다.",
+    "category": "recruiting",
+    "upstreamPath": "job-posting-match/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/job-posting-match/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "jobkorea-talent-search",
+    "name": "jobkorea-talent-search",
+    "description": "잡코리아 기업회원 로그인 세션으로 유료 열람 전 마스킹된 인재 이력서를 검색·비교해 채용 검토용 shortlist를 만듭니다.",
+    "category": "recruiting",
+    "upstreamPath": "jobkorea-talent-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/jobkorea-talent-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "joseon-sillok-search",
+    "name": "joseon-sillok-search",
+    "description": "Search Joseon Dynasty Annals records from the official sillok.history.go.kr site with keyword search plus optional king/year narrowing.",
+    "category": "history",
+    "upstreamPath": "joseon-sillok-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/joseon-sillok-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "k-dart",
+    "name": "k-dart",
+    "description": "금융감독원 전자공시시스템(DART) OpenAPI로 공시검색, 기업개황, 재무제표, 주요사항보고서를 조회한다. 사용자의 API_K_DART 환경변수를 직접 사용한다.",
+    "category": "finance",
+    "upstreamPath": "k-dart/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/k-dart/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "k-schoollunch-menu",
+    "name": "k-schoollunch-menu",
+    "description": "Use when the user asks for Korean school meal menus (급식 식단) by natural-language education office and school name, via k-skill-proxy NEIS school-search and school-meal routes.",
+    "category": "utility",
+    "upstreamPath": "k-schoollunch-menu/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/k-schoollunch-menu/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KEDU_INFO_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "k-skill-cleaner",
+    "name": "k-skill-cleaner",
+    "description": "Interview the user and inspect coding-agent skill trigger counts to recommend unused K-skills for removal.",
+    "category": "other",
+    "upstreamPath": "k-skill-cleaner/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/k-skill-cleaner/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "k-skill-setup",
+    "name": "k-skill-setup",
+    "description": "After installing the full k-skill bundle, configure and verify the shared cross-platform setup, then optionally wire update checks and GitHub starring with explicit user consent.",
+    "category": "setup",
+    "upstreamPath": "k-skill-setup/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/k-skill-setup/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "AIR_KOREA_OPEN_API_KEY",
+      "DATA4LIBRARY_AUTH_KEY",
+      "DATA_GO_KR_API_KEY",
+      "FOODSAFETYKOREA_API_KEY",
+      "KEDU_INFO_KEY",
+      "KIPRIS_PLUS_API_KEY",
+      "KMA_OPEN_API_KEY",
+      "KRX_API_KEY",
+      "KSKILL_KSTARTUP_API_KEY",
+      "KSKILL_PROXY_BASE_URL",
+      "OPINET_API_KEY",
+      "SEOUL_OPEN_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "kakao-bar-nearby",
+    "name": "kakao-bar-nearby",
+    "description": "Use when the user asks for nearby bars or 근처 술집. Always ask the user's current location first, then use Kakao Map search + place detail panels to find open-now bars with menu, seating, and phone hints.",
+    "category": "food",
+    "upstreamPath": "kakao-bar-nearby/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kakao-bar-nearby/SKILL.md",
+    "sourceIds": [
+      "kakao-local-mobility"
+    ],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "kakao-map",
+    "name": "kakao-map",
+    "description": "Kakao Local (장소 검색·주소-좌표 변환) + Kakao Mobility (자동차 길찾기) 를 k-skill-proxy 경유로 조회한다. 사용자 키 불필요.",
+    "category": "transit",
+    "upstreamPath": "kakao-map/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kakao-map/SKILL.md",
+    "sourceIds": [
+      "kakao-local-mobility"
+    ],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "KAKAO_REST_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "geospatial",
+      "sdk"
+    ]
+  },
+  {
+    "id": "kakaotalk-mac",
+    "name": "kakaotalk-mac",
+    "description": "Search local KakaoTalk archives on Apple Silicon macOS through the katok CLI.",
+    "category": "messaging",
+    "upstreamPath": "kakaotalk-mac/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kakaotalk-mac/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "kbl-results",
+    "name": "kbl-results",
+    "description": "KBL 한국프로농구 경기 결과와 현재 팀 순위를 날짜/팀 기준으로 조회한다. 공식 JSON 엔드포인트와 kbl-results npm 패키지를 사용한다.",
+    "category": "sports",
+    "upstreamPath": "kbl-results/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kbl-results/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "kbo-results",
+    "name": "kbo-results",
+    "description": "Fetch KBO game schedules and results for a specific date with the kbo-game npm package. Use when the user asks for today's KBO games, yesterday's scores, or a date-specific scoreboard.",
+    "category": "sports",
+    "upstreamPath": "kbo-results/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kbo-results/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "kleague-results",
+    "name": "kleague-results",
+    "description": "케이리그 경기 결과와 현재 순위를 날짜/팀 기준으로 조회한다. 공식 JSON 엔드포인트와 kleague-results npm 패키지를 사용한다.",
+    "category": "sports",
+    "upstreamPath": "kleague-results/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kleague-results/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "kopis-performance-search",
+    "name": "kopis-performance-search",
+    "description": "KOPIS 공연예술통합전산망 Open API를 k-skill-proxy 경유로 조회해 공연 목록·상세와 공연시설 정보를 찾는다. 조회 전용.",
+    "category": "culture",
+    "upstreamPath": "kopis-performance-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kopis-performance-search/SKILL.md",
+    "sourceIds": [
+      "culture-kopis"
+    ],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [
+      "KOPIS_API_KEY",
+      "KSKILL_KOPIS_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "xml"
+    ]
+  },
+  {
+    "id": "korea-weather",
+    "name": "korea-weather",
+    "description": "한국 날씨를 기상청 단기예보 조회서비스와 프록시 경유로 조회해 요약한다.",
+    "category": "weather",
+    "upstreamPath": "korea-weather/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korea-weather/SKILL.md",
+    "sourceIds": [
+      "weather-kma",
+      "data-go-kr"
+    ],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KMA_OPEN_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml"
+    ]
+  },
+  {
+    "id": "korean-character-count",
+    "name": "korean-character-count",
+    "description": "Count Korean text deterministically with exact grapheme, line, and byte contracts for self-intros and form limits.",
+    "category": "writing",
+    "upstreamPath": "korean-character-count/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-character-count/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-cinema-search",
+    "name": "korean-cinema-search",
+    "description": "CGV, 메가박스, 롯데시네마 영화관 검색, 상영작, 시간표, 잔여석 조회가 필요할 때 사용한다.",
+    "category": "entertainment",
+    "upstreamPath": "korean-cinema-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-cinema-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-holiday-calendar",
+    "name": "korean-holiday-calendar",
+    "description": "한국천문연구원 특일 정보 API를 k-skill-proxy 경유로 호출해 공휴일·국경일·기념일·24절기·잡절을 조회한다. 조회 전용.",
+    "category": "utility",
+    "upstreamPath": "korean-holiday-calendar/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-holiday-calendar/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-humanizer",
+    "name": "korean-humanizer",
+    "description": "AI가 쓴 티가 나는 한국어 글을 자연스러운 사람 글로 고친다. 번역체, AI 상투어, 과도한 명사화·피동, 3의 법칙, 과장된 의의 부여, 마무리 상투구, 챗봇 잔재, 줄표·곡선따옴표 같은 한국어 특유의 AI 흔적을 심각도(S1/S2/S3)로 분류해 잡아내고 의미는 보존하면서 다시 쓴다. 목표 글자수를 함께 주면(예: \"1000자로\", length=1000) 그 분량에 맞춰 늘리거나 줄인다. \"AI 티 안 나게\", \"사람이 쓴 것처럼\", \"자연스럽게 다듬어줘\", \"번역체 고쳐줘\", \"어색한 거 고쳐줘\", \"N자로 맞춰서\" 같은 요청에 사용.",
+    "category": "writing",
+    "upstreamPath": "korean-humanizer/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-humanizer/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Agent skill"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-jangbu-for",
+    "name": "korean-jangbu-for",
+    "description": "kimlawtech/korean-jangbu-for (Apache-2.0) 업스트림을 중심으로 한국 스타트업·1인 법인·프리랜서·개인사업자 장부 자동화와 사업자 세무 자료 정리, 원본 데이터 가져오기, 계정과목 태깅, 세무사 전달 CSV, 경영 리포트 생성을 안내하는 thin wrapper 스킬.",
+    "category": "finance",
+    "upstreamPath": "korean-jangbu-for/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-jangbu-for/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-law-search",
+    "name": "korean-law-search",
+    "description": "Search Korean statutes, articles, precedents, interpretations, and local ordinances via k-skill-proxy. Use when the user asks for Korean law/article/precedent lookups.",
+    "category": "legal",
+    "upstreamPath": "korean-law-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-law-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-marathon-schedule",
+    "name": "korean-marathon-schedule",
+    "description": "고러닝과 대한철인3종협회 공개 표면으로 한국 마라톤·철인3종 경기 일정, 장소, 신청 마감일, 종목을 조회한다.",
+    "category": "sports",
+    "upstreamPath": "korean-marathon-schedule/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-marathon-schedule/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-middle-korean",
+    "name": "korean-middle-korean",
+    "description": "Convert incoming Korean text into a deterministic Korean Middle Korean-style rewrite with archaic particles, endings, Hanja hints, and tone-mark flavor.",
+    "category": "writing",
+    "upstreamPath": "korean-middle-korean/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-middle-korean/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-patent-search",
+    "name": "korean-patent-search",
+    "description": "Search Korean patent and utility-model publications through the official KIPRIS Plus Open API with keyword search plus application-number detail lookup.",
+    "category": "ip",
+    "upstreamPath": "korean-patent-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-patent-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "KIPRIS_PLUS_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-privacy-terms",
+    "name": "korean-privacy-terms",
+    "description": "kimlawtech/korean-privacy-terms (Apache-2.0) 업스트림을 경유해 Next.js 프로젝트에 한국 법령(개인정보보호법·약관규제법·전자상거래법) 기반 개인정보처리방침·이용약관·쿠키 배너·동의 모달을 생성하는 thin wrapper 스킬.",
+    "category": "legal",
+    "upstreamPath": "korean-privacy-terms/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-privacy-terms/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Agent skill"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-scholarship-search",
+    "name": "korean-scholarship-search",
+    "description": "Search Korean scholarship announcements across official KOSAF, university, foundation, company, and public-sector sources, extract amount and eligibility, and filter results by school, income band, student level, and organization type. Users may invoke it with the phrase 장학금 검색 및 조회.",
+    "category": "education",
+    "upstreamPath": "korean-scholarship-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-scholarship-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-slang-writing",
+    "name": "korean-slang-writing",
+    "description": "Use curated Korean trending-slang candidates plus best-effort Namu Wiki lookups to write witty Korean text with up-to-date slang, with conservative safety and freshness guardrails.",
+    "category": "writing",
+    "upstreamPath": "korean-slang-writing/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-slang-writing/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-spell-check",
+    "name": "korean-spell-check",
+    "description": "Use Nara/PNU Korean spell-check surfaces conservatively to proofread Korean text, chunk long input, and return change-focused correction suggestions.",
+    "category": "writing",
+    "upstreamPath": "korean-spell-check/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-spell-check/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-stock-search",
+    "name": "korean-stock-search",
+    "description": "Use k-skill-proxy to search Korean listed stocks, inspect KRX base information, and fetch daily trade snapshots without asking the user to issue a KRX API key.",
+    "category": "finance",
+    "upstreamPath": "korean-stock-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-stock-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KRX_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "korean-transit-route",
+    "name": "korean-transit-route",
+    "description": "Korean door-to-door public transit routing (subway + bus + walking) via ODsay LIVE API with Kakao geocoding for address-to-address queries. Use when the user asks for 지하철/버스/대중교통 길찾기, 환승 경로, 소요시간, or transit directions between two places in Korea.",
+    "category": "transit",
+    "upstreamPath": "korean-transit-route/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/korean-transit-route/SKILL.md",
+    "sourceIds": [
+      "tago",
+      "topis"
+    ],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "KAKAO_REST_API_KEY",
+      "KSKILL_PROXY_BASE_URL",
+      "ODSAY_API_KEY"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "kosis-stats",
+    "name": "kosis-stats",
+    "description": "국가데이터처가 운영하는 KOSIS(국가통계포털, kosis.kr) Open API로 한국 공식 통계표를 검색하고 메타데이터·데이터·대용량 자료를 조회한다. Use when the user asks for 한국 공식 통계 (인구, 가구, 물가, 고용 등) 수치 조회, not for analysis or visualization.",
+    "category": "data",
+    "upstreamPath": "kosis-stats/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kosis-stats/SKILL.md",
+    "sourceIds": [
+      "kosis"
+    ],
+    "runtimes": [
+      "Node.js",
+      "Python"
+    ],
+    "auth": [
+      "KOSIS_API_KEY",
+      "KSKILL_KOSIS_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "csv"
+    ]
+  },
+  {
+    "id": "kr-whois-lookup",
+    "name": "kr-whois-lookup",
+    "description": "공공데이터포털 WHOIS 도메인/IP 정보 API를 k-skill-proxy 경유로 호출해 .kr/.한국 도메인, IP 주소, AS 번호의 공개 등록정보를 조회한다. 조회 전용.",
+    "category": "security",
+    "upstreamPath": "kr-whois-lookup/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kr-whois-lookup/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "kstartup-search",
+    "name": "kstartup-search",
+    "description": "공공데이터포털 창업진흥원 K-Startup Open API(15125364)로 통합 공고 사업 정보·지원사업 공고·창업 콘텐츠·통계보고서를 k-skill-proxy 경유로 조회한다. 검색 전용.",
+    "category": "business",
+    "upstreamPath": "kstartup-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/kstartup-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_KSTARTUP_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "ktx-booking",
+    "name": "ktx-booking",
+    "description": "Search, reserve, inspect, and cancel KTX or Korail tickets in Korea with the korail2 + pycryptodome Python packages. Use when the user asks for KTX seats, Korail bookings, train changes, reservation status, remaining seat numbers, car-by-car seats, or power-outlet/good-seat tips.",
+    "category": "travel",
+    "upstreamPath": "ktx-booking/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/ktx-booking/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "lck-analytics",
+    "name": "lck-analytics",
+    "description": "Riot 공식 LoL Esports 데이터와 Oracle's Elixir 스타일 historical 데이터로 LCK 경기 결과, 현재 순위, live turning point, 밴픽 matchup/synergy, patch meta, 팀 파워 레이팅을 조회한다.",
+    "category": "sports",
+    "upstreamPath": "lck-analytics/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/lck-analytics/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "LOLESPORTS_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "legacy-blue-ribbon-nearby",
+    "name": "blue-ribbon-nearby",
+    "description": "Use when the user asks for nearby restaurants or 근처 맛집 and wants 블루리본 picks. Always ask the user's current location first, then search official Blue Ribbon nearby restaurants via k-skill-proxy.",
+    "category": "food",
+    "upstreamPath": "legacy/unsupported-skills/blue-ribbon-nearby/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/legacy/unsupported-skills/blue-ribbon-nearby/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "legacy-naver-map-route",
+    "name": "naver-map-route",
+    "description": "네이버 지도(NAVER Cloud Platform Maps) 기반 출발지→목적지 자동차 길찾기·지오코딩·역지오코딩을 k-skill-proxy 경유로 조회한다. 수동 입력 MVP, mock 기본, live opt-in.",
+    "category": "transit",
+    "upstreamPath": "legacy/unsupported-skills/naver-map-route/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/legacy/unsupported-skills/naver-map-route/SKILL.md",
+    "sourceIds": [
+      "naver-search-map"
+    ],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL",
+      "NAVER_MAP_CLIENT_ID",
+      "NAVER_MAP_CLIENT_SECRET"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "geospatial",
+      "sdk"
+    ]
+  },
+  {
+    "id": "lh-notice-search",
+    "name": "lh-notice-search",
+    "description": "Search official LH 청약 (Korea Land & Housing Corporation lease/subscription) 공고 lists through k-skill-proxy. Use when a user asks about 청년/행복/영구/국민/매입/전세임대, 분양주택, 신혼희망타운 공고 marketed on apply.lh.or.kr.",
+    "category": "real-estate",
+    "upstreamPath": "lh-notice-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/lh-notice-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "library-book-search",
+    "name": "library-book-search",
+    "description": "Use when the user asks to search Korean library books, book details, library holdings, or whether a Korean public library owns a book via k-skill-proxy Data4Library routes.",
+    "category": "utility",
+    "upstreamPath": "library-book-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/library-book-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "DATA4LIBRARY_AUTH_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "local-election-candidate-search",
+    "name": "local-election-candidate-search",
+    "description": "중앙선거관리위원회 선거통계시스템 공개 통합검색으로 한국 지방선거 후보자 정보를 이름/선거종류/지역 기준으로 조회한다.",
+    "category": "civic",
+    "upstreamPath": "local-election-candidate-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/local-election-candidate-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "localdata-business-status",
+    "name": "localdata-business-status",
+    "description": "지방행정 인허가데이터(LOCALDATA)로 동네 사업장(식당·카페·숙박·약국·미용실·학원 등 인허가 업종 208종)의 영업/휴업/폐업 상태, 인허가일자(업력), 폐업일자, 업태, 주소를 조회한다. 상호+시군구로 검색하며 인증키 불필요.",
+    "category": "business",
+    "upstreamPath": "localdata-business-status/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/localdata-business-status/SKILL.md",
+    "sourceIds": [
+      "localdata"
+    ],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml",
+      "csv"
+    ]
+  },
+  {
+    "id": "lotto-results",
+    "name": "lotto-results",
+    "description": "Check Korean Lotto draw results, latest rounds, and ticket matches with the k-lotto npm package. Use when the user asks for winning numbers, payout details, or whether their numbers matched.",
+    "category": "utility",
+    "upstreamPath": "lotto-results/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/lotto-results/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "lovebug-report",
+    "name": "lovebug-report",
+    "description": "러브버그.com 공개 지도 표면으로 수도권 시·구별 러브버그 출몰 지수·동네별 제보 현황을 조회하고, 사용자가 제공한 현재 좌표로 익명 러브버그 제보를 제출한다.",
+    "category": "local-info",
+    "upstreamPath": "lovebug-report/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/lovebug-report/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "market-kurly-search",
+    "name": "market-kurly-search",
+    "description": "로그인 없이 접근 가능한 마켓컬리 검색/상품 상세 표면으로 상품 후보, 현재 가격, 할인 여부, 품절 여부를 조회한다.",
+    "category": "retail",
+    "upstreamPath": "market-kurly-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/market-kurly-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "mfds-drug-safety",
+    "name": "mfds-drug-safety",
+    "description": "식약처 공공 OpenAPI를 k-skill-proxy 경유로 조회하기 전에 증상·복용상황을 반드시 되묻는 인터뷰형 의약품 안전 체크 스킬.",
+    "category": "public-health",
+    "upstreamPath": "mfds-drug-safety/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/mfds-drug-safety/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "mfds-food-safety",
+    "name": "mfds-food-safety",
+    "description": "식약처/식품안전나라 공개 표면을 k-skill-proxy 경유로 조회하기 전에 증상·섭취상황을 반드시 되묻는 인터뷰형 식품 안전 체크 스킬.",
+    "category": "public-health",
+    "upstreamPath": "mfds-food-safety/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/mfds-food-safety/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "FOODSAFETYKOREA_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "myrealtrip-search",
+    "name": "myrealtrip-search",
+    "description": "마이리얼트립 공식 Streamable HTTP MCP 서버로 항공권, 숙소, 투어/티켓/액티비티를 검색하고 상세·가격·예약 링크를 확인한다.",
+    "category": "travel",
+    "upstreamPath": "myrealtrip-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/myrealtrip-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "naming-house",
+    "name": "naming-house",
+    "description": "생년월일시와 성씨·후보 이름을 바탕으로 사주 오행과 성명학 점수를 참고해 어울리는 한국 이름을 추천한다.",
+    "category": "utility",
+    "upstreamPath": "naming-house/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/naming-house/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "national-pension-workplace",
+    "name": "national-pension-workplace",
+    "description": "국민연금공단 국민연금 가입 사업장 내역을 공공데이터포털 API(k-skill-proxy 경유)로 조회한다. 사업장명으로 가입자수·당월 고지금액·월별 취득/상실 추이를 확인해 그 회사의 직원 규모와 변화를 본다.",
+    "category": "business",
+    "upstreamPath": "national-pension-workplace/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/national-pension-workplace/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "naver-ad-performance",
+    "name": "naver-ad-performance",
+    "description": "네이버 검색광고(키워드광고)의 노출수·클릭수·광고비·CTR·CPC·전환수를 조회한다. 캠페인/광고그룹/키워드 목록, 기간별 성과, 연관키워드·월간 조회수 도구 포함. 읽기 전용, 로컬 실행 전용.",
+    "category": "marketing",
+    "upstreamPath": "naver-ad-performance/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/naver-ad-performance/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "NAVER_AD_API_KEY",
+      "NAVER_AD_SECRET_KEY",
+      "SECRET_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "naver-blog-research",
+    "name": "naver-blog-research",
+    "description": "Search Naver blogs, read full post content, and download images using only python3 stdlib — no API key required.",
+    "category": "research",
+    "upstreamPath": "naver-blog-research/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/naver-blog-research/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "naver-news-search",
+    "name": "naver-news-search",
+    "description": "네이버 검색 Open API 뉴스 검색(news.json)을 k-skill-proxy 경유로 조회해 최신 뉴스 기사 제목·발행시각·링크·요약을 보수적으로 정리한다. 사용자는 별도 API 키 발급 없이 호출한다.",
+    "category": "information",
+    "upstreamPath": "naver-news-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/naver-news-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL",
+      "NAVER_SEARCH_CLIENT_ID",
+      "NAVER_SEARCH_CLIENT_SECRET"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "naver-shopping-search",
+    "name": "naver-shopping-search",
+    "description": "네이버 쇼핑 공개 BFF JSON을 k-skill-proxy로 조회해 상품 후보, 최저가, 판매처 링크를 보수적으로 가격비교한다.",
+    "category": "retail",
+    "upstreamPath": "naver-shopping-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/naver-shopping-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL",
+      "NAVER_SEARCH_CLIENT_ID",
+      "NAVER_SEARCH_CLIENT_SECRET"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "nhis-care-checkup-search",
+    "name": "nhis-care-checkup-search",
+    "description": "국민건강보험공단 장기요양기관과 건강검진기관 검색 API를 k-skill-proxy 경유로 조회한다. 조회 전용.",
+    "category": "healthcare",
+    "upstreamPath": "nhis-care-checkup-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/nhis-care-checkup-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "nts-business-registration",
+    "name": "nts-business-registration",
+    "description": "국세청 사업자등록정보 진위확인 및 사업자등록 상태조회를 공공데이터포털 API(k-skill-proxy 경유)로 수행한다.",
+    "category": "business",
+    "upstreamPath": "nts-business-registration/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/nts-business-registration/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "nts-tax-delinquency",
+    "name": "nts-tax-delinquency",
+    "description": "국세청 고액·상습체납자 명단공개를 nts.go.kr 공개 검색으로 조회한다. 상호·법인명으로 법인 명단과 개인 명단을 대조해 공개된 체납 사실(총 체납액·세목·체납요지 등)을 나열한다. 인증키 불필요.",
+    "category": "business",
+    "upstreamPath": "nts-tax-delinquency/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/nts-tax-delinquency/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "ohou-today-deal",
+    "name": "ohou-today-deal",
+    "description": "오늘의집 공개 오늘의딜 페이지에서 로그인 없이 특가 상품을 조회하고 할인율, 가격, 리뷰, 링크를 정리하는 읽기 전용 스킬.",
+    "category": "retail",
+    "upstreamPath": "ohou-today-deal/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/ohou-today-deal/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "olive-young-search",
+    "name": "olive-young-search",
+    "description": "upstream daiso CLI를 사용해 올리브영 매장 검색, 상품 검색, 재고 확인을 조회한다.",
+    "category": "retail",
+    "upstreamPath": "olive-young-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/olive-young-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "parking-lot-search",
+    "name": "parking-lot-search",
+    "description": "Use when the user asks for nearby parking lots or 근처 주차장/공영주차장. Always ask the user's current location first, then use official Data.go.kr public parking data through k-skill-proxy or the parking-lot-search package.",
+    "category": "convenience",
+    "upstreamPath": "parking-lot-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/parking-lot-search/SKILL.md",
+    "sourceIds": [
+      "data-go-kr",
+      "kakao-local-mobility"
+    ],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "popbill",
+    "name": "popbill",
+    "description": "팝빌 전자세금계산서·전자명세서·현금영수증·문자·카카오톡·팩스·휴폐업/기업정보·계좌조회·홈택스 수집을 테스트/운영 환경에서 안전하게 호출한다.",
+    "category": "business",
+    "upstreamPath": "popbill/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/popbill/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "KSKILL_POPBILL_SECRET_KEY",
+      "POPBILL_SECRET_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "public-restroom-nearby",
+    "name": "public-restroom-nearby",
+    "description": "Use when the user asks for nearby public/open restrooms or 근처 화장실. Always ask the user's current location first, then use the official nationwide public-restroom standard dataset plus Kakao anchor resolution.",
+    "category": "convenience",
+    "upstreamPath": "public-restroom-nearby/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/public-restroom-nearby/SKILL.md",
+    "sourceIds": [
+      "data-go-kr",
+      "kakao-local-mobility"
+    ],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "KAKAO_REST_API_KEY"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "geospatial"
+    ]
+  },
+  {
+    "id": "real-estate-search",
+    "name": "real-estate-search",
+    "description": "Korean apartment/officetel/villa/single-house real transaction price and rent lookups via k-skill-proxy. Based on tae0y's real-estate-mcp and MOLIT public data APIs.",
+    "category": "real-estate",
+    "upstreamPath": "real-estate-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/real-estate-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "DATA_GO_KR_API_KEY",
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "rhwp-advanced",
+    "name": "rhwp-advanced",
+    "description": "Debug HWP layout, dump document IR, compare versions, extract thumbnails, and unlock read-only HWPs with the upstream rhwp Rust CLI (export-svg/dump/dump-pages/ir-diff/thumbnail/convert).",
+    "category": "documents",
+    "upstreamPath": "rhwp-advanced/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/rhwp-advanced/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "rhwp-edit",
+    "name": "rhwp-edit",
+    "description": "Edit HWP documents — insert/delete text, replace-all, create tables, set cell text — with the k-skill-rhwp CLI that wraps the @rhwp/core WASM engine (rhwp by Edward Kim).",
+    "category": "documents",
+    "upstreamPath": "rhwp-edit/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/rhwp-edit/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "s2b-notice-search",
+    "name": "s2b-notice-search",
+    "description": "S2B 학교장터 공개 고객 공고/견적요청 목록을 브라우저 우선으로 조회하고 fixture HTML을 파싱해 공고 메타데이터를 정리한다.",
+    "category": "procurement",
+    "upstreamPath": "s2b-notice-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/s2b-notice-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "saju-fortune",
+    "name": "saju-fortune",
+    "description": "사주팔자 정보를 인터뷰로 확인한 뒤 saju-fortune npm package를 사용해 연애운, 재물운, 직업운, 건강운, 한해 운세, 궁합을 대화형으로 풀이한다.",
+    "category": "utility",
+    "upstreamPath": "saju-fortune/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/saju-fortune/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "saramin-talent-search",
+    "name": "saramin-talent-search",
+    "description": "사람인 기업회원 인재풀 로그인 세션에서 마스킹된 후보 정보를 검색·비교해 유료 열람 전 shortlist를 만듭니다.",
+    "category": "recruiting",
+    "upstreamPath": "saramin-talent-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/saramin-talent-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Agent skill"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "seoul-bike",
+    "name": "seoul-bike",
+    "description": "서울 따릉이 실시간 대여소의 대여 가능 자전거와 빈 거치대를 좌표 주변 또는 대여소 이름으로 조회한다.",
+    "category": "transit",
+    "upstreamPath": "seoul-bike/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/seoul-bike/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL",
+      "SEOUL_OPEN_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "seoul-density",
+    "name": "seoul-density",
+    "description": "서울 주요 121개 핫스팟 장소의 실시간 혼잡도와 인구 현황을 조회한다. 지금 강남역이 얼마나 붐비는지, 홍대 인파가 얼마나 되는지 물어볼 때 사용한다.",
+    "category": "utility",
+    "upstreamPath": "seoul-density/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/seoul-density/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL",
+      "SEOUL_OPEN_API_KEY"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "seoul-subway-arrival",
+    "name": "seoul-subway-arrival",
+    "description": "Look up Seoul real-time subway arrival information with the official Seoul Open Data API. Use when the user asks when a train arrives, which trains are approaching a station, or how crowded Seoul subway timing looks right now.",
+    "category": "transit",
+    "upstreamPath": "seoul-subway-arrival/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/seoul-subway-arrival/SKILL.md",
+    "sourceIds": [
+      "seoul-open-data",
+      "topis"
+    ],
+    "runtimes": [
+      "Shell"
+    ],
+    "auth": [
+      "KSKILL_PROXY_BASE_URL"
+    ],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml"
+    ]
+  },
+  {
+    "id": "sh-notice-search",
+    "name": "sh-notice-search",
+    "description": "서울주택도시개발공사(SH) 공개 공고/공지 게시판에서 청약·주택 공고 목록, 상세 본문, 첨부 미리보기 메타데이터를 직접 조회한다.",
+    "category": "housing",
+    "upstreamPath": "sh-notice-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/sh-notice-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "srt-booking",
+    "name": "srt-booking",
+    "description": "Search, reserve, inspect, and cancel SRT tickets in Korea with the SRTrain library. Use when the user asks for SRT seat availability, booking, canceling, or sold-out retry plans.",
+    "category": "travel",
+    "upstreamPath": "srt-booking/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/srt-booking/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "subway-lost-property",
+    "name": "subway-lost-property",
+    "description": "Use when the user asks how to look up 지하철 분실물 or 유실물 by 역명/물품명. v1 is an 안내형/하이브리드 skill that structures the official LOST112 + 서울교통공사 flow conservatively.",
+    "category": "transit",
+    "upstreamPath": "subway-lost-property/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/subway-lost-property/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "ticket-availability",
+    "name": "ticket-availability",
+    "description": "YES24 / 인터파크 공연의 공개 일정 + 등급별 잔여석을 단일 HTTP 호출로 조회 (조회 전용, 예매·결제 없음).",
+    "category": "lifestyle",
+    "upstreamPath": "ticket-availability/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/ticket-availability/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Python"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "toss-securities",
+    "name": "toss-securities",
+    "description": "토스증권 조회형 질문을 공식 Open API(OAuth2)로 우선 처리하고, 공식 credentials가 없으면 tossinvest-cli의 tossctl을 fallback으로 써서 계좌, 보유주식, 시세/종목/시장정보, 주문조회를 안전한 read-only 흐름으로 조회한다.",
+    "category": "finance",
+    "upstreamPath": "toss-securities/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/toss-securities/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [
+      "TOSSINVEST_API_BASE_URL",
+      "TOSSINVEST_CLIENT_ID",
+      "TOSSINVEST_CLIENT_SECRET"
+    ],
+    "technologyIds": []
+  },
+  {
+    "id": "used-car-price-search",
+    "name": "used-car-price-search",
+    "description": "주요 한국 렌터카 업체를 비교한 뒤 SK렌터카 다이렉트 타고BUY inventory snapshot 으로 중고차 가격/인수가를 조회한다.",
+    "category": "automotive",
+    "upstreamPath": "used-car-price-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/used-car-price-search/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "yebigun-training",
+    "name": "yebigun-training",
+    "description": "사용자가 직접 로그인한 예비군 홈페이지(yebigun1.mil.kr) Chrome 세션을 재사용해 이번 훈련 일정/장소를 조회하고, 작년 이전 기록과 비교해 무엇이 달라졌는지 알려준다. 조회 전용이며 로그인이나 연기·보류 신청은 절대 자동화하지 않는다.",
+    "category": "legal",
+    "upstreamPath": "yebigun-training/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/yebigun-training/SKILL.md",
+    "sourceIds": [],
+    "runtimes": [
+      "Node.js"
+    ],
+    "auth": [],
+    "technologyIds": []
+  },
+  {
+    "id": "zipcode-search",
+    "name": "zipcode-search",
+    "description": "Look up a Korean postcode and official English address from a known address with the official ePost integrated search page.",
+    "category": "utility",
+    "upstreamPath": "zipcode-search/SKILL.md",
+    "upstreamUrl": "https://github.com/NomaDamas/k-skill/blob/main/zipcode-search/SKILL.md",
+    "sourceIds": [
+      "juso"
+    ],
+    "runtimes": [
+      "Python",
+      "Shell"
+    ],
+    "auth": [],
+    "technologyIds": [
+      "rest-api",
+      "json",
+      "xml",
+      "geospatial"
+    ]
+  }
+]

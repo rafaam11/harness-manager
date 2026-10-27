@@ -80,7 +80,7 @@
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
 | M10 | v3.0.0 릴리스 | 완료(2026-10-27 발행. 설치한 2.0.6이 3.0.0으로 자동 업데이트되고 hm 심을 쓰는 것까지 실측) |
 | M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
-| M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | |
+| M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | 앱 기능 완료(v3.1.0). 원 레포 폐기(Pages·Worker·시크릿·archive)는 단계마다 확인받고 진행 |
 
 ### v3 불변 원칙
 - **사용자 설정 불가침.** CLI가 직접 쓰는 파일(`settings.json`, `~/.claude.json`, `config.toml`)은 통째로 덮어쓰지 않는다.
@@ -180,6 +180,19 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **외부 API(M12)**: jk-external-api를 앱 화면으로 흡수했다.
+  - `src/shared/external-api/`: zod 스키마, 손으로 관리하는 정보원·청사진·기술 데이터, 번들 k-skill 스냅샷(`generated/skills.json`). `buildCatalog(skills)`가 카탈로그를 만든다.
+  - `services/external-api/`
+    - `sync.ts`: k-skill을 GitHub 익명 API로 받는다. frontmatter는 gray-matter로 읽는다.
+    - `store.ts`: `~/.harness-manager/external-api/skills.json`. 번들보다 우선하고, 깨졌으면 번들로 되돌린다.
+    - `health.ts`: 공식 링크를 HEAD로 점검한다.
+    - 네트워크는 main에서만 쓴다.
+  - 채널: `external-api:catalog`·`refresh`·`check-links`
+  - 화면 `pages/ExternalApi/`
+    - 탭: 정보원(검색·필터·목록/관계도·비교함), k-skill, 청사진, 기술
+    - 상세: 대화상자 하나로 보여 준다. 연결 항목은 같은 대화상자에서 열고 "뒤로"로 돌아간다.
+    - 외부 링크: OS 브라우저로 연다.
+  - 원 레포의 공개 사이트·미리보기 Worker·주간 자동 PR은 가져오지 않았다(Q13 기본값). 원 README와 설계 문서는 `docs/external-api/`에 보관하고, k-skill 귀속은 `THIRD_PARTY_NOTICES.md`에 적었다.
 - **dotfiles(M6 후속)**: `services/dotfiles.ts`
   - PowerShell 5.1 프로필(문서 폴더는 OS에 물어 정한다)
     - 템플릿: `home/powershell/profile.ps1`

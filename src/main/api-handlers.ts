@@ -14,8 +14,10 @@ import { runDoctor } from "./services/doctor/doctor.js";
 import { defaultInstallContext, planInstallWith, runInstallWith } from "./services/install/engine.js";
 import { installProgress, type InstallSession } from "./services/install/session.js";
 import { readAppSettings, updateAppSettings } from "./services/settings.js";
+import { checkOfficialLinks } from "./services/external-api/health.js";
+import { loadExternalApi, refreshExternalApi } from "./services/external-api/store.js";
 import { PROFILES, type AppSettings, type Profile } from "@shared/manifest-types";
-import { APP_SETTINGS_FILE } from "./config.js";
+import { APP_SETTINGS_FILE, APP_STATE_DIR } from "./config.js";
 import type { InstallEvent } from "@shared/install-types";
 import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
 import { getProviders } from "./providers/registry.js";
@@ -266,5 +268,9 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       if (deps.install.session.running) throw new RequestError(409, "설치가 진행 중입니다");
       return updateAppSettings(APP_SETTINGS_FILE, next);
     },
+
+    "external-api:catalog": () => loadExternalApi(APP_STATE_DIR),
+    "external-api:refresh": () => refreshExternalApi(APP_STATE_DIR),
+    "external-api:check-links": async () => checkOfficialLinks((await loadExternalApi(APP_STATE_DIR)).catalog),
   };
 }
