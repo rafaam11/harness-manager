@@ -2,7 +2,7 @@
 
 이 저장소에서 작업하는 코딩 에이전트(Claude Code, Codex CLI 등)를 위한 지침이다. `CLAUDE.md`는 이 파일을 `@AGENTS.md`로 불러오는 래퍼일 뿐이다. 내용은 여기에만 쓴다.
 
-> **v3.1.0까지 릴리스했다.** 남은 마일스톤은 M9(보류)뿐이다. 아래 "v3 전환"은 그 기준과 지금까지의 결정을 담는다. "현재 코드"는 지금 트리에 있는 코드를 설명한다.
+> **v3.2.0까지 릴리스했다.** 남은 마일스톤은 M9(보류)뿐이다. 아래 "v3 전환"은 그 기준과 지금까지의 결정을 담는다. "현재 코드"는 지금 트리에 있는 코드를 설명한다.
 > 설계 스펙은 `docs/superpowers/specs/v3-design.md`에 있다.
 
 ---
@@ -81,7 +81,7 @@
 | M10 | v3.0.0 릴리스 | 완료(2026-10-27 발행. 설치한 2.0.6이 3.0.0으로 자동 업데이트되고 hm 심을 쓰는 것까지 실측) |
 | M11 | jinmin-mods 폐기 | 완료(2026-10-27: jinmin을 이 레포로 옮기고 mod 재설치 → GitHub archive → 로컬 폴더 삭제) |
 | M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | 완료(v3.1.0 발행 뒤 README 이전 안내 → Pages 끄기 → automation 브랜치 14개 삭제 → archive. Actions 시크릿은 설정된 것이 없었고, Worker는 배포 기록이 없어 지울 것이 없는 것으로 판단. 로컬 폴더는 사용자가 지운다) |
-| M13 | UI 정리: 공통 컴포넌트(`components/ui.tsx`), v2 색 별칭·죽은 CSS 제거, 아이콘+글자 사이드바, provider 필터는 쓰는 화면 안으로·업데이트 배지는 타이틀바로, `style-contract.test.ts` | 완료(확인 대기) |
+| M13 | UI 정리: 공통 컴포넌트(`components/ui.tsx`), v2 색 별칭·죽은 CSS 제거, 아이콘+글자 사이드바, provider 필터는 쓰는 화면 안으로·업데이트 배지는 타이틀바로, `style-contract.test.ts` | 완료(v3.2.0) |
 
 ### v3 불변 원칙
 - **사용자 설정 불가침.** CLI가 직접 쓰는 파일(`settings.json`, `~/.claude.json`, `config.toml`)은 통째로 덮어쓰지 않는다.
