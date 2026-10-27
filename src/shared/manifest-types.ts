@@ -123,7 +123,16 @@ export interface ManifestFileReport {
 
 // ─────────────────────────────── capture ───────────────────────────────
 
-export type CaptureTargetId = "agents" | "claude-md" | "claude-settings" | "codex-config" | "plugins" | "mcp" | "skills";
+export type CaptureTargetId =
+  | "agents"
+  | "claude-md"
+  | "claude-settings"
+  | "codex-config"
+  | "plugins"
+  | "mcp"
+  | "skills"
+  | "powershell-profile"
+  | "gitconfig";
 export const CAPTURE_TARGET_IDS: readonly CaptureTargetId[] = [
   "agents",
   "claude-md",
@@ -132,6 +141,8 @@ export const CAPTURE_TARGET_IDS: readonly CaptureTargetId[] = [
   "plugins",
   "mcp",
   "skills",
+  "powershell-profile",
+  "gitconfig",
 ];
 
 /** 공개 레포에 들어가면 안 되는 것을 찾은 자리. 하나라도 있으면 그 항목은 적용할 수 없다. */

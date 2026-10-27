@@ -47,6 +47,7 @@
 | D22 | **capture 정책**(M4, 옛 Q10). 공개·개인을 나눠 개인 값은 `~/.harness-manager/profile/`로 보낸다. 비공개 낱말은 로컬 `profile/private-terms.json`에 두고, 이 파일이 없으면 적용을 막는다. 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 막는다. 관리 키는 `home/managed-keys.json`에 둔다. plugins·mcp·skills는 더하기만 하고 MCP env 값은 자리표시로 적는다. AGENTS.md는 마커 블록(`<!-- >>> harness-manager >>> -->`)이 있으면 그 안이, 없으면 레포 템플릿에 제목이 있는 섹션만 공개다. PS 프로필·gitconfig·WT capture는 마커 merge가 생기는 M6로 미룬다 |
 | D23 | **install은 doctor 검사에서 step을 만든다**(M6). 실행 전후로 같은 검사를 돌려 멱등과 결과 판정을 한다. 실행기는 셸 없이 돌리고 `.cmd` 심만 cmd.exe에 엄격히 인용해 넘긴다. self 마켓플레이스 소스가 다르면 remove → add 뒤 빠진 플러그인을 같은 step에서 다시 설치한다(M11의 1–3단계를 이 step이 한다). 소스는 `settings.json`의 `selfMarketplaceSource`(directory/github). PS 프로필·gitconfig·WT는 템플릿 capture가 먼저 필요해 M6 후속으로 남긴다 |
 | D24 | **정리 확장**(M8, 옛 Q3 결론). v2 앱 데이터와 v2 백업은 지우지 않고 `leftovers` 후보로 보인다. 중복 스킬은 해당 provider에서 플러그인이 켜져 있을 때만 후보로 한다. Codex는 오래된 로그만 다루고 세션·DB는 다루지 않는다. doctor와 정리 화면은 같은 탐색 함수를 쓴다 |
+| D25 | **dotfiles 범위**(M6 후속). PowerShell 5.1 프로필(마커 블록, BOM)과 git 전역 설정(관리 키, `git config`로만 읽기·쓰기)을 다룬다. Windows Terminal은 settings.json이 주석 있는 JSON(JSONC)이라 안전한 부분 merge가 없어 보류한다. pwsh 7 프로필은 pwsh를 쓰기 시작하면 같은 방식으로 더한다 |
 | D17 | **jk-external-api 흡수**: 공개 색인 사이트였던 jk-external-api(한국 생활·지역 외부 정보원, k-skill 스냅샷, 청사진)를 앱 기능 **"외부 API"** 섹션으로 다시 만든다(M12, v3.0.0 릴리스 뒤). 소스는 단순 복사한다. GitHub Pages 사이트, Cloudflare Worker 미리보기, 주간 자동 PR은 폐기하고 원 레포는 archive한다 |
 | D16 | **mod version 규약**: `mods/*`는 고칠 때마다 `plugin.json` version을 올린다. GitHub 소스에서 version이 그대로면 update를 건너뛰기 때문이다. `plugins/*`에는 version을 두지 않고 커밋 SHA를 따라가게 한다 |
 

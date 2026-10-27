@@ -14,13 +14,14 @@ import type {
 import type { MarketplaceEntry, McpEntry, PackageEntry, Profile, ToolEntry } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE } from "../../config.js";
 import { readAppSettings } from "../settings.js";
+import { gitConfigSetArgs, powershellProfilePath, readGitConfig, stripBom } from "../dotfiles.js";
 import { writeFileChecked } from "../capture/capture.js";
 import { tildify } from "../capture/exposure.js";
 import { SELF_MARKETPLACE } from "../capture/targets.js";
 import { splitMarkdownSections, stableJson, unifiedDiff, withTrailingNewline } from "../capture/text.js";
 import { defaultDoctorContext, loadManifests, managedKeys, runDoctorWith, type DoctorContext, type Manifests } from "../doctor/doctor.js";
 import { displayCommand, processRunner, type CommandRunner, type CommandSpec, type LogSink } from "./exec.js";
-import { MARKDOWN_MARKERS, adoptSectionsIntoBlock, mergeManagedJson, patchTomlScalars, tomlEntriesFor, upsertMarkerBlock } from "./merge.js";
+import { HASH_MARKERS, MARKDOWN_MARKERS, adoptSectionsIntoBlock, mergeManagedJson, patchTomlScalars, tomlEntriesFor, upsertMarkerBlock } from "./merge.js";
 
 export interface InstallContext extends DoctorContext {
   runner: CommandRunner;
@@ -257,6 +258,48 @@ async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
   return { absPath, before, after: patchTomlScalars(before ?? "", entries) };
 }
 
+/**
+ * PowerShell 프로필: 마커 블록만 관리한다. 파일이 없으면 블록만으로 만들고, 블록이 있으면 안만 바꾸고,
+ * 블록이 없으면 끝에 붙인다. 한글 주석이 PowerShell 5.1에서 깨지지 않게 BOM을 붙여 쓴다.
+ */
+async function powershellProfileChange(ctx: InstallContext): Promise<FileChange> {
+  const absPath = powershellProfilePath(ctx.documentsDir);
+  const template = await readText(path.join(ctx.repoRoot, "home", "powershell", "profile.ps1"));
+  if (template === null) throw new StepFailure("레포에 home/powershell/profile.ps1이 없습니다");
+  const before = await readText(absPath);
+  const body = stripBom(before ?? "");
+  if (before === null || body.trim() === "") {
+    const local = (await readText(path.join(ctx.profileDir, "powershell.local.ps1"))) ?? "";
+    return { absPath, before, after: `\uFEFF${upsertMarkerBlock(local, template, HASH_MARKERS)}` };
+  }
+  return { absPath, before, after: `\uFEFF${upsertMarkerBlock(body, template, HASH_MARKERS)}` };
+}
+
+/** git 전역 설정의 관리 키를 `git config`로 맞춘다. 레포 값 위에 로컬 오버레이(이메일 등)를 얹는다. */
+function gitconfigStep(rank: number): StepDef {
+  const desired = async (ctx: InstallContext): Promise<CommandSpec[]> => {
+    const template = await readJsonObject(path.join(ctx.repoRoot, "home", "git", "gitconfig.json"));
+    const overlay = await readJsonObject(path.join(ctx.profileDir, "gitconfig.local.json"));
+    const expected = { ...template, ...overlay };
+    const keys = (await managedKeys(ctx)).gitconfig.filter((key) => typeof expected[key] === "string");
+    const actual = await readGitConfig(keys, ctx.gitScope);
+    return keys
+      .filter((key) => actual[key] !== expected[key])
+      .map((key) => ({ command: "git", args: gitConfigSetArgs(key, expected[key] as string, ctx.gitScope), timeoutMs: COMMAND_TIMEOUT_MS }));
+  };
+  return {
+    id: "dotfiles.git",
+    section: "dotfiles",
+    title: "git 전역 설정(관리 키)",
+    rank,
+    checks: byPrefix("dotfiles.git."),
+    plan: async (ctx) => (await desired(ctx)).map(commandAction),
+    apply: async (ctx, log, signal) => {
+      for (const spec of await desired(ctx)) await runCommand(ctx, spec, log, signal);
+    },
+  };
+}
+
 // ───────────────────────────── 마켓플레이스·플러그인 ─────────────────────────────
 
 function marketplaceSource(ctx: InstallContext, entry: MarketplaceEntry): string {
@@ -434,6 +477,13 @@ function buildStepDefs(manifests: Manifests): StepDef[] {
   }
   defs.push(fileStep({ id: "claude.claude-md", section: "claude", title: "전역 CLAUDE.md", rank: 300, checks: byId("claude.claude-md") }, claudeMdChange));
   defs.push(fileStep({ id: "codex.agents-md", section: "codex", title: "전역 AGENTS.md", rank: 301, checks: byId("codex.agents-md") }, agentsMdChange));
+  defs.push(
+    fileStep(
+      { id: "dotfiles.powershell-profile", section: "dotfiles", title: "PowerShell 프로필", rank: 302, checks: byId("dotfiles.powershell-profile") },
+      powershellProfileChange,
+    ),
+  );
+  defs.push(gitconfigStep(303));
   defs.push(fileStep({ id: "claude.settings", section: "claude", title: "Claude 설정(관리 키)", rank: 400, checks: byPrefix("claude.settings.") }, claudeSettingsChange));
   defs.push(fileStep({ id: "codex.config", section: "codex", title: "Codex 설정(관리 키)", rank: 600, checks: byPrefix("codex.config.") }, codexConfigChange));
   for (const { entry } of manifests.marketplaces) {

@@ -12,6 +12,8 @@ import type {
   ProviderTarget,
   SkillsManifest,
 } from "@shared/manifest-types";
+import { powershellProfilePath, readGitConfig, stripBom, type GitConfigScope } from "../dotfiles.js";
+import { HASH_MARKERS } from "../install/merge.js";
 import { isPersonalValue, tildify, type ExposureRules } from "./exposure.js";
 import {
   getPath,
@@ -33,6 +35,10 @@ export interface CaptureContext {
   skillLock: string;
   profileDir: string;
   privateTerms: string[];
+  /** 문서 폴더(PowerShell 프로필이 산다). OneDrive로 옮겨져 있을 수 있어 OS에 물어 정한다. */
+  documentsDir: string;
+  /** git 전역 설정 대신 읽을 파일(테스트). 없으면 `git config --global`. */
+  gitScope: GitConfigScope;
 }
 
 export interface PlannedFile {
@@ -167,12 +173,17 @@ export async function planClaudeMd(ctx: CaptureContext): Promise<TargetPlan> {
 interface ManagedKeys {
   claudeSettings: string[];
   codexConfig: string[];
+  gitconfig: string[];
 }
 
 async function readManagedKeys(ctx: CaptureContext): Promise<ManagedKeys> {
   const value = await readJson(path.join(ctx.repoRoot, "home", "managed-keys.json"));
   if (!isRecord(value)) throw new Error("home/managed-keys.json이 없거나 객체가 아닙니다");
-  return { claudeSettings: stringList(value.claudeSettings), codexConfig: stringList(value.codexConfig) };
+  return {
+    claudeSettings: stringList(value.claudeSettings),
+    codexConfig: stringList(value.codexConfig),
+    gitconfig: stringList(value.gitconfig),
+  };
 }
 
 /**
@@ -531,6 +542,71 @@ export async function planSkills(ctx: CaptureContext): Promise<TargetPlan> {
   return plan;
 }
 
+// ───────────────────────────── dotfiles ─────────────────────────────
+
+/**
+ * PowerShell 프로필. 마커 블록(`# >>> harness-manager >>>`)이 있으면 그 안이 공개, 밖은 로컬이다. 블록이 없으면
+ * 파일 전체를 공개 후보로 본다 — 개인 경로·회사명이 섞였으면 노출 검사가 적용을 막는다.
+ */
+export async function planPowershellProfile(ctx: CaptureContext): Promise<TargetPlan> {
+  const source = powershellProfilePath(ctx.documentsDir);
+  const plan: TargetPlan = { id: "powershell-profile", label: "PowerShell 프로필", sources: [shown(ctx, source)], files: [], notes: [] };
+  const raw = await readText(source);
+  if (raw === null) return { ...plan, error: `${shown(ctx, source)}가 없습니다` };
+  const text = normalizeNewlines(stripBom(raw));
+  const start = text.indexOf(HASH_MARKERS.start);
+  const end = text.indexOf(HASH_MARKERS.end);
+  let publicText = text;
+  let localText = "";
+  if (start >= 0 && end > start) {
+    publicText = text.slice(start + HASH_MARKERS.start.length, end);
+    localText = text.slice(0, start) + text.slice(end + HASH_MARKERS.end.length);
+    plan.notes.push("마커 블록 안을 공개, 밖을 개인으로 나눴습니다.");
+  } else {
+    plan.notes.push("마커 블록이 없어 파일 전체를 공개 후보로 봤습니다. 개인 부분이 있으면 블록 밖으로 빼세요.");
+  }
+  plan.files.push(await repoFile(ctx, "home/powershell/profile.ps1", withTrailingNewline(publicText)));
+  const local = await localFile(ctx, "powershell.local.ps1", withTrailingNewline(localText));
+  if (local) plan.files.push(local);
+  return plan;
+}
+
+/** git 전역 설정의 관리 키. 키 이름에 점이 있어 평평한 객체(`{"user.name": …}`)로 적는다. */
+export async function planGitconfig(ctx: CaptureContext): Promise<TargetPlan> {
+  const plan: TargetPlan = {
+    id: "gitconfig",
+    label: "git 전역 설정(관리 키)",
+    sources: [ctx.gitScope.file ? shown(ctx, ctx.gitScope.file) : "git config --global"],
+    files: [],
+    notes: [],
+  };
+  const keys = (await readManagedKeys(ctx)).gitconfig;
+  if (keys.length === 0) return { ...plan, error: "home/managed-keys.json에 gitconfig 키가 없습니다" };
+  const current = await readGitConfig(keys, ctx.gitScope);
+  const templatePath = "home/git/gitconfig.json";
+  const existingValue = await readJson(path.join(ctx.repoRoot, templatePath)).catch(() => null);
+  const existing = isRecord(existingValue) ? existingValue : {};
+  const publicValue: Record<string, string> = {};
+  const localValue: Record<string, string> = {};
+  for (const key of keys) {
+    const value = current[key];
+    if (value === undefined) {
+      if (typeof existing[key] === "string") {
+        publicValue[key] = existing[key] as string;
+        plan.notes.push(`${key}: 이 PC에 없어 레포 값을 유지합니다.`);
+      }
+      continue;
+    }
+    if (isPersonalValue(value, rules(ctx))) localValue[key] = value;
+    else publicValue[key] = value;
+  }
+  if (Object.keys(localValue).length > 0) plan.notes.push(`개인 값이라 로컬 오버레이로 보냄: ${Object.keys(localValue).join(", ")}`);
+  plan.files.push(await repoFile(ctx, templatePath, stableJson(publicValue)));
+  const local = await localFile(ctx, "gitconfig.local.json", Object.keys(localValue).length > 0 ? stableJson(localValue) : "");
+  if (local) plan.files.push(local);
+  return plan;
+}
+
 export const TARGET_PLANNERS: Record<CaptureTargetId, (ctx: CaptureContext) => Promise<TargetPlan>> = {
   agents: planAgents,
   "claude-md": planClaudeMd,
@@ -539,4 +615,6 @@ export const TARGET_PLANNERS: Record<CaptureTargetId, (ctx: CaptureContext) => P
   plugins: planPlugins,
   mcp: planMcp,
   skills: planSkills,
+  "powershell-profile": planPowershellProfile,
+  gitconfig: planGitconfig,
 };

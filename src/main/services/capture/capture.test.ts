@@ -34,6 +34,8 @@ beforeEach(() => {
     skillLock: path.join(home, ".agents", ".skill-lock.json"),
     profileDir: path.join(home, ".harness-manager", "profile"),
     privateTerms: ["acme"],
+    documentsDir: path.join(home, "Documents"),
+    gitScope: { file: path.join(home, ".gitconfig") },
   };
   write(path.join(repo, "package.json"), { name: "harness-manager" });
   write(path.join(repo, ".claude-plugin", "marketplace.json"), { name: "jinmin", plugins: [] });
@@ -266,6 +268,43 @@ describe("capture 계획과 적용", () => {
   it("레포 판별은 package.json 이름과 루트 마켓플레이스를 본다", async () => {
     expect(await isHarnessRepo(ctx.repoRoot)).toBe(true);
     expect(await isHarnessRepo(root)).toBe(false);
+  });
+});
+
+describe("dotfiles capture", () => {
+  it("PowerShell 프로필: 마커 블록 안은 공개, 밖은 로컬이고 BOM은 떼어 낸다", async () => {
+    const profile = path.join(ctx.documentsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
+    write(profile, "﻿$env:SECRET_DIR = 'x'\n# >>> harness-manager >>>\nSet-Alias g git\n# <<< harness-manager <<<\n");
+    await applyAll(["powershell-profile"]);
+    expect(read(repoPath("home/powershell/profile.ps1"))).toBe("Set-Alias g git\n");
+    expect(read(profilePath("powershell.local.ps1"))).toBe("$env:SECRET_DIR = 'x'\n");
+  });
+
+  it("PowerShell 프로필: 블록이 없으면 파일 전체가 공개 후보이고, 개인 경로가 있으면 막는다", async () => {
+    const profile = path.join(ctx.documentsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
+    write(profile, "Set-Location D:\\work\n");
+    const item = (await plan(["powershell-profile"]))["powershell-profile"]!;
+    expect(item.notes.join()).toContain("파일 전체");
+    expect(item.applicable).toBe(false);
+    expect(item.changes[0]!.exposure[0]!.kind).toBe("absolute-path");
+  });
+
+  it("gitconfig: 관리 키만 평평한 JSON으로, 이메일은 로컬로 보낸다", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const set = (key: string, value: string) => execFileSync("git", ["config", "--file", ctx.gitScope.file!, key, value]);
+    set("user.name", "Tester");
+    set("user.email", "tester@example.com");
+    set("core.autocrlf", "true");
+    set("credential.helper", "manager");
+    write(path.join(ctx.repoRoot, "home", "managed-keys.json"), {
+      schemaVersion: 1,
+      claudeSettings: [],
+      codexConfig: [],
+      gitconfig: ["user.name", "user.email", "core.autocrlf", "pull.ff"],
+    });
+    await applyAll(["gitconfig"]);
+    expect(JSON.parse(read(repoPath("home/git/gitconfig.json")))).toEqual({ "user.name": "Tester", "core.autocrlf": "true" });
+    expect(JSON.parse(read(profilePath("gitconfig.local.json")))).toEqual({ "user.email": "tester@example.com" });
   });
 });
 

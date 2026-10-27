@@ -74,9 +74,9 @@
 | M3.5 | 업무 프로젝트 레포 일괄 최신화(repo-sync) 엔진과 `hm-cli` 골격. mcw가 CLI로 호출한다(`docs/contracts/repo-sync.md`) | 완료(확인 대기) |
 | M4 | manifest 스키마와 capture 엔진 | 완료 |
 | M5 | doctor와 Dashboard 카드, 섹션 페이지(읽기 전용) | 완료 |
-| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 엔진·화면 완료. PS 프로필·gitconfig·WT capture/install은 남음 |
+| M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 완료(PS 프로필·gitconfig 포함. Windows Terminal은 보류 — 스펙 D25) |
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료 |
-| M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료(확인 대기) |
+| M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료 |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
 | M10 | v3.0.0 릴리스 | |
 | M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
@@ -180,6 +180,16 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 설치본: 앱이 기동할 때 `~/.harness-manager/bin/hm.cmd`(사람용)와 `hm-cli.json`(다른 앱이 셸 없이 spawn)을 적는다(`cli-shim.ts`). 실행 파일을 `ELECTRON_RUN_AS_NODE=1`로 띄워 asar 안의 cli.js를 돌린다. 개발 빌드와 `HARNESS_MANAGER_USER_DATA` 실행은 심을 쓰지 않는다.
   - `HM_HOME`을 주면 `~/.harness-manager` 대신 `<HM_HOME>/.harness-manager`를 쓴다(테스트·시험 실행 격리).
 - `services/repo-sync/`: 레포 일괄 최신화 엔진. `sync-repo.ts`(레포 하나의 판정과 ff-only), `runner.ts`(동시 실행 상한, 프로세스 안·사이 중복 제거, 쿨다운, `waitMs` 중간 보고), `state.ts`(`repo-sync/state.json`, json-store), `cloud.ts`, `summary.ts`. 테스트는 `test-fixtures.ts`가 임시 bare 원격과 클론 두 개로 실제 git을 돌린다.
+- **dotfiles(M6 후속)**: `services/dotfiles.ts`
+  - PowerShell 5.1 프로필(문서 폴더는 OS에 물어 정한다)
+    - 템플릿: `home/powershell/profile.ps1`
+    - 마커 블록(`# >>> harness-manager >>>`) 안만 관리한다. 블록이 없으면 capture는 파일 전체를 공개 후보로 본다.
+    - install은 BOM을 붙여 쓴다(5.1이 BOM 없는 한글을 깨뜨린다).
+  - git 전역 설정: `home/git/gitconfig.json`(평평한 키), 개인 값(이메일)은 `profile/gitconfig.local.json`
+    - 읽기·쓰기 모두 `git config`로만 한다.
+    - 관리 키는 `managed-keys.json`의 `gitconfig`다.
+  - capture 대상 `powershell-profile`·`gitconfig`, doctor 카드 dotfiles, install step `dotfiles.powershell-profile`·`dotfiles.git`.
+  - 테스트는 `gitScope.file`(`git config --file`)과 임시 문서 폴더를 써서 실제 `~/.gitconfig`를 건드리지 않는다.
 - **정리 확장(M8)**: `services/cleanup-targets.ts`가 v3 후보를 찾는다. doctor도 같은 함수를 쓴다(상태판의 노랑 = 정리 화면의 후보).
   - `broken-links`: `~/.claude/skills`·`~/.agents/skills`·`~/.codex/skills`에서 대상이 없는 링크
   - `duplicate-skills`: 이 레포 플러그인으로 옮긴 스킬의 loose 사본. **그 provider에서 플러그인이 켜져 있을 때만** 후보다(아니면 유일한 사본이다).

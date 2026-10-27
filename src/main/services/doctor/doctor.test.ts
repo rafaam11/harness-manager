@@ -28,6 +28,8 @@ beforeEach(() => {
     agentsSkillsDir: path.join(home, ".agents", "skills"),
     profileDir: path.join(home, ".harness-manager", "profile"),
     profile: "dev",
+    documentsDir: path.join(home, "Documents"),
+    gitScope: { file: path.join(home, ".gitconfig") },
     findExecutable: async (command) => onPath[command] ?? null,
     readVersion: async () => "1.2.3",
     now: () => new Date("2026-10-26T00:00:00.000Z"),

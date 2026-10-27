@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -44,7 +45,8 @@ const simulator: CommandRunner = {
     const settingsPath = path.join(ctx.claudeHome, "settings.json");
     const knownPath = path.join(ctx.claudeHome, "plugins", "known_marketplaces.json");
     const configPath = path.join(ctx.codexHome, "config.toml");
-    if (spec.command === "winget") onPath.git = "C:\\bin\\git.exe";
+    if (spec.command === "git") execFileSync("git", spec.args);
+    else if (spec.command === "winget") onPath.git = "C:\\bin\\git.exe";
     else if (spec.command === "powershell.exe") onPath.claude = "C:\\bin\\claude.exe";
     else if (spec.command === "npm") onPath.codex = "C:\\bin\\codex.cmd";
     else if (spec.command === "npx") write(path.join(ctx.agentsSkillsDir, spec.args[spec.args.indexOf("--skill") + 1]!, "SKILL.md"), "x");
@@ -101,6 +103,8 @@ beforeEach(() => {
     agentsSkillsDir: path.join(home, ".agents", "skills"),
     profileDir: path.join(home, ".harness-manager", "profile"),
     profile: "dev",
+    documentsDir: path.join(home, "Documents"),
+    gitScope: { file: path.join(home, ".gitconfig") },
     findExecutable: async (command) => onPath[command] ?? null,
     readVersion: async () => null,
     now: () => new Date("2026-10-26T00:00:00.000Z"),
@@ -277,5 +281,38 @@ describe("stepDetail", () => {
     expect(stepDetail(["a", "b", "c", "d", "e"].map((title, index) => check(title, index < 4 ? "missing" : "drift")))).toBe(
       "a, b, c 외 2개 (없음 4 · 다름 1)",
     );
+  });
+});
+
+describe("dotfiles install", () => {
+  beforeEach(() => {
+    write(path.join(ctx.repoRoot, "home", "managed-keys.json"), {
+      schemaVersion: 1,
+      claudeSettings: [],
+      codexConfig: [],
+      gitconfig: ["user.name", "user.email", "core.autocrlf"],
+    });
+    write(path.join(ctx.repoRoot, "home", "git", "gitconfig.json"), { "user.name": "Tester", "core.autocrlf": "true" });
+    write(path.join(ctx.profileDir, "gitconfig.local.json"), { "user.email": "tester@example.com" });
+    write(path.join(ctx.repoRoot, "home", "powershell", "profile.ps1"), "Set-Alias g git\n");
+  });
+
+  it("git 관리 키를 git config로 맞추고, PowerShell 프로필에 BOM과 마커 블록으로 쓰며, 다시 돌리면 건너뛴다", async () => {
+    const profile = path.join(ctx.documentsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
+    write(profile, "$keep = 1\n");
+    const ids = ["dotfiles.powershell-profile", "dotfiles.git"];
+    const plan = await planInstallWith(ctx);
+    expect(plan.steps.filter((step) => step.actionable && step.section === "dotfiles").map((step) => step.id)).toEqual(ids);
+
+    const first = await runInstallWith(ctx, ids, () => undefined, new AbortController().signal);
+    expect(first.results.map((result) => result.outcome)).toEqual(["done", "done"]);
+    const written = fs.readFileSync(profile, "utf8");
+    expect(written.charCodeAt(0)).toBe(0xfeff);
+    expect(written.slice(1)).toBe("$keep = 1\n\n# >>> harness-manager >>>\nSet-Alias g git\n# <<< harness-manager <<<\n");
+    const get = (key: string) => execFileSync("git", ["config", "--file", ctx.gitScope.file!, "--get", key], { encoding: "utf8" }).trim();
+    expect([get("user.name"), get("user.email"), get("core.autocrlf")]).toEqual(["Tester", "tester@example.com", "true"]);
+
+    const second = await runInstallWith(ctx, ids, () => undefined, new AbortController().signal);
+    expect(second.results.map((result) => result.outcome)).toEqual(["skipped", "skipped"]);
   });
 });

@@ -10,6 +10,7 @@ import {
 } from "@shared/manifest-types";
 import { AGENTS_SKILL_LOCK, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
 import { withLock } from "../../lib/lock.js";
+import { resolveDocumentsDir } from "../dotfiles.js";
 import { ConflictError, sha256 } from "../../lib/safe-write.js";
 import { scanExposure } from "./exposure.js";
 import { TARGET_PLANNERS, readText, type CaptureContext, type PlannedFile, type TargetPlan } from "./targets.js";
@@ -106,6 +107,8 @@ export async function defaultCaptureContext(
       skillLock: AGENTS_SKILL_LOCK,
       profileDir: PROFILE_DIR,
       privateTerms: terms ?? [],
+      documentsDir: await resolveDocumentsDir(HM_USER_HOME),
+      gitScope: {},
     },
     warnings,
     termsMissing: terms === null,

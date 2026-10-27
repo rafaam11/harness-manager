@@ -22,6 +22,8 @@ import type {
 } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR } from "../../config.js";
 import { findOnPath } from "../../providers/provider-launch.js";
+import { powershellProfilePath, readGitConfig, resolveDocumentsDir, stripBom, type GitConfigScope } from "../dotfiles.js";
+import { HASH_MARKERS } from "../install/merge.js";
 import { findBrokenLinks, findDuplicateSkills, findLeftovers, skillDirs, type CleanupScanContext } from "../cleanup-targets.js";
 import { readAppSettings } from "../settings.js";
 import { tildify } from "../capture/exposure.js";
@@ -39,6 +41,10 @@ export interface DoctorContext {
   agentsSkillsDir: string;
   profileDir: string;
   profile: Profile;
+  /** 문서 폴더(PowerShell 프로필 위치). */
+  documentsDir: string;
+  /** git 전역 설정 대신 읽을 파일(테스트). */
+  gitScope: GitConfigScope;
   findExecutable(command: string): Promise<string | null>;
   /** 실행 파일의 버전 한 줄. 실패하면 null. */
   readVersion(executable: string, args: string[]): Promise<string | null>;
@@ -216,10 +222,10 @@ function managedKeyChecks(
   });
 }
 
-export async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings: string[]; codexConfig: string[] }> {
+export async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings: string[]; codexConfig: string[]; gitconfig: string[] }> {
   const value = await readJson(path.join(ctx.repoRoot, "home", "managed-keys.json"));
   const strings = (key: string) => (isRecord(value) && Array.isArray(value[key]) ? (value[key] as unknown[]).filter((entry): entry is string => typeof entry === "string") : []);
-  return { claudeSettings: strings("claudeSettings"), codexConfig: strings("codexConfig") };
+  return { claudeSettings: strings("claudeSettings"), codexConfig: strings("codexConfig"), gitconfig: strings("gitconfig") };
 }
 
 async function checkClaude(ctx: DoctorContext, manifests: Manifests): Promise<DoctorCheck[]> {
@@ -519,15 +525,45 @@ async function checkCua(ctx: DoctorContext, manifests: Manifests): Promise<Docto
   return checks;
 }
 
-function checkDotfiles(): DoctorCheck[] {
-  return [
-    {
-      id: "dotfiles.pending",
-      title: "PowerShell 프로필·gitconfig·Windows Terminal",
-      state: "info",
-      detail: "마커 블록 merge가 들어오는 M6에서 검사합니다",
-    },
-  ];
+async function checkDotfiles(ctx: DoctorContext): Promise<DoctorCheck[]> {
+  const checks: DoctorCheck[] = [];
+  const template = await readText(path.join(ctx.repoRoot, "home", "powershell", "profile.ps1"));
+  if (template !== null) {
+    const id = "dotfiles.powershell-profile";
+    const target = powershellProfilePath(ctx.documentsDir);
+    const raw = await readText(target);
+    if (raw === null) {
+      checks.push({ id, title: "PowerShell 프로필", state: "missing", detail: `${tildify(target, ctx.home)}가 없습니다` });
+    } else {
+      // 마커 블록이 있으면 그 안을, 없으면 파일 전체를 레포 템플릿과 비교한다(capture와 같은 규칙).
+      const text = normalizeNewlines(stripBom(raw));
+      const start = text.indexOf(HASH_MARKERS.start);
+      const end = text.indexOf(HASH_MARKERS.end);
+      const managed = start >= 0 && end > start ? text.slice(start + HASH_MARKERS.start.length, end) : text;
+      checks.push(
+        managed.trim() === normalizeNewlines(template).trim()
+          ? { id, title: "PowerShell 프로필", state: "ok", detail: tildify(target, ctx.home) }
+          : { id, title: "PowerShell 프로필", state: "drift", detail: "레포 템플릿과 다릅니다" },
+      );
+    }
+  }
+
+  const keys = (await managedKeys(ctx)).gitconfig;
+  const templateValue = await readJson(path.join(ctx.repoRoot, "home", "git", "gitconfig.json"));
+  const overlayValue = await readJson(path.join(ctx.profileDir, "gitconfig.local.json"));
+  const expected = { ...(isRecord(templateValue) ? templateValue : {}), ...(isRecord(overlayValue) ? overlayValue : {}) };
+  const wanted = keys.filter((key) => typeof expected[key] === "string");
+  const actual = await readGitConfig(wanted, ctx.gitScope);
+  for (const key of wanted) {
+    const id = `dotfiles.git.${key}`;
+    const value = actual[key];
+    const local = isRecord(overlayValue) && key in overlayValue;
+    if (value === undefined) checks.push({ id, title: `git ${key}`, state: "missing", detail: "설정되지 않음", local });
+    else if (value === expected[key]) checks.push({ id, title: `git ${key}`, state: "ok", detail: local ? "(로컬 값)" : value, local });
+    else checks.push({ id, title: `git ${key}`, state: "drift", detail: `이 PC ${value} · 레포 ${expected[key] as string}`, local });
+  }
+  checks.push({ id: "dotfiles.windows-terminal", title: "Windows Terminal", state: "info", detail: "settings.json이 주석 있는 JSON이라 아직 관리하지 않습니다" });
+  return checks;
 }
 
 // ───────────────────────────── 집계 ─────────────────────────────
@@ -606,6 +642,8 @@ export async function defaultDoctorContext(repoRoot: string, profile?: Profile):
     codexHome: CODEX_HOME,
     agentsSkillsDir: path.join(HM_USER_HOME, ".agents", "skills"),
     profileDir: PROFILE_DIR,
+    documentsDir: await resolveDocumentsDir(HM_USER_HOME),
+    gitScope: {},
     profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
     findExecutable: (command) => findOnPath(command),
     readVersion: readVersionLine,

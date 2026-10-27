@@ -24,5 +24,16 @@
     "personality",
     "service_tier",
     "windows.sandbox"
+  ],
+  "gitconfig": [
+    "user.name",
+    "user.email",
+    "init.defaultBranch",
+    "core.autocrlf",
+    "pull.ff",
+    "filter.lfs.clean",
+    "filter.lfs.smudge",
+    "filter.lfs.process",
+    "filter.lfs.required"
   ]
 }
