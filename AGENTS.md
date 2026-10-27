@@ -2,7 +2,7 @@
 
 이 저장소에서 작업하는 코딩 에이전트(Claude Code, Codex CLI 등)를 위한 지침이다. `CLAUDE.md`는 이 파일을 `@AGENTS.md`로 불러오는 래퍼일 뿐이다. 내용은 여기에만 쓴다.
 
-> **v3.0.0을 릴리스했다.** 아래 "v3 전환"이 남은 마일스톤(M9·M11·M12)의 기준이다. "현재 코드"는 지금 트리에 있는 코드를 설명한다.
+> **v3.1.0까지 릴리스했다.** 남은 마일스톤은 M9(보류)뿐이다. 아래 "v3 전환"은 그 기준과 지금까지의 결정을 담는다. "현재 코드"는 지금 트리에 있는 코드를 설명한다.
 > 설계 스펙은 `docs/superpowers/specs/v3-design.md`에 있다.
 
 ---
@@ -77,10 +77,10 @@
 | M6 | install step 엔진, merge(JSON/TOML/마커), LogTerminal | 완료(PS 프로필·gitconfig 포함. Windows Terminal은 보류 — 스펙 D25) |
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료 |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료 |
-| M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
+| M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | 보류(회사 레포 규칙에 맞춰 별도 세션에서) |
 | M10 | v3.0.0 릴리스 | 완료(2026-10-27 발행. 설치한 2.0.6이 3.0.0으로 자동 업데이트되고 hm 심을 쓰는 것까지 실측) |
-| M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
-| M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | 앱 기능 완료(v3.1.0). 원 레포 폐기(Pages·Worker·시크릿·archive)는 단계마다 확인받고 진행 |
+| M11 | jinmin-mods 폐기 | 완료(2026-10-27: jinmin을 이 레포로 옮기고 mod 재설치 → GitHub archive → 로컬 폴더 삭제) |
+| M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | 완료(v3.1.0 발행 뒤 README 이전 안내 → Pages 끄기 → automation 브랜치 14개 삭제 → archive. Actions 시크릿은 설정된 것이 없었고, Worker는 배포 기록이 없어 지울 것이 없는 것으로 판단. 로컬 폴더는 사용자가 지운다) |
 
 ### v3 불변 원칙
 - **사용자 설정 불가침.** CLI가 직접 쓰는 파일(`settings.json`, `~/.claude.json`, `config.toml`)은 통째로 덮어쓰지 않는다.
