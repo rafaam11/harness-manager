@@ -56,7 +56,7 @@ function createWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    backgroundColor: "#121417",
+    backgroundColor: "#181716",
     title: APP_WINDOW_TITLE,
     ...windowChromeOptions(process.platform),
     webPreferences: {

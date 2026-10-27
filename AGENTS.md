@@ -276,7 +276,7 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 - 라우터와 상태관리 라이브러리를 쓰지 않는다. 화면 목록은 `pages/registry.tsx` 하나이고, `App.tsx`는 타이틀바·내비·본문을 그리는 셸만 맡는다.
 - 프레임: `components/TitleBar.tsx`(메뉴는 `title-bar-menu.ts`의 데이터, 창 버튼·테마 토글), `components/toast.tsx`(`showToast`), `components/confirm-dialog.tsx`(`useConfirmDialog` — `window.confirm` 대신), `components/UpdateBadge.tsx`(타이틀바 안에 그린다), `components/ui.tsx`(공통 컴포넌트).
 - 사이드바는 `nav.rail` 아이콘+짧은 글자 열이다. 페이지 정의(`registry.tsx`)가 `icon`(lucide)·`short`를 갖는다. 전역 provider 필터는 없고, 카탈로그가 `Tabs`로 provider를 고르며 선택을 localStorage에 기억한다(`useStoredProviderFilter`).
-- 테마: `theme.ts`(`applyTheme`·`applyStoredTheme`·`useResolvedTheme`, 저장 키 `harness-manager.theme.v1`). 색은 `theme-colors.css`(mcw와 같은 값), 타입·모션 토큰은 `index.css` `:root`.
+- 테마: `theme.ts`(`applyTheme`·`applyStoredTheme`·`useResolvedTheme`, 저장 키 `harness-manager.theme.v1`). 색은 `theme-colors.css`(구조는 mcw와 같고, 주색은 주황 `--primary`·바탕은 따뜻한 회색. v3.4.0), 타입·모션 토큰은 `index.css` `:root`.
 - 계약 테스트: `typography-contract.test.ts`(글자 크기 11/12/13/14/16px, 굵기 400/600/700만), `motion-contract.test.ts`(CSS와 `motion-tokens.ts` 일치, `transition: all` 금지, reduced-motion 블록마다 `:root[data-reduce-motion]` 짝), `style-contract.test.ts`(색 리터럴·v2 별칭·죽은 클래스 금지).
 - 보존 대상 페이지:
   - `Catalog`: 읽기 전용 카탈로그

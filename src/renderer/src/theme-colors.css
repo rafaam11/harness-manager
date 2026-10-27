@@ -1,19 +1,20 @@
 /*
- * 색 토큰(multi-cli-work와 같은 값 — 두 앱이 한 계열로 읽히게). 타입·모션 토큰은 index.css에 있다.
+ * 색 토큰. 구조는 multi-cli-work와 같지만, 이 앱은 주황(--primary)을 주색으로, 따뜻한 회색을 바탕으로 써서
+ * 청록인 mcw와 한눈에 구별된다. 주황은 앱 아이콘·배너의 색과 같다. 타입·모션 토큰은 index.css에 있다.
  * 상태색(--green/--amber/--red)은 상태에만 쓰고, provider 구분색(--brand-*)과 섞지 않는다.
  */
 :root {
-  --bg: #161918;
-  --sidebar: #1c201f;
-  --surface: #202524;
-  --surface-raised: #252b29;
-  --surface-hover: #2a302e;
-  --line: #343b38;
-  --line-strong: #46504c;
-  --text: #e7ebe8;
-  --muted: #9aa49f;
-  --quiet: #717b76;
-  --teal: #4fb7a4;
+  --bg: #181716;
+  --sidebar: #1e1c1b;
+  --surface: #221f1e;
+  --surface-raised: #282523;
+  --surface-hover: #2e2a28;
+  --line: #3b3633;
+  --line-strong: #4f4945;
+  --text: #ece8e5;
+  --muted: #a59e98;
+  --quiet: #7b746f;
+  --primary: #e8825f;
   --amber: #d8a24a;
   --blue: #6ea8d8;
   --red: #d46a6a;
@@ -22,9 +23,9 @@
   --brand-claude: #d97757;
   --brand-codex: #6ea8d8;
   /* Surfaces and state colours that used to be written out by hand; the light theme swaps them. */
-  --header-bg: #191d1c;
-  --surface-accent: #242a28;
-  --surface-accent-soft: #1b201e;
+  --header-bg: #1b1918;
+  --surface-accent: #2c231e;
+  --surface-accent-soft: #211c19;
   --wash: rgb(255 255 255 / 8%);
   --danger-text: #f09595;
   --danger-line: #7a3b3b;
@@ -34,8 +35,8 @@
   --warn-surface: color-mix(in srgb, var(--amber) 12%, var(--surface));
   --warn-line: color-mix(in srgb, var(--amber) 45%, var(--surface));
   --err-surface: color-mix(in srgb, var(--red) 14%, var(--surface));
-  /* 청록 바탕 버튼의 글자. 다크 테마의 밝은 청록에는 흰 글자 대비가 모자라 어두운 글자를 쓴다. */
-  --on-teal: #0d1f1b;
+  /* 주황 바탕 버튼의 글자. 다크 테마의 밝은 주황에는 흰 글자 대비가 모자라 어두운 글자를 쓴다. */
+  --on-primary: #2a1408;
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
   /*
    * 분류색(카탈로그 종류 배지). 상태색과 섞지 않는다. 배지에는 종류 이름이 글자로 함께 나온다.
@@ -61,30 +62,30 @@
  */
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f7f8f7;
-  --sidebar: #eef1ef;
+  --bg: #f8f7f6;
+  --sidebar: #f1eeec;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-hover: #e7ecea;
-  --line: #d5dbd8;
-  --line-strong: #b3bcb8;
-  --text: #1d2321;
-  --muted: #4f5a55;
-  --quiet: #66716c;
-  --teal: #1b7867;
+  --surface-hover: #ece7e3;
+  --line: #ddd6d1;
+  --line-strong: #bcb3ad;
+  --text: #231f1d;
+  --muted: #5a524d;
+  --quiet: #6e6660;
+  --primary: #b4532f;
   --amber: #946410;
   --blue: #2c6aa3;
   --red: #b33a3a;
   --green: #2d7a45;
   --violet: #7450a0;
   --brand-codex: #2c6aa3;
-  --header-bg: #f0f3f1;
-  --surface-accent: #e1eeea;
-  --surface-accent-soft: #edf3f1;
+  --header-bg: #f3f0ee;
+  --surface-accent: #f6e6dc;
+  --surface-accent-soft: #f9f1eb;
   --wash: rgb(0 0 0 / 6%);
   --danger-text: #b42318;
   --danger-line: #e0a3a3;
   --warning-text: #875800;
-  --on-teal: #ffffff;
+  --on-primary: #ffffff;
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 12%);
 }
