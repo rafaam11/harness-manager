@@ -252,6 +252,27 @@ button.btn.danger { background: var(--red); }
 .banner[data-tone="warn"] { border-color: var(--amber); background: var(--warn-surface); }
 .banner[data-tone="err"] { border-color: var(--red); background: var(--err-surface); }
 
+/* 레포 연결 카드. 경고 배너 대신 다음 동작을 크게 보여 준다. */
+.repo-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  text-align: center;
+}
+.repo-connect h3 { margin: 0; font: var(--type-panel-title); }
+.repo-connect p { margin: 0; }
+.repo-connect-icon { color: var(--teal); }
+.repo-connect-actions { display: flex; gap: 8px; margin-top: 8px; }
+.repo-connect-target { font-size: var(--type-caption-size); }
+.repo-connect .banner { align-self: stretch; text-align: left; }
+
 .empty { padding: 20px 4px; color: var(--muted); text-align: center; font: var(--type-ui); }
 
 .data-table { width: 100%; border-collapse: collapse; font: var(--type-ui); }
@@ -675,6 +696,7 @@ select:focus-visible { outline: none; border-color: var(--teal); }
   color: var(--text);
   background: transparent;
   font-size: var(--type-ui-size);
+  white-space: nowrap;
   cursor: pointer;
 }
 

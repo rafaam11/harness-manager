@@ -5,6 +5,7 @@ import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type I
 import type { AppSettings, Profile } from "@shared/manifest-types";
 import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
+import RepoConnect from "../components/RepoConnect";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
 
@@ -83,11 +84,6 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
     }
   };
 
-  const chooseRepo = () =>
-    guard(async () => {
-      if (await call("capture:choose-repo")) setReport(await call("doctor:run"));
-    });
-
   const saveSettings = (patch: Partial<AppSettings>) => guard(async () => setSettings(await call("settings:set", patch)));
 
   // 프로필 단계를 지나면 그 프로필로 다시 계획하고, 할 수 있는 step을 전부 골라 둔다.
@@ -159,13 +155,10 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
                 <span className="muted">레포</span>
                 <span className="mono">{report.repoRoot}</span>
               </div>
+            ) : report?.repoError ? (
+              <RepoConnect onConnected={() => void call("doctor:run").then(setReport)} />
             ) : (
-              <Banner tone="warn">
-                {report?.repoError ?? "레포 위치를 확인하는 중…"}{" "}
-                <button className="btn ghost" onClick={() => void chooseRepo()} disabled={busy}>
-                  레포 폴더 선택
-                </button>
-              </Banner>
+              <p className="muted">레포 위치를 확인하는 중…</p>
             )}
           </>
         )}

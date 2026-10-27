@@ -32,6 +32,8 @@ export interface PageDefinition {
   icon: LucideIcon;
   /** 마스터-디테일처럼 가용 너비를 전부 쓰는 화면. */
   wide?: boolean;
+  /** 사용자 설정 파일을 쓰는 화면. 실행 중인 CLI와 충돌할 수 있어 이런 화면에서만 경고를 띄운다. */
+  writesUserFiles?: boolean;
   render(context: PageContext): ReactNode;
 }
 
@@ -41,10 +43,10 @@ export interface PageDefinition {
  */
 export const PAGES = {
   dashboard: { label: "상태판", short: "상태판", icon: LayoutDashboard, render: () => <Dashboard /> },
-  install: { label: "설치", short: "설치", icon: Download, render: () => <Install /> },
+  install: { label: "설치", short: "설치", icon: Download, writesUserFiles: true, render: () => <Install /> },
   catalog: { label: "카탈로그", short: "카탈로그", icon: BookOpen, wide: true, render: () => <Catalog /> },
-  cleanup: { label: "정리", short: "정리", icon: Archive, render: () => <Cleanup /> },
-  configs: { label: "설정 편집기", short: "설정", icon: FileCog, render: () => <ConfigEditor /> },
+  cleanup: { label: "정리", short: "정리", icon: Archive, writesUserFiles: true, render: () => <Cleanup /> },
+  configs: { label: "설정 편집기", short: "설정", icon: FileCog, writesUserFiles: true, render: () => <ConfigEditor /> },
   capture: { label: "가져오기", short: "가져오기", icon: Import, render: () => <Capture /> },
   "external-api": { label: "외부 API", short: "외부 API", icon: Globe, wide: true, render: () => <ExternalApi /> },
   // 사이드바에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.
@@ -52,6 +54,7 @@ export const PAGES = {
     label: "셋업 위저드",
     short: "위저드",
     icon: Wand2,
+    writesUserFiles: true,
     render: ({ navigate }) => <Wizard onFinish={() => navigate("dashboard")} />,
   },
 } satisfies Record<string, PageDefinition>;

@@ -262,7 +262,8 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
     - 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 적용을 막는다.
     - plugins·mcp·skills는 더하기만 한다(빼기는 사람이 manifest를 직접 고친다). MCP env 값은 옮기지 않고 `${이름}` 자리표시로 적는다.
     - 적용: 렌더러는 대상 id와 미리보기 지문만 보내고, main이 다시 계획해 지문이 같을 때만 계획한 파일을 쓴다(파일 단위 allowlist, 원본 백업, temp → rename). 다르면 409다.
-  - 레포 위치: `HM_REPO` → `~/.harness-manager/repo.json`(화면의 "레포 폴더 선택") → 개발 빌드는 앱 경로. CLI는 `--repo`도 받는다.
+  - 레포 위치: `HM_REPO` → `~/.harness-manager/repo.json` → 개발 빌드는 앱 경로 → 자동 탐색(`jinmin` 마켓플레이스의 directory 소스, `~/dev` 등 흔한 폴더의 `harness-manager`, 찾으면 repo.json에 기억). CLI는 `--repo`도 받는다.
+  - 그래도 없으면 상태판·설치·가져오기·위저드가 연결 카드(`components/RepoConnect.tsx`)를 띄운다. "레포 받기"(`repo:clone`)는 공개 레포를 `~/dev/harness-manager`에 클론한다. 주소와 위치는 main이 정하고, 다른 파일이 든 폴더에는 받지 않는다(409).
   - CLI: `hm capture [--dry-run]`, `hm capture --apply --only <id,…> --yes`, `hm manifest validate`(실패 시 종료 코드 3).
   - 화면: "가져오기" 페이지(`pages/Capture.tsx`)가 항목별 diff·노트·노출 경고를 보여 주고 고른 항목만 적용한다.
 - `config.ts`: 경로 상수와 정책 값의 단일 출처다(`ALLOWED_ROOTS`, `CONFIG_FILES`, `STALE_DAYS`, `BACKUP_KEEP`, `APP_STATE_DIR=~/.harness-manager` 등).

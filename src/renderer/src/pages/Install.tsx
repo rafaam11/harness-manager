@@ -4,6 +4,7 @@ import { DOCTOR_CHECK_LABELS, DOCTOR_SECTION_LABELS, type DoctorCardState } from
 import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type InstallStepResult } from "@shared/install-types";
 import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
+import RepoConnect from "../components/RepoConnect";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
@@ -127,7 +128,7 @@ export default function Install() {
         )}
       </div>
       {error && <Banner tone="err">{error}</Banner>}
-      {plan?.repoError && <Banner tone="warn">{plan.repoError}</Banner>}
+      {plan?.repoError && <RepoConnect onConnected={() => void load()} />}
       {current && (
         <div className="install-progress" role="status">
           <StatusTag tone="ok">진행 중</StatusTag>

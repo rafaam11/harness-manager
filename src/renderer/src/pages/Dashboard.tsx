@@ -11,6 +11,7 @@ import {
 } from "@shared/doctor-types";
 import { Banner, Check, StateDot, StatusTag, Tabs, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
+import RepoConnect from "../components/RepoConnect";
 
 type Tab = "overview" | DoctorSection;
 
@@ -55,15 +56,15 @@ export default function Dashboard() {
     <div className="dashboard-page">
       <div className="page-head">
         <h2>상태판</h2>
-        {report && <StatusTag tone="muted">프로필 {report.profile}</StatusTag>}
-        <span className="page-head-meta">{report ? `마지막 검사 ${new Date(report.generatedAt).toLocaleString("ko-KR")}` : busy ? "검사 중…" : ""}</span>
+        {report && !report.repoError && <StatusTag tone="muted">프로필 {report.profile}</StatusTag>}
+        <span className="page-head-meta">{report && !report.repoError ? `마지막 검사 ${new Date(report.generatedAt).toLocaleString("ko-KR")}` : busy ? "검사 중…" : ""}</span>
         <ToolbarSpacer />
         <button className="btn" onClick={() => void run()} disabled={busy}>
           {busy ? "검사 중…" : "다시 검사"}
         </button>
       </div>
       {error && <Banner tone="err">{error}</Banner>}
-      {report?.repoError && <Banner tone="warn">{report.repoError}</Banner>}
+      {report?.repoError && <RepoConnect onConnected={() => void run()} />}
 
       {report && report.cards.length > 0 && (
         <Tabs<Tab>

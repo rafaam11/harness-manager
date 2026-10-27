@@ -10,6 +10,7 @@ import {
 } from "@shared/manifest-types";
 import { AGENTS_SKILL_LOCK, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
 import { withLock } from "../../lib/lock.js";
+import type { CommandRunner } from "../install/exec.js";
 import { resolveDocumentsDir } from "../dotfiles.js";
 import { ConflictError, sha256 } from "../../lib/safe-write.js";
 import { scanExposure } from "./exposure.js";
@@ -65,6 +66,77 @@ export async function resolveRepoRoot(options: { explicit?: string; startDirs?: 
     const found = await walkUp(start);
     if (found) return found;
   }
+  // 기록이 없어도 이미 클론이 있으면 찾아서 기억한다. 설치본을 처음 띄운 사용자가 폴더를 고르지 않아도 되게 한다.
+  const discovered = await discoverRepoRoot({ home: HM_USER_HOME, claudeHome: CLAUDE_HOME });
+  if (discovered) await rememberRepoRoot(discovered).catch(() => undefined);
+  return discovered;
+}
+
+/** 공개 레포 주소. 클론이 없을 때 "레포 받기"가 이 주소만 받는다(렌더러가 주소를 정하지 않는다). */
+export const REPO_CLONE_URL = "https://github.com/rafaam11/harness-manager.git";
+
+/** "레포 받기"가 클론할 기본 위치. */
+export function defaultCloneTarget(home: string = HM_USER_HOME): string {
+  return path.join(home, "dev", "harness-manager");
+}
+
+/**
+ * 클론이 없을 때 공개 레포를 기본 위치에 받고 기억한다. 이미 그 자리에 클론이 있으면 받지 않고 기억만 한다.
+ * 다른 파일이 든 폴더에는 받지 않는다(사용자 파일을 덮지 않는다).
+ */
+export async function cloneRepo(runner: CommandRunner, target: string = defaultCloneTarget()): Promise<string> {
+  if (await isHarnessRepo(target)) return rememberRepoRoot(target);
+  const existing = await fs.readdir(target).catch(() => null);
+  if (existing && existing.length > 0) {
+    throw new CaptureRequestError(`${target}에 다른 파일이 있어 받지 않았습니다. "폴더 선택"으로 클론 위치를 직접 고르세요.`, 409);
+  }
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  const errors: string[] = [];
+  const result = await runner.run(
+    { command: "git", args: ["clone", REPO_CLONE_URL, target], timeoutMs: 5 * 60_000, env: { GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" } },
+    (stream, line) => {
+      if (stream === "stderr") errors.push(line);
+    },
+    new AbortController().signal,
+  );
+  if (result.notFound) throw new CaptureRequestError("git을 찾지 못했습니다. git을 설치한 뒤 다시 누르세요(winget install Git.Git).", 422);
+  if (result.code !== 0 || !(await isHarnessRepo(target))) {
+    const detail = result.timedOut ? "시간 초과" : errors.slice(-2).join(" ") || `종료 코드 ${result.code}`;
+    throw new CaptureRequestError(`레포를 받지 못했습니다: ${detail}`, 422);
+  }
+  return rememberRepoRoot(target);
+}
+
+/**
+ * 기록 없이 레포 클론을 찾는다.
+ * 1. Claude의 `jinmin` 마켓플레이스가 directory 소스면 그 폴더(개발 PC는 이렇게 설정한다)
+ * 2. 흔한 작업 폴더 아래 `harness-manager`
+ */
+export async function discoverRepoRoot(options: { home: string; claudeHome: string; roots?: string[] }): Promise<string | null> {
+  const candidates: string[] = [];
+  try {
+    const known = JSON.parse(await fs.readFile(path.join(options.claudeHome, "plugins", "known_marketplaces.json"), "utf8")) as Record<
+      string,
+      { source?: { source?: unknown; path?: unknown } }
+    >;
+    const source = known.jinmin?.source;
+    if (source?.source === "directory" && typeof source.path === "string") candidates.push(source.path);
+  } catch {
+    // 마켓플레이스 기록이 없으면 흔한 폴더만 본다.
+  }
+  const roots = options.roots ?? [
+    path.join(options.home, "dev"),
+    path.join(options.home, "source", "repos"),
+    path.join(options.home, "Documents", "GitHub"),
+    path.join(options.home, "repos"),
+    path.join(options.home, "projects"),
+    path.join(options.home, "src"),
+    options.home,
+    // 드라이브 루트는 실제 홈일 때만 본다(HM_HOME으로 격리한 시험 실행이 진짜 클론을 집지 않게).
+    ...(process.platform === "win32" && !process.env.HM_HOME ? ["C:\\dev", "D:\\dev"] : []),
+  ];
+  candidates.push(...roots.map((root) => path.join(root, "harness-manager")));
+  for (const candidate of candidates) if (await isHarnessRepo(candidate)) return path.resolve(candidate);
   return null;
 }
 
@@ -170,7 +242,7 @@ export async function planCapture(repoRoot: string | null): Promise<CapturePlan>
   if (!repoRoot) {
     return {
       repoRoot: null,
-      repoError: "harness-manager 레포 클론 위치를 모릅니다. 레포 폴더를 지정하세요.",
+      repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
       profileDir: PROFILE_DIR,
       warnings: [],
       items: [],

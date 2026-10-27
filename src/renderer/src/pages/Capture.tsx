@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CaptureItem, CapturePlan, CaptureTargetId, ManifestFileReport } from "@shared/manifest-types";
 import { Banner, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
+import RepoConnect from "../components/RepoConnect";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { showToast } from "../components/toast";
 
@@ -149,7 +150,7 @@ export default function Capture() {
           </button>
         </div>
       )}
-      {plan?.repoError && <Banner tone="warn">{plan.repoError}</Banner>}
+      {plan?.repoError && <RepoConnect onConnected={() => void load()} />}
       {plan?.warnings.map((warning) => (
         <Banner tone="warn" key={warning}>
           {warning}

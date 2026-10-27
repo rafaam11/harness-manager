@@ -159,6 +159,10 @@ export interface ApiChannels {
   "capture:apply": (ids: CaptureTargetId[], fingerprints: Partial<Record<CaptureTargetId, string>>) => CaptureApplyResult;
   /** 폴더 선택 창으로 레포 클론 위치를 고르고 기억한다. 취소하면 null. */
   "capture:choose-repo": () => string | null;
+  /** 클론이 없을 때 "레포 받기"가 받을 위치(표시용). */
+  "repo:clone-target": () => string;
+  /** 공개 레포를 기본 위치에 받고 기억한다. 주소와 위치는 main이 정한다. */
+  "repo:clone": () => string;
   "manifest:validate": () => ManifestFileReport[];
 
   /** 카드 8개 상태판. 레포 위치를 모르면 cards가 비고 repoError가 있다. */
@@ -215,6 +219,8 @@ export const API_CHANNELS = [
   "capture:plan",
   "capture:apply",
   "capture:choose-repo",
+  "repo:clone-target",
+  "repo:clone",
   "manifest:validate",
   "doctor:run",
   "install:plan",

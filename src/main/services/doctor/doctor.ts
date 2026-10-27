@@ -658,7 +658,7 @@ export async function runDoctor(repoRoot: string | null, profile?: Profile): Pro
       generatedAt: new Date().toISOString(),
       profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
       repoRoot: null,
-      repoError: "harness-manager 레포 클론 위치를 모릅니다. 가져오기 화면에서 레포 폴더를 지정하세요.",
+      repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
       cards: [],
     };
   }

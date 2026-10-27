@@ -86,10 +86,10 @@ export default function App() {
           })}
         </nav>
         <main className={"wide" in current && current.wide ? "page-wide" : undefined}>
-          {runningProviders.length > 0 && (
+          {"writesUserFiles" in current && current.writesUserFiles && runningProviders.length > 0 && (
             <Banner tone="warn">
               실행 중인 provider: {runningProviders.map((status) => providerLabel(status.id)).join(", ")} —
-              설정 저장·정리 실행 시 충돌에 주의하세요.
+              이 화면에서 파일을 바꾸면 충돌할 수 있으니, 저장·실행 전에 그 CLI를 잠시 닫거나 다시 시작하세요.
             </Banner>
           )}
           {current.render({ navigate: setPage })}

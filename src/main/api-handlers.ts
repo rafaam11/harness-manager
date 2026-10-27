@@ -8,7 +8,9 @@ import { archiveItems, restoreItem, listManifests } from "./lib/archive.js";
 import { readCatalogContent } from "./services/catalog.js";
 import { getPlugins } from "./services/plugins.js";
 import { scanCandidates } from "./services/scan.js";
-import { applyCapture, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
+import { applyCapture, cloneRepo, defaultCloneTarget, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
+import { processRunner } from "./services/install/exec.js";
+import { withLock } from "./lib/lock.js";
 import { validateManifest } from "./services/manifest/validate.js";
 import { runDoctor } from "./services/doctor/doctor.js";
 import { defaultInstallContext, planInstallWith, runInstallWith } from "./services/install/engine.js";
@@ -204,6 +206,8 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       const chosen = await deps.chooseDirectory("harness-manager 레포 폴더 선택");
       return chosen ? rememberRepoRoot(chosen) : null;
     },
+    "repo:clone-target": () => defaultCloneTarget(),
+    "repo:clone": () => withLock(() => cloneRepo(processRunner)),
     "manifest:validate": async () => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
       if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
@@ -217,7 +221,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       if (!repoRoot) {
         return {
           repoRoot: null,
-          repoError: "harness-manager 레포 클론 위치를 모릅니다. 가져오기 화면에서 레포 폴더를 지정하세요.",
+          repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
           profile: (await readAppSettings(APP_SETTINGS_FILE)).profile,
           steps: [],
         };
