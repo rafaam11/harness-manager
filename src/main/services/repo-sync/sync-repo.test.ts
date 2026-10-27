@@ -89,6 +89,13 @@ describe("syncRepo (실제 git)", () => {
     expect(await sync(sub)).toMatchObject({ status: "skipped", reason: "not-a-repo" });
   });
 
+  it("링크나 짧은 이름으로 가리킨 레포도 최상위로 알아본다", async () => {
+    const link = path.join(fx.root, "work-link");
+    fs.symlinkSync(fx.work, link, "junction");
+    fx.pushFromOther(1);
+    expect(await sync(link)).toMatchObject({ status: "updated", commits: 1 });
+  });
+
   it("클라우드 동기화 루트나 제외 경로 아래면 git을 부르지 않고 건너뛴다", async () => {
     const calls: string[][] = [];
     const git = async (_cwd: string, args: string[]) => {

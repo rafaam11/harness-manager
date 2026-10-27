@@ -34,6 +34,8 @@ describe("summarizeRepoSync", () => {
       "레포 2개 중 0개 최신화, 1개 이미 최신, 1개 진행 중\n- 진행 중: b",
     );
     expect(summarizeRepoSync([])).toBe("최신화할 레포가 없습니다.");
+    // 어느 OS에서 돌아도 Windows 경로의 이름만 남긴다(multi-cli-work Linux CI에서 드러남).
+    expect(summarizeRepoSync([result({ path: "D:\\dev\\alpha", status: "updated", commits: 1 })])).toContain("- 최신화: alpha(1커밋)");
   });
 });
 
