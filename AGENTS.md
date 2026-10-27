@@ -78,7 +78,7 @@
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료 |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료 |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
-| M10 | v3.0.0 릴리스 | 진행 중 |
+| M10 | v3.0.0 릴리스 | 완료(2026-10-27 발행. 설치한 2.0.6이 3.0.0으로 자동 업데이트되고 hm 심을 쓰는 것까지 실측) |
 | M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
 | M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | |
 
