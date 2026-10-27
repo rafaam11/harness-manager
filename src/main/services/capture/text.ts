@@ -14,9 +14,15 @@ export function stableJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-export function unifiedDiff(displayPath: string, before: string | null, after: string): string {
+/** 머리글 기본값은 capture 방향(레포 → 이 PC)이다. install은 반대 방향이라 labels를 바꿔 준다. */
+export function unifiedDiff(
+  displayPath: string,
+  before: string | null,
+  after: string,
+  labels: { before: string; after: string } = { before: "레포", after: "이 PC" },
+): string {
   if ((before ?? "") === after) return "";
-  const patch = createPatch(displayPath, before ?? "", after, before === null ? "(없음)" : "레포", "이 PC", { context: 3 });
+  const patch = createPatch(displayPath, before ?? "", after, before === null ? "(없음)" : labels.before, labels.after, { context: 3 });
   // createPatch가 앞에 붙이는 "Index:"·"===" 줄은 화면에서 잡음일 뿐이다.
   return patch
     .split("\n")

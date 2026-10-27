@@ -173,9 +173,9 @@ async function toolCheck(ctx: DoctorContext, tool: ToolEntry | undefined, fallba
   if (!found) return { id: `tools.${tool?.id ?? command}`, title, state: "missing", detail: `PATH에서 ${command}를 찾지 못했습니다` };
   const version = tool && tool.verify.args.includes("--version") ? await ctx.readVersion(found, tool.verify.args) : null;
   if (tool?.verify.args.includes("--version") && !version) {
-    return { id: `tools.${tool.id}`, title, state: "error", detail: `${found}는 있지만 실행 검증에 실패했습니다. Node·PATH 등 실행 의존성을 확인하세요` };
+    return { id: `tools.${tool.id}`, title, state: "error", detail: `${tildify(found, ctx.home)}는 있지만 실행 검증에 실패했습니다. Node·PATH 등 실행 의존성을 확인하세요` };
   }
-  return { id: `tools.${tool?.id ?? command}`, title, state: "ok", detail: version ? `${version} · ${found}` : found };
+  return { id: `tools.${tool?.id ?? command}`, title, state: "ok", detail: version ? `${version} · ${tildify(found, ctx.home)}` : tildify(found, ctx.home) };
 }
 
 async function checkToolchain(ctx: DoctorContext, manifests: Manifests): Promise<DoctorCheck[]> {
@@ -200,7 +200,7 @@ async function checkToolchain(ctx: DoctorContext, manifests: Manifests): Promise
       if (!entry.bin) return { id, title, state: "info", detail: "실행 파일 이름이 없어 설치 여부를 확인하지 않습니다" };
       const found = await ctx.findExecutable(entry.bin);
       return found
-        ? { id, title, state: "ok", detail: found }
+        ? { id, title, state: "ok", detail: tildify(found, ctx.home) }
         : { id, title, state: "missing", detail: `PATH에서 ${entry.bin}을(를) 찾지 못했습니다` };
     }),
   );
