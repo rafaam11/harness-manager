@@ -2,7 +2,7 @@
 
 이 저장소에서 작업하는 코딩 에이전트(Claude Code, Codex CLI 등)를 위한 지침이다. `CLAUDE.md`는 이 파일을 `@AGENTS.md`로 불러오는 래퍼일 뿐이다. 내용은 여기에만 쓴다.
 
-> **v3.0.0 전환 중이다.** 아래 "v3 전환"이 현재 작업의 기준이다. "현재 코드"는 지금 트리에 있는 코드를 설명한다(M1에서 v2 제거 대상을 걷어낸 상태, package.json 버전은 아직 2.0.6).
+> **v3.0.0을 릴리스했다.** 아래 "v3 전환"이 남은 마일스톤(M9·M11·M12)의 기준이다. "현재 코드"는 지금 트리에 있는 코드를 설명한다.
 > 설계 스펙은 `docs/superpowers/specs/v3-design.md`에 있다.
 
 ---
@@ -78,7 +78,7 @@
 | M7 | Wizard 페이지, `hm-cli`, `jinmin-setup` 스킬, `scripts/bootstrap.ps1` | 완료 |
 | M8 | Cleanup 확장(깨진 symlink, loose 스킬 중복, Codex 대상) | 완료 |
 | M9 | 회사 스킬을 private 레포로 이관(별도 레포 작업) | |
-| M10 | v3.0.0 릴리스 | |
+| M10 | v3.0.0 릴리스 | 진행 중 |
 | M11 | jinmin-mods 폐기 | 1–3단계 완료(2026-10-26, `hm install`로 jinmin을 이 레포로 옮기고 mod 5개 재설치). archive와 폴더 삭제가 남음 |
 | M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | |
 
