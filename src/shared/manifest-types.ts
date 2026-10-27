@@ -12,6 +12,8 @@ export type ProviderTarget = "claude" | "codex";
 /** 이 PC에서 고른 값(`~/.harness-manager/settings.json`). 위저드가 쓰고 doctor·install이 읽는다. */
 export interface AppSettings {
   profile: Profile;
+  /** 사용자별 설치 정의. core/dev/full은 이 프로필 안의 설치 범위다. */
+  setupProfileId?: string;
   /** 이 레포 마켓플레이스(jinmin)를 붙일 소스. 개발 PC는 레포 폴더, 새 PC는 GitHub(D15). */
   selfMarketplaceSource: "directory" | "github";
 }

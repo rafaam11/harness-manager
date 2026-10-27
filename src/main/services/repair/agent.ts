@@ -19,7 +19,6 @@ export interface AgentOptions {
   prompt: string;
   signal: AbortSignal;
   log: LogSink;
-  approve(title: string, detail: string): Promise<boolean>;
 }
 export type AgentRunner = (options: AgentOptions) => Promise<void>;
 
@@ -31,20 +30,20 @@ export async function repairProviders(env: NodeJS.ProcessEnv): Promise<RepairPro
   }));
 }
 
-/** 프롬프트는 stdin JSON으로만 전달한다. .cmd의 셸 해석에 로그나 사용자 내용을 넣지 않는다. */
+/** 프롬프트는 stdin으로만 전달한다. .cmd의 셸 해석에 로그나 사용자 내용을 넣지 않는다. */
 export const runRepairAgent: AgentRunner = async (options) => {
   const { provider, env, signal, executable, log } = options;
   if (signal.aborted) throw new Error("복구를 취소했습니다");
   let settingsPath: string | undefined;
   const args = provider === "codex"
-    ? ["app-server", "--listen", "stdio://", "-c", "mcp_servers={}", "-c", "features.hooks=false"]
-    : ["--print", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--permission-prompt-tool", "stdio", "--permission-mode", "manual", "--strict-mcp-config", "--tools", "Bash,PowerShell,Read,Glob,Grep,Write,Edit", "--max-turns", "20", "--setting-sources", "user"];
+    ? ["exec", "--json", "--ephemeral", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "-c", "mcp_servers={}", "-c", "features.hooks=false", "-"]
+    : ["--print", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions", "--permission-prompts", "none", "--strict-mcp-config", "--tools", "Bash,PowerShell,Read,Glob,Grep,Write,Edit", "--max-turns", "20", "--setting-sources", "user"];
   if (provider === "claude") {
     await fs.mkdir(options.stateDir, { recursive: true });
     const directory = await fs.mkdtemp(path.join(options.stateDir, "claude-"));
     settingsPath = path.join(directory, "settings.json");
-    // 로컬의 자동 허용 규칙보다 ask가 우선한다. 복구 중 외부 hook은 실행하지 않는다.
-    await writeFileChecked(settingsPath, null, JSON.stringify({ disableAllHooks: true, permissions: { ask: ["Bash", "PowerShell", "Write", "Edit"] } }));
+    // 복구 작업이 기존 사용자 hook까지 연쇄 실행하지 않게 이 호출에만 적용한다.
+    await writeFileChecked(settingsPath, null, JSON.stringify({ disableAllHooks: true }));
     args.push("--settings", settingsPath);
   }
   const shim = /\.(cmd|bat)$/i.test(executable);
@@ -71,8 +70,8 @@ export const runRepairAgent: AgentRunner = async (options) => {
         }
       };
       const complete = (error?: string) => { if (outcome !== undefined) return; outcome = error ? new Error(error) : null; kill(); };
-      const protocol = createAgentProtocol(provider, options.cwd, options.prompt, {
-        log, approve: options.approve, done: complete,
+      const protocol = createAgentProtocol(provider, options.prompt, {
+        log, done: complete,
         send: (message) => { if (!child.stdin.destroyed && outcome === undefined) child.stdin.write(JSON.stringify(message) + "\n"); },
       });
       const timer = setTimeout(() => complete("AI 복구가 15분 제한을 넘었습니다. 로그를 확인하고 다시 요청하세요."), 15 * 60_000);
@@ -102,7 +101,11 @@ export const runRepairAgent: AgentRunner = async (options) => {
       child.stdin.on("error", (error) => complete(error.message));
       child.on("error", finish);
       child.on("close", (code) => { void stopping.then(() => finish(outcome === undefined ? new Error(`AI가 결과 없이 종료되었습니다 (코드 ${code}). 로그인·CLI 버전과 로그를 확인하세요.`) : undefined)); });
-      child.once("spawn", () => { if (signal.aborted) abort(); else protocol.start(); });
+      child.once("spawn", () => {
+        if (signal.aborted) abort();
+        else if (provider === "codex") child.stdin.end(options.prompt);
+        else protocol.start();
+      });
       if (signal.aborted) abort();
     });
   } finally {

@@ -36,22 +36,19 @@ it("stops after a successful doctor verification and masks credentials in prompt
   expect(await fs.readFile(result.logFile!, "utf8")).not.toContain("test-secret");
 });
 
-it("does not retry an install after the user rejects the proposed actions", async () => {
+it("does not retry an install after cancellation", async () => {
   const session = new RepairSession(); plan.mockResolvedValue({ steps: [{ ...bad, actionable: true, manual: false, actions: [{ kind: "command", summary: "install fixed" }] }] });
-  const result = await session.run(ctx, bad.id, "codex", new AbortController().signal, (event) => {
-    if (event.type === "state" && event.state.approvals[0]) session.answer(event.state.approvals[0].id, false);
-  }, vi.fn(), directory, vi.fn(async () => undefined));
+  const abort = new AbortController();
+  const result = await session.run(ctx, bad.id, "codex", abort.signal, vi.fn(), vi.fn(), directory, vi.fn(async () => { abort.abort(); }));
   expect(retry).not.toHaveBeenCalled();
   expect(result.round).toBe(1);
-  expect(result.phase).toBe("failed");
+  expect(result.phase).toBe("cancelled");
 });
 
-it("only retries the selected step after approval and uses the verified install result", async () => {
+it("automatically retries only the selected step and uses the verified install result", async () => {
   const session = new RepairSession(); plan.mockResolvedValue({ steps: [{ ...bad, actionable: true }] });
   retry.mockResolvedValue({ results: [{ id: bad.id, outcome: "done", after: "ok", detail: "done" }] });
-  const result = await session.run(ctx, bad.id, "codex", new AbortController().signal, (event) => {
-    if (event.type === "state" && event.state.approvals[0]) session.answer(event.state.approvals[0].id, true);
-  }, vi.fn(), directory, vi.fn(async () => undefined));
+  const result = await session.run(ctx, bad.id, "codex", new AbortController().signal, vi.fn(), vi.fn(), directory, vi.fn(async () => undefined));
   expect(retry.mock.calls[0]?.[1]).toEqual([bad.id]);
   expect(result.phase).toBe("done");
 });
@@ -65,21 +62,16 @@ it("preserves other failed items when one item is retried", async () => {
     emit({ type: "run-start", total: 1 });
     return { results: [{ id: bad.id, outcome: "done", after: "ok", detail: "done" }] };
   });
-  await session.run(ctx, bad.id, "codex", new AbortController().signal, (event) => {
-    if (event.type === "state" && event.state.approvals[0]) session.answer(event.state.approvals[0].id, true);
-  }, vi.fn(), directory, vi.fn(async () => undefined));
+  await session.run(ctx, bad.id, "codex", new AbortController().signal, vi.fn(), vi.fn(), directory, vi.fn(async () => undefined));
   const agent = vi.fn(async () => undefined);
   await session.run(ctx, other.id, "claude", new AbortController().signal, vi.fn(), vi.fn(), directory, agent);
   expect(agent).toHaveBeenCalledTimes(3);
 });
 
-it("cancels a pending approval without retrying and rejects unrelated or healthy step ids", async () => {
+it("cancels an agent without retrying and rejects unrelated or healthy step ids", async () => {
   const session = new RepairSession(); const abort = new AbortController();
-  const result = await session.run(ctx, bad.id, "codex", abort.signal, (event) => {
-    if (event.type === "state" && event.state.approvals.length) abort.abort();
-  }, vi.fn(), directory, async ({ approve }) => { expect(await approve("change", "command")).toBe(false); });
+  const result = await session.run(ctx, bad.id, "codex", abort.signal, vi.fn(), vi.fn(), directory, async () => { abort.abort(); });
   expect(result.phase).toBe("cancelled");
-  expect(result.approvals).toEqual([]);
   await expect(session.run(ctx, "unknown", "codex", new AbortController().signal, vi.fn(), vi.fn(), directory)).rejects.toMatchObject({ statusCode: 400 });
   plan.mockResolvedValue({ steps: [good] });
   await expect(session.run(ctx, bad.id, "codex", new AbortController().signal, vi.fn(), vi.fn(), directory)).rejects.toMatchObject({ statusCode: 400 });

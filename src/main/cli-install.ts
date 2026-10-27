@@ -72,7 +72,7 @@ export function formatInstallPlan(plan: InstallPlan, only?: string[]): string {
   const steps = plan.steps.filter((step) =>
     only ? only.includes(step.id) : step.state !== "ok" && step.state !== "skipped" && step.state !== "info",
   );
-  const lines = [`프로필 ${plan.profile} · 레포 ${plan.repoRoot}`, steps.length === 0 ? "할 일이 없습니다." : ""];
+  const lines = [`프로필 ${plan.setupProfile?.name ?? "기본"} · 설치 범위 ${plan.profile} · 앱 레포 ${plan.repoRoot}`, steps.length === 0 ? "할 일이 없습니다." : ""];
   for (const step of steps) {
     const tag = step.manual ? "직접" : step.actionable ? "실행" : "정상";
     lines.push(`[${tag}] ${step.id} — ${step.title}: ${step.detail}`);

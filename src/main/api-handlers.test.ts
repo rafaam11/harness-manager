@@ -58,12 +58,12 @@ const deps: ApiDependencies = {
 };
 const handlers = createApiHandlers(deps);
 
-it("validates AI repair providers and live approval identifiers at the IPC boundary", () => {
+it("validates AI repair providers and job identifiers at the IPC boundary", () => {
   expect(() => handlers["repair:run"]("tools.codex", "shell")).toThrow();
   expect(() => handlers["repair:run"]({ command: "cmd" }, "codex")).toThrow();
-  expect(() => handlers["repair:respond"]("unknown", true)).toThrow();
-  expect(() => handlers["repair:respond"]("unknown", "yes")).toThrow();
-  expect(handlers["repair:status"]()).toMatchObject({ running: false, approvals: [] });
+  expect(() => handlers["repair:cancel"]("unknown")).toThrow();
+  expect(() => handlers["repair:cancel"]({ command: "cmd" })).toThrow();
+  expect(handlers["repair:status"]()).toMatchObject({ jobs: [], maxParallel: 3 });
 });
 
 beforeEach(() => {

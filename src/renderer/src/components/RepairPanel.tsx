@@ -11,7 +11,7 @@ import { useConfirmDialog } from "./confirm-dialog";
 export interface RepairTarget { id: string; title: string }
 const LABELS = { codex: "Codex", claude: "Claude Code" };
 
-/** 상태는 main에 남아 화면을 떠났다 돌아와도 승인 요청과 진행 로그를 복원한다. */
+/** 작업별 상태는 main에 남아 화면을 다시 열어도 진행 상황을 복원한다. */
 export default function RepairPanel({ targets, disabled, onBusyChange, onResult }: {
   targets: RepairTarget[];
   disabled: boolean;
@@ -19,64 +19,77 @@ export default function RepairPanel({ targets, disabled, onBusyChange, onResult 
   onResult(result: InstallStepResult): void;
 }) {
   const [providers, setProviders] = useState<RepairProvider[]>([]);
-  const [state, setState] = useState<RepairSnapshot | null>(null);
+  const [jobs, setJobs] = useState<RepairSnapshot[]>([]);
   const [starting, setStarting] = useState(false);
-  const [answering, setAnswering] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const delivered = useRef(new Set<string>());
   const callbacks = useRef({ onBusyChange, onResult }); callbacks.current = { onBusyChange, onResult };
   const { confirm, dialog } = useConfirmDialog();
+  useEffect(() => { callbacks.current.onBusyChange(starting || jobs.some((job) => job.running)); }, [jobs, starting]);
+  const apply = (next: RepairSnapshot) => setJobs((previous) => [...previous.filter((job) => job.jobId !== next.jobId), next]);
+  useEffect(() => {
+    for (const job of jobs) {
+      if (!job.running && job.result && ["done", "skipped"].includes(job.result.outcome) && !delivered.current.has(job.jobId)) {
+        delivered.current.add(job.jobId); callbacks.current.onResult(job.result);
+      }
+    }
+  }, [jobs]);
   useEffect(() => {
     let alive = true;
     let received = false;
-    const apply = (next: RepairSnapshot) => {
-      if (!alive) return;
-      setState(next); callbacks.current.onBusyChange(next.running);
-      if (!next.running && next.result && ["done", "skipped"].includes(next.result.outcome)) callbacks.current.onResult(next.result);
-    };
+    let reset = false;
     const unsubscribe = window.hm.on(REPAIR_EVENT_CHANNEL, (event) => {
+      if (!alive) return;
       received = true;
-      if (event.type === "state") apply(event.state);
-      else setState((prev) => prev ? { ...prev, lines: [...prev.lines.slice(-1_999), event.line] } : prev);
+      if (event.type === "reset") { reset = true; setJobs([]); delivered.current.clear(); }
+      else if (event.type === "state") apply(event.state);
+      else setJobs((previous) => previous.map((job) => job.jobId === event.jobId ? { ...job, lines: [...job.lines.slice(-1_999), event.line] } : job));
     });
-    void call("repair:status").then((next) => { if (!received) apply(next); }).catch((caught: Error) => alive && setError(caught.message));
+    void call("repair:status").then((next) => {
+      if (!alive || reset) return;
+      setJobs((current) => received ? [...next.jobs.filter((job) => !current.some((entry) => entry.jobId === job.jobId)), ...current] : next.jobs);
+    }).catch((caught: Error) => alive && setError(caught.message));
     void call("repair:providers").then((next) => alive && setProviders(next)).catch((caught: Error) => alive && setError(caught.message));
     return () => { alive = false; unsubscribe(); };
   }, []);
 
-  const start = async (target: RepairTarget, provider: ProviderId) => {
-    if (!await confirm({ title: `${LABELS[provider]}에게 해결 요청`, message: `${target.title}\n\n이 PC에 설치된 AI와 기존 로그인 계정을 사용합니다. 해당 항목의 오류·설치 계획·최근 로그를 전달합니다. 명령이나 파일 변경은 여기서 검토하고 승인합니다. 해결 후 재검사하며 최대 3회 시도합니다.`, confirmLabel: "해결 요청" })) return;
-    setStarting(true); setError(null); onBusyChange(true);
-    try { setState(await call("repair:run", target.id, provider)); }
-    catch (caught) { setError((caught as Error).message); }
-    finally { setStarting(false); onBusyChange(false); }
+  const start = async (selected: RepairTarget[], provider: ProviderId) => {
+    if (!await confirm({ title: `${LABELS[provider]}에게 해결 요청`, message: `${selected.map((target) => target.title).join("\n")}\n\n기존 로그인 계정으로 오류·설치 계획·최근 로그를 AI에 전달합니다. YOLO 모드로 명령과 파일 변경을 자동 실행합니다. 최대 3개를 병렬 처리하며 같은 설정을 수정하는 작업은 기다립니다. 항목별 최대 3회 복구·재검사를 수행합니다.\n\n공통 앱 버그는 별도 사본에서 수정하고 테스트 후 HM 원격 저장소의 dev에 커밋·푸시합니다. 푸시 권한이 없거나 충돌하면 사본과 로그를 남깁니다. 개인 프로필은 공개 HM 소스 반영 대상에서 제외합니다.`, confirmLabel: "YOLO로 해결 요청" })) return;
+    setStarting(true); setError(null);
+    try {
+      for (const target of selected) {
+        // 초기 응답보다 이벤트가 먼저 도착해도 더 진행된 상태를 덮어쓰지 않는다.
+        const next = await call("repair:run", target.id, provider);
+        setJobs((previous) => previous.some((job) => job.jobId === next.jobId) ? previous : [...previous, next]);
+      }
+    } catch (caught) { setError((caught as Error).message); }
+    finally { setStarting(false); }
   };
-  const answer = async (id: string, allow: boolean) => {
-    setAnswering(id); setError(null);
-    try { await call("repair:respond", id, allow); }
-    catch (caught) { setError((caught as Error).message); }
-    finally { setAnswering(null); }
-  };
-  const running = starting || Boolean(state?.running);
-  if (targets.length === 0 && !state?.stepId && !error) return null;
+  const busyIds = new Set(jobs.filter((job) => job.running).map((job) => job.stepId));
+  const availableTargets = targets.filter((target) => !busyIds.has(target.id));
+  const running = jobs.filter((job) => job.running).length;
+  if (targets.length === 0 && jobs.length === 0 && !error) return null;
   return (
-    <Panel head={<><span className="panel-title">AI에게 설치 문제 해결 요청</span>{running && <StatusTag tone="warn">{state?.phase === "approval" ? "승인 대기" : "진행 중"}</StatusTag>}</>}>
+    <Panel head={<><span className="panel-title">AI에게 설치 문제 해결 요청</span><StatusTag tone={running ? "warn" : "muted"}>YOLO · {running}개 진행 중</StatusTag></>}>
       {dialog}
       {error && <Banner tone="err">{error}</Banner>}
+      {availableTargets.length > 1 && <Toolbar>
+        {(["codex", "claude"] as const).map((provider) => <button key={provider} className="btn ghost" disabled={disabled || starting || !providers.find((entry) => entry.id === provider)?.available} onClick={() => void start(availableTargets, provider)}>모두 {LABELS[provider]}에게 요청</button>)}
+      </Toolbar>}
       {targets.map((target) => <Toolbar key={target.id}>
         <span>{target.title}</span>
         {(["codex", "claude"] as const).map((provider) => {
           const available = providers.find((entry) => entry.id === provider);
-          return <button key={provider} className="btn ghost" title={available?.detail ?? "실행 가능 여부 확인 중"} disabled={disabled || running || !available?.available} onClick={() => void start(target, provider)}>{LABELS[provider]}에게 해결 요청</button>;
+          return <button key={provider} className="btn ghost" title={available?.detail ?? "실행 가능 여부 확인 중"} disabled={disabled || starting || busyIds.has(target.id) || !available?.available} onClick={() => void start([target], provider)}>{LABELS[provider]}에게 해결 요청</button>;
         })}
       </Toolbar>)}
       {providers.filter((provider) => !provider.available).map((provider) => <p className="muted" key={provider.id}>{provider.detail}</p>)}
-      {state?.stepId && <Toolbar><span role="status">{LABELS[state.provider!]} · {state.round}/3회 · {state.detail}</span>{running && <button className="btn danger" onClick={() => void call("repair:cancel").catch((caught: Error) => setError(caught.message))}>복구 중단</button>}</Toolbar>}
-      {state?.approvals.map((approval) => <Panel key={approval.id} head={<span className="panel-title">{approval.title}</span>}>
-        <pre className="capture-diff">{approval.detail}</pre>
-        <Toolbar><button className="btn ghost" disabled={answering !== null} onClick={() => void answer(approval.id, false)}>거절</button><button className="btn" disabled={answering !== null} onClick={() => void answer(approval.id, true)}>이번 요청 승인</button></Toolbar>
+      {jobs.map((job) => <Panel key={job.jobId} head={<span className="panel-title">{targets.find((target) => target.id === job.stepId)?.title ?? job.stepId} · {LABELS[job.provider!]}</span>}>
+        <Toolbar><span role="status">{job.round}/3회 · {job.detail}</span>{job.running && <button className="btn danger" onClick={() => void call("repair:cancel", job.jobId).catch((caught: Error) => setError(caught.message))}>이 복구 중단</button>}</Toolbar>
+        {job.source && <Banner tone={job.source.state === "failed" ? "warn" : "ok"}>소스 반영: {job.source.detail}{job.source.commit && ` · ${job.source.commit.slice(0, 8)}`}<br />작업 사본: {job.source.workspace}</Banner>}
+        <LogTerminal lines={job.lines} />
+        {job.logFile && <p className="muted">복구 기록: {job.logFile}</p>}
       </Panel>)}
-      {state?.stepId && <LogTerminal lines={state.lines} />}
-      {state?.logFile && <p className="muted">복구 기록: {state.logFile}</p>}
     </Panel>
   );
 }

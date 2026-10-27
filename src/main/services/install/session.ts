@@ -15,16 +15,17 @@ export class InstallBusyError extends Error {
 export class InstallSession {
   private controller: AbortController | null = null;
   private finished: Promise<unknown> = Promise.resolve();
+  private repairs = new Map<string, { controller: AbortController; finished: Promise<unknown> }>();
 
   get running(): boolean {
-    return this.controller !== null;
+    return this.controller !== null || this.repairs.size > 0;
   }
 
   async run<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    if (this.controller) throw new InstallBusyError();
+    if (this.running) throw new InstallBusyError();
     const controller = new AbortController();
     this.controller = controller;
-    const pending = work(controller.signal);
+    const pending = (async () => work(controller.signal))();
     this.finished = pending.catch(() => undefined);
     try {
       return await pending;
@@ -33,14 +34,27 @@ export class InstallSession {
     }
   }
 
+  /** 복구끼리의 동시 실행·자원 충돌은 coordinator가 관리하고 일반 설치와는 서로 배제한다. */
+  async runRepair<T>(id: string, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.controller || this.repairs.has(id)) throw new InstallBusyError();
+    const controller = new AbortController();
+    const pending = Promise.resolve().then(() => work(controller.signal));
+    this.repairs.set(id, { controller, finished: pending.catch(() => undefined) });
+    try { return await pending; }
+    finally { this.repairs.delete(id); }
+  }
+
+  cancelRepair(id: string): void { this.repairs.get(id)?.controller.abort(); }
+
   cancel(): void {
     this.controller?.abort();
+    for (const repair of this.repairs.values()) repair.controller.abort();
   }
 
   /** 취소하고 지금 도는 명령이 정리될 때까지 기다린다(앱 종료 전). */
   async cancelAndWait(): Promise<void> {
     this.cancel();
-    await this.finished;
+    await Promise.all([this.finished, ...[...this.repairs.values()].map((repair) => repair.finished)]);
   }
 }
 

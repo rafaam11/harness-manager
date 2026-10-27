@@ -109,7 +109,7 @@ export default function Install() {
       {dialog}
       <div className="page-head">
         <h2>설치</h2>
-        {plan && <StatusTag tone="muted">프로필 {plan.profile}</StatusTag>}
+        {plan && <StatusTag tone="muted">{plan.setupProfile?.name ?? "프로필"} · {plan.profile}</StatusTag>}
         <span className="page-head-meta">
           {plan ? `정상 ${healthy} · 할 일 ${pending.length}` : "불러오는 중…"}
         </span>

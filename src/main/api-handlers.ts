@@ -21,7 +21,9 @@ import type { InstallEvent } from "@shared/install-types";
 import type { RepairEvent } from "@shared/repair-types";
 import path from "node:path";
 import { refreshWindowsEnvironment } from "./platform-env.js";
-import { RepairSession } from "./services/repair/session.js";
+import { RepairCoordinator } from "./services/repair/coordinator.js";
+import { createRepairSource } from "./services/repair/source.js";
+import { SetupProfileStore } from "./services/setup-profiles.js";
 import { repairProviders } from "./services/repair/agent.js";
 import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
 import { getProviders } from "./providers/registry.js";
@@ -82,7 +84,12 @@ function captureIds(value: unknown): CaptureTargetId[] {
 }
 
 export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
-  const repair = new RepairSession();
+  const repair = new RepairCoordinator(deps.install.session, deps.install.emitRepair, path.join(APP_STATE_DIR, "repair"), createRepairSource());
+  const profileStore = async () => {
+    const root = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
+    if (!root) throw new RequestError(409, "먼저 HM 앱 레포를 연결하세요");
+    return new SetupProfileStore(APP_STATE_DIR, root);
+  };
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
@@ -163,7 +170,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       const targets = captureIds(ids);
       const prints = exactObject(fingerprints, targets, "fingerprints");
       const checked = Object.fromEntries(targets.map((id) => [id, nonEmptyString(prints[id], `fingerprints.${id}`)]));
-      return applyCapture(await resolveRepoRoot({ startDirs: deps.repoStartDirs() }), targets, checked);
+      return deps.install.session.run(async () => applyCapture(await resolveRepoRoot({ startDirs: deps.repoStartDirs() }), targets, checked));
     },
     "capture:choose-repo": async () => {
       const chosen = await deps.chooseDirectory("harness-manager 레포 폴더 선택");
@@ -174,7 +181,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     "manifest:validate": async () => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
       if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
-      return validateManifest(repoRoot);
+      return validateManifest((await new SetupProfileStore(APP_STATE_DIR, repoRoot).active()).root);
     },
 
     "doctor:run": async () => runDoctor(await resolveRepoRoot({ startDirs: deps.repoStartDirs() })),
@@ -193,6 +200,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     },
     "install:run": async (ids) => {
       const requested = nonEmptyStringArray(ids, "ids", 1_000);
+      return deps.install.session.run(async (signal) => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
       if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
       const ctx = await defaultInstallContext(repoRoot);
@@ -201,8 +209,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       const unknown = requested.filter((id) => !known.has(id));
       if (unknown.length > 0) throw new RequestError(400, `unknown install step: ${unknown.join(", ")}`);
       const progress = installProgress();
-      return deps.install.session.run((signal) =>
-        runInstallWith(
+      return runInstallWith(
           ctx,
           requested,
           (event) => {
@@ -213,8 +220,8 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
             else if (report) deps.install.setProgress(aggregateTaskbarProgress([report]));
           },
           signal,
-        ),
-      );
+        );
+      });
     },
     "install:cancel": () => deps.install.session.cancel(),
 
@@ -223,16 +230,33 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     "repair:run": (stepId, provider) => {
       const id = nonEmptyString(stepId, "stepId");
       if (provider !== "codex" && provider !== "claude") throw new RequestError(400, "provider must be codex or claude");
-      return deps.install.session.run(async (signal) => {
+      return repair.enqueue(async () => {
         const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
         if (!repoRoot) throw new RequestError(409, "harness-manager 레포 위치를 모릅니다");
-        return repair.run(await defaultInstallContext(repoRoot), id, provider, signal, deps.install.emitRepair, deps.install.emit, path.join(APP_STATE_DIR, "repair"));
-      });
+        return defaultInstallContext(repoRoot);
+      }, id, provider);
     },
-    "repair:respond": (approvalId, allow) => repair.answer(nonEmptyString(approvalId, "approvalId"), booleanValue(allow, "allow")),
-    "repair:cancel": () => { if (repair.snapshot().running) deps.install.session.cancel(); },
+    "repair:cancel": (jobId) => repair.cancel(nonEmptyString(jobId, "jobId")),
 
     "settings:get": () => readAppSettings(APP_SETTINGS_FILE),
+    "profiles:list": async () => (await profileStore()).list(),
+    "profiles:select": (id) => {
+      const value = nonEmptyString(id, "id");
+      return deps.install.session.run(async () => { const result = await (await profileStore()).select(value); repair.reset(); return result; });
+    },
+    "profiles:create": (name, baseId) => {
+      const label = nonEmptyString(name, "name"); const base = nonEmptyString(baseId, "baseId");
+      return deps.install.session.run(async () => { const result = await (await profileStore()).create(label, base); repair.reset(); return result; });
+    },
+    "profiles:connect": (name) => {
+      const label = nonEmptyString(name, "name");
+      return deps.install.session.run(async () => {
+        const store = await profileStore();
+        const folder = await deps.chooseDirectory("사용자 프로필 폴더 · manifest와 home이 있는 폴더");
+        if (!folder) return store.list();
+        const result = await store.connect(label, folder); repair.reset(); return result;
+      });
+    },
     "settings:set": async (patch) => {
       const value = exactObject(patch, ["profile", "selfMarketplaceSource"], "settings");
       const next: Partial<AppSettings> = {};

@@ -56,7 +56,7 @@ export default function Dashboard() {
     <div className="dashboard-page">
       <div className="page-head">
         <h2>상태판</h2>
-        {report && !report.repoError && <StatusTag tone="muted">프로필 {report.profile}</StatusTag>}
+        {report && !report.repoError && <StatusTag tone="muted">{report.setupProfile?.name ?? "프로필"} · {report.profile}</StatusTag>}
         <span className="page-head-meta">{report && !report.repoError ? `마지막 검사 ${new Date(report.generatedAt).toLocaleString("ko-KR")}` : busy ? "검사 중…" : ""}</span>
         <ToolbarSpacer />
         <button className="btn" onClick={() => void run()} disabled={busy}>

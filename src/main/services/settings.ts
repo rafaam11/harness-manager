@@ -20,6 +20,7 @@ export async function readAppSettings(file: string): Promise<AppSettings> {
   return {
     profile: PROFILES.includes(raw.profile as Profile) ? (raw.profile as Profile) : DEFAULT_SETTINGS.profile,
     selfMarketplaceSource: raw.selfMarketplaceSource === "github" ? "github" : "directory",
+    ...(typeof raw.setupProfileId === "string" ? { setupProfileId: raw.setupProfileId } : {}),
   };
 }
 

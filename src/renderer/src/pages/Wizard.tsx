@@ -9,13 +9,14 @@ import RepoConnect from "../components/RepoConnect";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
 import RepairPanel from "../components/RepairPanel";
+import SetupProfilePicker from "../components/SetupProfilePicker";
 
 const STEPS = ["환영", "진단", "프로필", "항목", "미리보기", "실행", "인증", "완료"] as const;
 
 const PROFILE_TEXT: Record<Profile, string> = {
-  core: "Claude Code·Codex와 git·gh·node·ripgrep만. 다른 사람 PC나 가벼운 작업용",
-  dev: "core + uv·python·scoop 도구·cua-driver. 평소 개발 PC",
-  full: "dev + rustup·task 등 전부. 주 개발 PC",
+  core: "선택한 프로필에서 core로 지정한 항목",
+  dev: "선택한 프로필에서 dev로 지정한 항목",
+  full: "선택한 프로필에서 full로 지정한 항목",
 };
 
 /** 로그인은 대화형이라 위저드가 대신하지 않는다. 사용자가 직접 실행할 명령만 안내한다(비밀값은 레포에 두지 않는다). */
@@ -148,7 +149,8 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
       <div className="wizard-body">
         {step === 0 && (
           <>
-            <p>이 PC의 Claude Code·Codex 개발환경을 레포 manifest와 같게 맞춥니다. 각 단계에서 무엇을 할지 먼저 보여 주고, 실행 전에 한 번 더 확인합니다.</p>
+            <p>선택한 사용자 프로필에 맞춰 이 PC의 개발환경을 구축합니다. 공통 기본 프로필은 Git·Node·Claude Code·Codex만 다루며 개인 모델 설정과 플러그인은 적용하지 않습니다.</p>
+            <SetupProfilePicker key={report?.repoRoot ?? "unconnected"} disabled={busy || running || repairing} onChanged={() => { void call("settings:get").then(setSettings); void call("doctor:run").then(setReport).catch((caught: Error) => setError(caught.message)); }} />
             <ul className="capture-notes">
               <li>사용자 설정 파일은 통째로 바꾸지 않고 관리하는 키·블록만 고칩니다. 고치는 파일은 먼저 백업합니다.</li>
               <li>비밀값(토큰·로그인)은 다루지 않습니다. 로그인은 7단계에서 안내합니다.</li>
@@ -171,7 +173,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
         {step === 2 && settings && (
           <>
             <fieldset className="wizard-choice">
-              <legend>프로필</legend>
+              <legend>선택한 프로필의 설치 범위</legend>
               {(["core", "dev", "full"] as const).map((profile) => (
                 <label key={profile}>
                   <input type="radio" name="profile" checked={settings.profile === profile} onChange={() => void saveSettings({ profile })} />

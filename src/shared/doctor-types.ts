@@ -71,6 +71,7 @@ export interface DoctorReport {
   schemaVersion: 1;
   generatedAt: string;
   profile: Profile;
+  setupProfile?: { id: string; name: string; root: string };
   repoRoot: string | null;
   repoError?: string;
   cards: DoctorCard[];

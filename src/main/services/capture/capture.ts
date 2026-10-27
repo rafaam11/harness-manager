@@ -8,7 +8,8 @@ import {
   type CapturePlan,
   type CaptureTargetId,
 } from "@shared/manifest-types";
-import { AGENTS_SKILL_LOCK, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
+import { AGENTS_SKILL_LOCK, APP_STATE_DIR, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
+import { SetupProfileStore } from "../setup-profiles.js";
 import { withLock } from "../../lib/lock.js";
 import type { CommandRunner } from "../install/exec.js";
 import { resolveDocumentsDir } from "../dotfiles.js";
@@ -167,17 +168,19 @@ export const MISSING_TERMS_WARNING =
 export async function defaultCaptureContext(
   repoRoot: string,
 ): Promise<{ context: CaptureContext; warnings: string[]; termsMissing: boolean }> {
-  const terms = await readPrivateTerms(PROFILE_DIR);
+  const selected = await new SetupProfileStore(APP_STATE_DIR, repoRoot).active();
+  if (selected.kind === "builtin") throw new CaptureRequestError("공통 기본 프로필은 읽기 전용입니다. 셋업 위저드에서 개인 프로필을 만든 뒤 가져오기를 실행하세요.", 409);
+  const terms = await readPrivateTerms(selected.localDir);
   const warnings = terms === null ? [MISSING_TERMS_WARNING] : [];
   return {
     context: {
-      repoRoot,
+      repoRoot: selected.root,
       home: HM_USER_HOME,
       claudeHome: CLAUDE_HOME,
       claudeJson: CLAUDE_JSON,
       codexHome: CODEX_HOME,
       skillLock: AGENTS_SKILL_LOCK,
-      profileDir: PROFILE_DIR,
+      profileDir: selected.localDir,
       privateTerms: terms ?? [],
       documentsDir: await resolveDocumentsDir(HM_USER_HOME),
       gitScope: {},
@@ -252,7 +255,7 @@ export async function planCapture(repoRoot: string | null): Promise<CapturePlan>
   const { items } = await planCaptureWith(context);
   // 비공개 낱말 목록이 없으면 회사 마켓플레이스 같은 것이 공개 레포로 샐 수 있다. 미리보기만 허용한다.
   const gated = termsMissing ? items.map((item) => ({ ...item, applicable: false })) : items;
-  return { repoRoot, profileDir: PROFILE_DIR, warnings, items: gated };
+  return { repoRoot: context.repoRoot, profileDir: context.profileDir, warnings, items: gated };
 }
 
 // ───────────────────────────── 적용 ─────────────────────────────

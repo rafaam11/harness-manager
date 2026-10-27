@@ -25,6 +25,10 @@ harness-manager 앱의 셋업 위저드와 같은 일을 대화로 한다. **직
 
 ## 1. 진단
 
+먼저 `HM profiles list --json`으로 선택된 **사용자 프로필**을 확인한다. 새 사용자의 기본은 Git·Node·Claude·Codex만 있는 `default`다.
+기존 jinmin 개인 설정은 `legacy`를 명시적으로 선택해야 적용된다. 사용자 개인 폴더는 `HM profiles connect <이름> <폴더>`로 연결하고,
+새 개인 사본은 `HM profiles create <이름> --from <프로필 ID>`로 만든다. 선택은 `HM profiles use <ID>`다. 사용자 의사가 이미 정해져 있으면 다시 묻지 않는다.
+
 ```
 HM doctor --json
 ```
@@ -36,7 +40,7 @@ HM doctor --json
 
 `HM settings --json`으로 지금 값을 읽고, 사용 중인 CLI의 질문 도구(선택지를 주는 도구가 있으면 그것)로 묻는다.
 
-- 프로필: `core`(CLI와 git·gh·node·ripgrep) / `dev`(+uv·python·scoop 도구·cua-driver) / `full`(전부)
+- 설치 범위: `core` / `dev` / `full` — 선택한 사용자 프로필 manifest에서 해당 범위에 지정한 항목이다.
 - jinmin 마켓플레이스 소스: `directory`(레포 폴더 — mod를 고치는 개발 PC) / `github`(그 밖의 PC)
 
 답을 받으면 `HM settings --profile <p> --self-source <s>`.

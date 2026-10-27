@@ -7,12 +7,6 @@ export interface RepairProvider {
   detail: string;
 }
 
-export interface RepairApproval {
-  id: string;
-  title: string;
-  detail: string;
-}
-
 export interface RepairLine {
   id: number;
   stream: "stdout" | "stderr" | "info";
@@ -20,16 +14,18 @@ export interface RepairLine {
 }
 
 export interface RepairSnapshot {
+  jobId: string;
   running: boolean;
   provider: ProviderId | null;
   stepId: string | null;
   round: number;
-  phase: "idle" | "agent" | "approval" | "verify" | "done" | "failed" | "cancelled";
+  phase: "idle" | "queued" | "preparing" | "agent" | "verify" | "publishing" | "done" | "failed" | "cancelled";
   detail: string;
-  approvals: RepairApproval[];
   lines: RepairLine[];
   result?: InstallStepResult;
   logFile?: string;
+  source?: { state: "unchanged" | "published" | "failed"; detail: string; workspace: string; commit?: string };
 }
 
-export type RepairEvent = { type: "state"; state: RepairSnapshot } | { type: "log"; line: RepairLine };
+export interface RepairBatchSnapshot { jobs: RepairSnapshot[]; maxParallel: number }
+export type RepairEvent = { type: "reset" } | { type: "state"; state: RepairSnapshot } | { type: "log"; jobId: string; line: RepairLine };

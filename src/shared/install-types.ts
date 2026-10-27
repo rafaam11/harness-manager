@@ -35,6 +35,7 @@ export interface InstallPlan {
   repoRoot: string | null;
   repoError?: string;
   profile: Profile;
+  setupProfile?: { id: string; name: string; root: string };
   /** 실행 순서대로. */
   steps: InstallStep[];
 }

@@ -13,6 +13,7 @@ import type {
 } from "@shared/install-types";
 import type { MarketplaceEntry, McpEntry, PackageEntry, Profile, ToolEntry } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, APP_STATE_DIR } from "../../config.js";
+import { withLock } from "../../lib/lock.js";
 import { createInstallJournal } from "./journal.js";
 import { readAppSettings } from "../settings.js";
 import { gitConfigSetArgs, powershellProfilePath, readGitConfig, stripBom } from "../dotfiles.js";
@@ -248,7 +249,7 @@ function fileStep(base: Omit<StepDef, "plan" | "apply">, compute: (ctx: InstallC
 
 async function claudeMdChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.claudeHome, "CLAUDE.md");
-  const template = await readText(path.join(ctx.repoRoot, "home", "claude", "CLAUDE.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "CLAUDE.md"));
   if (template === null) throw new StepFailure("레포에 home/claude/CLAUDE.md가 없습니다");
   const before = await readText(absPath);
   // 내용이 없거나 레포 것만 있던 파일은 그대로 바꾸고, 사용자가 쓴 다른 내용이 있으면 마커 블록으로 덧붙인다.
@@ -258,7 +259,7 @@ async function claudeMdChange(ctx: InstallContext): Promise<FileChange> {
 
 async function agentsMdChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.codexHome, "AGENTS.md");
-  const template = await readText(path.join(ctx.repoRoot, "home", "agents", "AGENTS.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "agents", "AGENTS.md"));
   if (template === null) throw new StepFailure("레포에 home/agents/AGENTS.md가 없습니다");
   const before = await readText(absPath);
   const headings = splitMarkdownSections(template)
@@ -276,7 +277,7 @@ async function claudeSettingsChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.claudeHome, "settings.json");
   const before = await readText(absPath);
   const current = before === null ? {} : (JSON.parse(before) as Record<string, unknown>);
-  const template = await readJsonObject(path.join(ctx.repoRoot, "home", "claude", "settings.managed.json"));
+  const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "settings.managed.json"));
   const overlay = await readJsonObject(path.join(ctx.profileDir, "claude-settings.local.json"));
   const keys = (await managedKeys(ctx)).claudeSettings;
   const next = mergeManagedJson(current, keys, template, overlay);
@@ -287,7 +288,7 @@ async function claudeSettingsChange(ctx: InstallContext): Promise<FileChange> {
 async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.codexHome, "config.toml");
   const before = (await readText(absPath)) ?? null;
-  const templateText = await readText(path.join(ctx.repoRoot, "home", "codex", "config.managed.toml"));
+  const templateText = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "codex", "config.managed.toml"));
   const template = templateText ? (parseToml(templateText) as Record<string, unknown>) : {};
   const overlay = await readJsonObject(path.join(ctx.profileDir, "codex-config.local.json"));
   const keys = (await managedKeys(ctx)).codexConfig;
@@ -301,7 +302,7 @@ async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
  */
 async function powershellProfileChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = powershellProfilePath(ctx.documentsDir);
-  const template = await readText(path.join(ctx.repoRoot, "home", "powershell", "profile.ps1"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "powershell", "profile.ps1"));
   if (template === null) throw new StepFailure("레포에 home/powershell/profile.ps1이 없습니다");
   const before = await readText(absPath);
   const body = stripBom(before ?? "");
@@ -315,7 +316,7 @@ async function powershellProfileChange(ctx: InstallContext): Promise<FileChange>
 /** git 전역 설정의 관리 키를 `git config`로 맞춘다. 레포 값 위에 로컬 오버레이(이메일 등)를 얹는다. */
 function gitconfigStep(rank: number): StepDef {
   const desired = async (ctx: InstallContext): Promise<CommandSpec[]> => {
-    const template = await readJsonObject(path.join(ctx.repoRoot, "home", "git", "gitconfig.json"));
+    const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "git", "gitconfig.json"));
     const overlay = await readJsonObject(path.join(ctx.profileDir, "gitconfig.local.json"));
     const expected = { ...template, ...overlay };
     const keys = (await managedKeys(ctx)).gitconfig.filter((key) => typeof expected[key] === "string");
@@ -592,7 +593,7 @@ export async function planInstallWith(ctx: InstallContext): Promise<InstallPlan>
     if (def.checks(report).length === 0) continue; // doctor가 보지 않는 항목(프로필 밖이 아닌데 검사 없음)은 다루지 않는다
     steps.push(await describe(def, report, ctx));
   }
-  return { repoRoot: ctx.repoRoot, profile: ctx.profile, steps };
+  return { repoRoot: ctx.repoRoot, profile: ctx.profile, setupProfile: ctx.setupProfile, steps };
 }
 
 /**
@@ -653,7 +654,10 @@ async function executeInstallWith(
       result = { id: def.id, outcome: "skipped", after: before, detail: "이미 맞습니다" };
     } else {
       try {
-        await def.apply(ctx, log, signal, beforeReport);
+        await withLock(async () => {
+          if (signal.aborted) throw new StepFailure("설치를 취소했습니다");
+          await def.apply(ctx, log, signal, beforeReport);
+        });
         const checks = def.checks(await runDoctorWith(ctx));
         const after = worstState(checks);
         result = needsWork(after)

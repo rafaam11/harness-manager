@@ -5,7 +5,8 @@ import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/type
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
-import type { RepairEvent, RepairProvider, RepairSnapshot } from "./repair-types";
+import type { RepairBatchSnapshot, RepairEvent, RepairProvider, RepairSnapshot } from "./repair-types";
+import type { SetupProfiles } from "./setup-profile-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
 
@@ -153,12 +154,15 @@ export interface ApiChannels {
   "install:cancel": () => void;
 
   "repair:providers": () => RepairProvider[];
-  "repair:status": () => RepairSnapshot;
+  "repair:status": () => RepairBatchSnapshot;
   "repair:run": (stepId: string, provider: ProviderId) => RepairSnapshot;
-  "repair:respond": (approvalId: string, allow: boolean) => void;
-  "repair:cancel": () => void;
+  "repair:cancel": (jobId: string) => void;
 
   "settings:get": () => AppSettings;
+  "profiles:list": () => SetupProfiles;
+  "profiles:select": (id: string) => SetupProfiles;
+  "profiles:create": (name: string, baseId: string) => SetupProfiles;
+  "profiles:connect": (name: string) => SetupProfiles;
   /** 바꿀 키만 보낸다. 모르는 키나 값은 400. */
   "settings:set": (patch: Partial<AppSettings>) => AppSettings;
 
@@ -208,9 +212,12 @@ export const API_CHANNELS = [
   "repair:providers",
   "repair:status",
   "repair:run",
-  "repair:respond",
   "repair:cancel",
   "settings:get",
+  "profiles:list",
+  "profiles:select",
+  "profiles:create",
+  "profiles:connect",
   "settings:set",
   "external-api:catalog",
   "external-api:refresh",

@@ -40,7 +40,7 @@ export function parseDoctorArgs(argv: string[]): DoctorArgs {
 
 export function formatDoctorReport(report: DoctorReport, all: boolean): string {
   if (!report.repoRoot) return report.repoError ?? "레포를 찾지 못했습니다";
-  const lines = [`프로필 ${report.profile} · 레포 ${report.repoRoot}`, ""];
+  const lines = [`프로필 ${report.setupProfile?.name ?? "기본"} · 설치 범위 ${report.profile} · 앱 레포 ${report.repoRoot}`, ""];
   for (const card of report.cards) {
     lines.push(`[${DOCTOR_CARD_LABELS[card.state]}] ${card.label} — ${card.summary}`);
     for (const check of card.checks) {

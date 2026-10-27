@@ -12,6 +12,7 @@ export interface CommandSpec {
   timeoutMs: number;
   /** 자식에게 전달할 전체 환경. 생략하면 현재 프로세스 환경을 쓴다. */
   env?: NodeJS.ProcessEnv;
+  cwd?: string;
 }
 
 export interface CommandResult {
@@ -74,16 +75,28 @@ export const processRunner: CommandRunner = {
     const args = isShim ? ["/d", "/s", "/c", `"${[`"${resolved}"`, ...spec.args.map(quoteForCmd)].join(" ")}"`] : spec.args;
     return new Promise((resolve) => {
       const child = spawn(file, args, {
+        cwd: spec.cwd,
         windowsHide: true,
         windowsVerbatimArguments: isShim,
+        detached: process.platform !== "win32",
         env,
         stdio: ["ignore", "pipe", "pipe"],
       });
       let timedOut = false;
+      let stopping: Promise<void> | undefined;
       const kill = () => {
         // cmd.exe 아래의 진짜 설치기까지 끝내려면 프로세스 트리를 닫아야 한다.
-        if (process.platform === "win32" && child.pid) spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true });
-        else child.kill();
+        if (stopping || !child.pid) return;
+        if (process.platform === "win32") {
+          const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true, stdio: "ignore" });
+          stopping = new Promise((done) => {
+            killer.once("close", () => done());
+            killer.once("error", () => { child.kill(); done(); });
+          });
+        } else {
+          stopping = Promise.resolve();
+          try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+        }
       };
       const timer = setTimeout(() => {
         timedOut = true;
@@ -107,7 +120,7 @@ export const processRunner: CommandRunner = {
         log("stderr", error.message);
         finish(null);
       });
-      child.on("close", (code) => finish(code));
+      child.on("close", (code) => { void (stopping ?? Promise.resolve()).then(() => finish(code)); });
     });
   },
 };

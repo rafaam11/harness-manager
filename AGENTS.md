@@ -44,7 +44,7 @@
 - 첫 화면은 **상태판 + 섹션 탭**이다. 위저드는 상단 버튼으로 연다.
 - 레포는 **public을 유지**하고 민감한 내용만 걸러낸다. electron-updater 익명 업데이트 때문이다.
 - Claude 마켓플레이스 이름은 **`jinmin`**을 유지한다. 플러그인 ID가 바뀌지 않게 하기 위해서다.
-- 툴체인은 프로필 **core / dev / full**로 고르고, 항목별로 켜고 끈다.
+- 사용자 프로필을 먼저 고르고 그 안의 설치 범위를 **core / dev / full**로 고른다. 공용 앱 기본값에는 개인 모델·권한·플러그인·dotfiles를 넣지 않는다.
 - UI 코드와 main 기반 코드는 **multi-cli-work(mcw)에서 최대한 승계**한다.
 - **브랜치: `dev`에 직접 작업한다.** v3 작업 브랜치나 `main`은 만들지 않는다. 원격의 기본 브랜치도 `dev`다.
 - **IPC: mcw식 타입드 contextBridge로 바꾼다(M2).** 기준은 `src/shared/api-types.ts` 인터페이스 하나다. 채널 맵 타입 하나에서 preload 노출과 main 핸들러 등록을 함께 만들어 채널 문자열이 중복되지 않게 한다. main은 보낸 창을 검증하고, 입력은 `ipc-validation`(정확한 키 집합 검사)으로 검증한다.
@@ -246,10 +246,16 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - self 마켓플레이스 소스는 `~/.harness-manager/settings.json`의 `selfMarketplaceSource`(directory 기본 / github)이고, CLI는 `--self-source`로 바꾼다.
 - **AI 설치 복구**: `services/repair/`, 공통 화면 `components/RepairPanel.tsx`.
   - 위저드 실행 결과·설치 페이지의 실패 항목에서 설치된 Codex/Claude Code에 해결을 요청한다. 렌더러는 step id와 provider만 전달하고 main이 계획·최근 오류·로그를 구성한다.
-  - Codex app-server(stdio JSON-RPC), Claude Code(stream-json control protocol)를 사용하며 기존 로그인·모델 설정을 유지한다. 실행파일이 없거나 실행 검증이 실패하면 해당 버튼을 비활성화한다.
-  - 명령·파일 수정 요청은 내용과 함께 위저드에 표시하고 이번 요청만 승인/거절한다. 권한 우회·세션 전체 자동 승인은 사용하지 않는다. 요청 id는 main의 대기 목록과 대조한다.
-  - AI 종료 후 doctor/plan을 다시 확인한다. 필요한 설치 재실행도 내용을 보여 주고 확인받는다. 문제가 남으면 최신 오류로 최대 3회 시도한다(회당 15분, Claude는 20턴 상한). 재실행 거절 시 추가 시도를 멈춘다.
-  - 설치와 같은 `InstallSession`을 공유해 동시 실행을 막고 종료·취소 시 프로세스 트리를 정리한다. 화면 재진입 시 main의 상태·승인·로그를 복원한다. 복구 로그는 `~/.harness-manager/repair/logs/`에 비밀값을 가려 보관한다.
+  - 사용자 요청에 따라 Codex `exec --json --dangerously-bypass-approvals-and-sandbox`, Claude Code `--dangerously-skip-permissions`(stream-json)를 쓴다. 실행 전 앱 대화상자에 자동 실행·문맥 전달·소스 커밋/푸시 범위를 표시한다. 기존 로그인·모델 설정은 유지한다.
+  - AI 종료 후 doctor/plan을 확인하고 해당 항목만 자동 재실행한다. 최대 3회, 회당 15분, Claude는 20턴 상한이다. 시스템 패키지 제거·MSI/NVM 이관은 프롬프트에서 수동 조치로 제한한다. YOLO는 OS 격리 장치가 아니다.
+  - `RepairCoordinator`가 최대 3개를 병렬 실행한다. 같은 provider 설정과 공용 플러그인/MCP·런타임 자원은 순서를 지킨다. `InstallSession`은 일반 설치와 복구를 서로 배제하며 앱 종료 시 대기·실행 중 작업을 모두 취소하고 프로세스 트리 종료를 기다린다.
+  - 작업별 상태·로그·취소를 제공한다. 복구 로그는 `~/.harness-manager/repair/logs/`에 비밀값을 가려 보관한다.
+  - 공통 버그는 `repair/workspaces/`의 별도 dev 클론에서 수정한다. 호스트가 공개할 파일 범위·홈 경로·비공개 낱말·비밀값을 검사하고 npm test → typecheck → build 후 커밋한다. fetch/merge/재검증/push는 직렬화한다. 충돌·권한 부족·실패는 사본을 남기고 보고한다. force/reset/stash/자동 태그·배포는 하지 않는다. 개인 프로필은 HM 공개 소스 반영 대상이 아니다.
+- **사용자 프로필**: `services/setup-profiles.ts`, `SetupProfilePicker`, `hm profiles`.
+  - `settings.json.setupProfileId`로 하나만 선택한다. 공통 기본은 Git·Node·Claude·Codex만 관리한다. 기존 루트 manifest/home은 `legacy`(jinmin 예시)로 명시 선택할 때만 사용한다.
+  - 로컬 프로필은 `~/.harness-manager/profiles/<id>/definition/{manifest,home}`에 저장한다. 별도 비공개 Git 클론도 폴더로 연결할 수 있다. PC 전용 오버레이는 `<id>/local/`에 따로 보관한다.
+  - doctor/install의 `repoRoot`는 HM 앱 소스, `templateRoot`는 선택한 프로필이다. 자체 마켓플레이스와 Node 보호 스크립트는 앱 레포를 가리킨다. capture는 선택한 프로필만 갱신한다. 공통 기본은 읽기 전용이며 capture 전에 개인 사본을 만든다.
+  - 프로필 누락·잘못된 manifest는 오류로 중단한다. 다른 프로필로 대체하거나 개인 설정을 자동 이관하지 않는다. 토큰·로그인 파일은 복사하지 않는다.
 - **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
   - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.
   - 프로필은 `~/.harness-manager/settings.json`의 `profile`(없으면 full). CLI는 `hm doctor [--profile p] [--all] [--json]`.
