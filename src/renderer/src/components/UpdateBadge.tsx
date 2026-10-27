@@ -22,7 +22,7 @@ export function updaterStatusLabel(status: UpdaterStatus): string {
 }
 
 /**
- * 사이드바 하단의 버전 배지와 업데이트 버튼. 새 버전은 배경에서 차등 다운로드되고,
+ * 타이틀바의 버전 배지와 업데이트 버튼. 새 버전은 배경에서 차등 다운로드되고,
  * 끝나면 버튼이 "재시작"으로 바뀐다. 확인에 실패하면 릴리스 페이지로 가는 길을 준다.
  */
 export function UpdateBadge() {

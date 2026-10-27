@@ -140,10 +140,10 @@ export default function RegistryTable({ kind, catalog, records, toolbar = true, 
   return (
     <section className="ext-registry" aria-label={`${kindLabels[kind]} 목록`}>
       {toolbar && (
-        <div className="cleanup-toolbar">
+        <div className="toolbar">
           <input
             type="search"
-            className="ext-search"
+            className="search"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -167,12 +167,12 @@ export default function RegistryTable({ kind, catalog, records, toolbar = true, 
               </option>
             ))}
           </select>
-          <span className="muted cleanup-count">
+          <span className="muted">
             {result.totalItems} / {rows.length}개
           </span>
         </div>
       )}
-      <table className="doctor-table ext-table">
+      <table className="data-table ext-table">
         <thead>
           <tr>
             {columns.map((column) => (
@@ -203,7 +203,7 @@ export default function RegistryTable({ kind, catalog, records, toolbar = true, 
           ))}
         </tbody>
       </table>
-      {result.totalItems === 0 && <p className="muted doctor-empty">조건과 맞는 기록이 없습니다. 검색어나 필터를 조정하세요.</p>}
+      {result.totalItems === 0 && <p className="empty">조건과 맞는 기록이 없습니다. 검색어나 필터를 조정하세요.</p>}
       {rows.length > 25 && (
         <nav className="ext-pagination" aria-label="목록 페이지">
           <button type="button" className="btn ghost" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={result.page === 1}>

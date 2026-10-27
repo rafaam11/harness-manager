@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Catalog, Source } from "@shared/external-api/schema";
+import { Tabs, ToolbarSpacer } from "../../components/ui";
 import { addToComparison, filterSources, removeFromComparison, type SourceFilters } from "../../external-api/discovery";
 import { formatDomain, formatDomains } from "../../external-api/labels";
 import type { RegistryView } from "../../external-api/registry";
@@ -46,10 +47,10 @@ export default function SourcesExplorer({ catalog, onOpen, onCompare }: Props) {
 
   return (
     <section className="ext-explorer" aria-label="정보원 탐색">
-      <div className="cleanup-toolbar ext-filters">
+      <div className="toolbar ext-filters">
         <input
           type="search"
-          className="ext-search"
+          className="search"
           value={filters.query ?? ""}
           onChange={(event) => update("query", event.target.value)}
           placeholder="예: 미세먼지, 공연장, REST API"
@@ -92,19 +93,20 @@ export default function SourcesExplorer({ catalog, onOpen, onCompare }: Props) {
         </select>
       </div>
 
-      <div className="cleanup-toolbar">
-        <div className="ws-detail-mode" role="tablist" aria-label="보기 방식">
-          <button type="button" role="tab" aria-selected={viewMode === "list"} className={`ws-mode-tab${viewMode === "list" ? " active" : ""}`} onClick={() => setViewMode("list")}>
-            목록
-          </button>
-          <button type="button" role="tab" aria-selected={viewMode === "map"} className={`ws-mode-tab${viewMode === "map" ? " active" : ""}`} onClick={() => setViewMode("map")}>
-            관계도
-          </button>
-        </div>
-        <span className="muted cleanup-count">
+      <div className="toolbar">
+        <Tabs<"list" | "map">
+          label="보기 방식"
+          value={viewMode}
+          onChange={setViewMode}
+          items={[
+            { id: "list", label: "목록" },
+            { id: "map", label: "관계도" },
+          ]}
+        />
+        <span className="muted">
           {matches.length} / {sources.length}개 정보원
         </span>
-        <span className="cleanup-toolbar-spacer" />
+        <ToolbarSpacer />
         <span className="muted">비교함 {comparison.length}/4</span>
         <button type="button" className="btn" disabled={comparison.length === 0} onClick={() => onCompare(comparison)}>
           비교표 열기

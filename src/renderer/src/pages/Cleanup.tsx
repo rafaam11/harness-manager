@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CleanupCandidate as Candidate, ManifestDay } from "@shared/api-types";
 import { call, fmtSize, fmtRelative } from "../api/client";
 import { useConfirmDialog } from "../components/confirm-dialog";
+import { Banner, Check, EmptyState, PageHeader, StatusTag, Tabs, Toolbar, ToolbarSpacer } from "../components/ui";
 
 interface MovePreview { from: string; category: string }
 
@@ -152,40 +153,36 @@ export default function Cleanup() {
     .filter((m) => m.entries.length > 0);
 
   return (
-    <div>
+    <div className="cleanup-page">
       {dialog}
-      <h2>정리</h2>
-      {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
+      <PageHeader title="정리" meta="지우지 않고 ~/.claude/archive로 옮긴다 · 원위치 복구 가능" />
+      {message && <Banner tone={message.kind}>{message.text}</Banner>}
 
-      <div className="ws-detail-mode cleanup-mode">
-        <button
-          className={`ws-mode-tab${view === "candidates" ? " active" : ""}`}
-          onClick={() => changeView("candidates")}
-        >
-          정리 후보 {movable.length > 0 && <span className="cat-count">{movable.length}</span>}
-        </button>
-        <button
-          className={`ws-mode-tab${view === "archive" ? " active" : ""}`}
-          onClick={() => changeView("archive")}
-        >
-          아카이브 기록
-        </button>
-      </div>
+      <Tabs<View>
+        label="정리 보기"
+        value={view}
+        onChange={changeView}
+        items={[
+          {
+            id: "candidates",
+            label: (
+              <>
+                정리 후보 {movable.length > 0 && <span className="count">{movable.length}</span>}
+              </>
+            ),
+          },
+          { id: "archive", label: "아카이브 기록" },
+        ]}
+      />
 
       {view === "candidates" ? (
         <>
-          <div className="cleanup-toolbar">
-            <label className="cleanup-selall">
-              <input
-                type="checkbox"
-                checked={allMovableChecked}
-                disabled={movable.length === 0}
-                onChange={toggleAll}
-              />
+          <Toolbar>
+            <Check checked={allMovableChecked} disabled={movable.length === 0} onChange={toggleAll}>
               전체 선택
-            </label>
-            <span className="muted cleanup-count">선택 {selectedItems.length} / {movable.length}</span>
-            <span className="cleanup-toolbar-spacer" />
+            </Check>
+            <span className="muted">선택 {selectedItems.length} / {movable.length}</span>
+            <ToolbarSpacer />
             <button className="btn ghost" onClick={scan} disabled={busy}>재스캔</button>
             <button
               className="btn ghost"
@@ -201,15 +198,15 @@ export default function Cleanup() {
             >
               실행 — 아카이브로 이동
             </button>
-          </div>
+          </Toolbar>
 
           {preview && (
             <div className="cleanup-preview">
-              <div className="sec-label">dry-run 대상 ({preview.length})</div>
+              <div className="section-label">dry-run 대상 ({preview.length})</div>
               <div className="cleanup-preview-list">
                 {preview.map((p) => (
                   <div className="cleanup-preview-row" key={p.from}>
-                    <span className="tag muted">{categoryLabel(p.category)}</span>
+                    <StatusTag tone="muted">{categoryLabel(p.category)}</StatusTag>
                     <span className="mono cleanup-preview-path">{p.from}</span>
                   </div>
                 ))}
@@ -218,7 +215,7 @@ export default function Cleanup() {
           )}
 
           {groups.length === 0 ? (
-            <div className="muted cleanup-empty">정리 후보 없음</div>
+            <EmptyState>정리 후보 없음</EmptyState>
           ) : (
             groups.map((g) => {
               const warnOnly = g.category === "warn-only";
@@ -232,11 +229,11 @@ export default function Cleanup() {
                     <button className="cleanup-caret-btn" onClick={() => toggleCat(g.category)}>
                       <span className="cleanup-caret">{open ? "▾" : "▸"}</span>
                       {warnOnly ? (
-                        <span className="tag warn">경고</span>
+                        <StatusTag tone="warn">경고</StatusTag>
                       ) : (
-                        <span className="tag muted">{categoryLabel(g.category)}</span>
+                        <StatusTag tone="muted">{categoryLabel(g.category)}</StatusTag>
                       )}
-                      <span className="cat-count">{g.items.length}</span>
+                      <span className="count">{g.items.length}</span>
                     </button>
                     {!warnOnly && (
                       <label className="cleanup-group-all">
@@ -258,7 +255,7 @@ export default function Cleanup() {
                         >
                           <span className="cleanup-row-check">
                             {warnOnly ? (
-                              <span className="tag warn">⚠</span>
+                              <StatusTag tone="warn">경고</StatusTag>
                             ) : (
                               <input
                                 type="checkbox"
@@ -282,19 +279,17 @@ export default function Cleanup() {
         </>
       ) : (
         <>
-          <div className="cleanup-toolbar">
+          <Toolbar>
             <input
-              className="cat-search cleanup-archive-search"
+              className="search cleanup-archive-search"
               type="text"
               placeholder="원경로 검색…"
               value={archiveQuery}
               onChange={(e) => setArchiveQuery(e.target.value)}
             />
-          </div>
+          </Toolbar>
           {archiveDays.length === 0 ? (
-            <div className="muted cleanup-empty">
-              {manifests.length === 0 ? "아카이브 기록 없음" : "일치하는 기록 없음"}
-            </div>
+            <EmptyState>{manifests.length === 0 ? "아카이브 기록 없음" : "일치하는 기록 없음"}</EmptyState>
           ) : (
             archiveDays.map((m) => {
               const open = openDates.has(m.date);
@@ -303,7 +298,7 @@ export default function Cleanup() {
                   <button className="cleanup-caret-btn cleanup-date-head" onClick={() => toggleDate(m.date)}>
                     <span className="cleanup-caret">{open ? "▾" : "▸"}</span>
                     <span className="cleanup-date">{m.date}</span>
-                    <span className="cat-count">{m.entries.length}</span>
+                    <span className="count">{m.entries.length}</span>
                   </button>
                   {open && (
                     <div className="cleanup-rows">

@@ -9,6 +9,7 @@ import {
   type DoctorReport,
   type DoctorSection,
 } from "@shared/doctor-types";
+import { Banner, Check, StateDot, StatusTag, Tabs, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
 
 type Tab = "overview" | DoctorSection;
@@ -23,10 +24,6 @@ const CHECK_TONE: Record<DoctorCheckState, "ok" | "warn" | "err" | "muted"> = {
   skipped: "muted",
 };
 
-function StateDot({ state }: { state: DoctorCard["state"] }) {
-  // 점은 보조 표시다. 같은 줄에 글자 라벨이 반드시 함께 나온다.
-  return <span className={`doctor-dot ${state}`} aria-hidden="true" />;
-}
 
 export default function Dashboard() {
   const [report, setReport] = useState<DoctorReport | null>(null);
@@ -56,39 +53,36 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-page">
-      <div className="dashboard-head">
+      <div className="page-head">
         <h2>상태판</h2>
-        {report && <span className="tag muted">프로필 {report.profile}</span>}
-        <span className="muted dashboard-time">{report ? `마지막 검사 ${new Date(report.generatedAt).toLocaleString("ko-KR")}` : busy ? "검사 중…" : ""}</span>
-        <span className="cleanup-toolbar-spacer" />
+        {report && <StatusTag tone="muted">프로필 {report.profile}</StatusTag>}
+        <span className="page-head-meta">{report ? `마지막 검사 ${new Date(report.generatedAt).toLocaleString("ko-KR")}` : busy ? "검사 중…" : ""}</span>
+        <ToolbarSpacer />
         <button className="btn" onClick={() => void run()} disabled={busy}>
           {busy ? "검사 중…" : "다시 검사"}
         </button>
       </div>
-      {error && <div className="banner err">{error}</div>}
-      {report?.repoError && <div className="banner warn">{report.repoError}</div>}
+      {error && <Banner tone="err">{error}</Banner>}
+      {report?.repoError && <Banner tone="warn">{report.repoError}</Banner>}
 
       {report && report.cards.length > 0 && (
-        <div className="ws-detail-mode dashboard-tabs" role="tablist">
-          <button role="tab" aria-selected={tab === "overview"} className={`ws-mode-tab${tab === "overview" ? " active" : ""}`} onClick={() => setTab("overview")}>
-            전체
-          </button>
-          {DOCTOR_SECTIONS.map((section) => {
-            const state = report.cards.find((entry) => entry.section === section)?.state ?? "info";
-            return (
-              <button
-                key={section}
-                role="tab"
-                aria-selected={tab === section}
-                className={`ws-mode-tab${tab === section ? " active" : ""}`}
-                onClick={() => setTab(section)}
-              >
-                <StateDot state={state} />
-                {DOCTOR_SECTION_LABELS[section]}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs<Tab>
+          label="상태판 섹션"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: "overview", label: "전체" },
+            ...DOCTOR_SECTIONS.map((section) => ({
+              id: section,
+              label: (
+                <>
+                  <StateDot state={report.cards.find((entry) => entry.section === section)?.state ?? "info"} />
+                  {DOCTOR_SECTION_LABELS[section]}
+                </>
+              ),
+            })),
+          ]}
+        />
       )}
 
       {report && tab === "overview" && (
@@ -98,9 +92,9 @@ export default function Dashboard() {
               <header className="doctor-card-head">
                 <StateDot state={entry.state} />
                 <span className="doctor-card-title">{entry.label}</span>
-                <span className={`tag ${entry.state === "fail" ? "err" : entry.state === "info" ? "muted" : entry.state}`}>
+                <StatusTag tone={entry.state === "fail" ? "err" : entry.state === "info" ? "muted" : entry.state}>
                   {DOCTOR_CARD_LABELS[entry.state]}
-                </span>
+                </StatusTag>
               </header>
               <p className="doctor-card-summary">{entry.summary}</p>
               <button className="btn ghost" onClick={() => setTab(entry.section)}>
@@ -117,16 +111,16 @@ export default function Dashboard() {
             <StateDot state={card.state} />
             <span className="doctor-card-title">{card.label}</span>
             <span className="muted">{card.summary}</span>
-            <span className="cleanup-toolbar-spacer" />
-            <label className="cleanup-selall">
+            <ToolbarSpacer />
+            <label className="check">
               <input type="checkbox" checked={showOk} onChange={() => setShowOk(!showOk)} />
               정상 항목도 보기
             </label>
           </div>
           {rows.length === 0 ? (
-            <div className="muted doctor-empty">{showOk ? "검사할 항목이 없습니다" : "정상이 아닌 항목이 없습니다"}</div>
+            <div className="empty">{showOk ? "검사할 항목이 없습니다" : "정상이 아닌 항목이 없습니다"}</div>
           ) : (
-            <table className="doctor-table">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>상태</th>
@@ -138,11 +132,11 @@ export default function Dashboard() {
                 {rows.map((check) => (
                   <tr key={check.id}>
                     <td>
-                      <span className={`tag ${CHECK_TONE[check.state]}`}>{DOCTOR_CHECK_LABELS[check.state]}</span>
+                      <StatusTag tone={CHECK_TONE[check.state]}>{DOCTOR_CHECK_LABELS[check.state]}</StatusTag>
                     </td>
                     <td>
                       {check.title}
-                      {check.local && <span className="tag muted doctor-local">로컬</span>}
+                      {check.local && <StatusTag tone="muted">로컬</StatusTag>}
                     </td>
                     <td className="mono doctor-detail">{check.detail}</td>
                   </tr>

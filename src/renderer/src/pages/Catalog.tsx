@@ -3,8 +3,8 @@ import { call, fmtSize, fmtDate } from "../api/client";
 import { renderMarkdownSafe } from "../markdown";
 import type { CatalogContent, CatalogItem, McpServer, PluginInfo } from "@shared/api-types";
 import type { ProviderFilter, ProviderId } from "@shared/provider-types";
-import { providerLabel } from "../provider-ui";
-import { groupRowsByProvider, providerGroupLabel, providerToneClass } from "../provider-ui";
+import { Banner, EmptyState, PageHeader, StatusTag, Tabs } from "../components/ui";
+import { groupRowsByProvider, providerGroupLabel, providerLabel, providerToneClass, useStoredProviderFilter } from "../provider-ui";
 
 // 좌측 종류 필터(세그먼트). skill/agent/command는 CatalogItem.kind, mcp/plugin은 별도 소스.
 type KindFilter = "all" | "skill" | "agent" | "command" | "instruction" | "memory" | "mcp" | "plugin";
@@ -38,7 +38,7 @@ const GROUP_LABEL: Record<Exclude<KindFilter, "all">, string> = {
 const mcpKey = (m: McpServer) => `mcp:${m.provider ?? "unknown"}:${m.scope}:${m.projectPath ?? ""}:${m.name}`;
 
 export const CATALOG_PROVIDER_TABS: { key: ProviderFilter; label: string }[] = [
-  { key: "all", label: "All" },
+  { key: "all", label: "전체" },
   { key: "claude", label: "Claude" },
   { key: "codex", label: "Codex" },
 ];
@@ -55,11 +55,7 @@ export function filterCatalogPluginsByProvider<T>(rows: T[], provider: ProviderF
   return provider === "codex" ? [] : rows;
 }
 
-interface Props {
-  providerFilter: ProviderFilter;
-}
-
-export default function Catalog({ providerFilter }: Props) {
+export default function Catalog() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [mcps, setMcps] = useState<McpServer[]>([]);
@@ -70,9 +66,8 @@ export default function Catalog({ providerFilter }: Props) {
   const [kind, setKind] = useState<KindFilter>(
     () => (localStorage.getItem("hm-cat-kind") as KindFilter | null) ?? "all",
   );
-  const [catalogProviderFilter, setCatalogProviderFilter] = useState<ProviderFilter>(
-    () => (localStorage.getItem("hm-cat-provider") as ProviderFilter | null) ?? providerFilter ?? "all",
-  );
+  // v2부터 쓰던 저장 키를 그대로 써서 이전 선택을 이어 간다.
+  const [catalogProviderFilter, setCatalogProviderFilter] = useStoredProviderFilter("hm-cat-provider");
   // 목록은 항상 전체를 받아 오고, provider 탭은 화면에서 거른다(탭마다 개수를 보여 주려고).
   useEffect(() => {
     setSelectedKey(null);
@@ -95,7 +90,6 @@ export default function Catalog({ providerFilter }: Props) {
   };
   const changeCatalogProvider = (p: ProviderFilter) => {
     setCatalogProviderFilter(p);
-    localStorage.setItem("hm-cat-provider", p);
     setSelectedKey(null);
   };
 
@@ -167,9 +161,9 @@ export default function Catalog({ providerFilter }: Props) {
       <div key={k}>
         {groups.map((group) => (
           <div key={`${k}:${group.provider}`}>
-            <div className="cat-group-head">
+            <div className="section-label">
               {GROUP_LABEL[k]}{catalogProviderFilter === "all" ? ` · ${providerGroupLabel(group.provider)}` : ""}{" "}
-              <span className="cat-count">{group.rows.length}</span>
+              <span className="count">{group.rows.length}</span>
             </div>
             {group.rows.map((it) => {
               const key = `item:${it.path}`;
@@ -185,7 +179,7 @@ export default function Catalog({ providerFilter }: Props) {
                     )}
                     <span className={`bdg bdg-${k}`}>{ITEM_BADGE[k]}</span>
                     <span className="cat-mi-name">{it.name}</span>
-                    {it.warn && <span className="tag warn">⚠</span>}
+                    {it.warn && <StatusTag tone="warn">경고</StatusTag>}
                   </div>
                   <div className="cat-mi-meta">
                     <span>{fmtSize(it.size)}</span>
@@ -204,33 +198,31 @@ export default function Catalog({ providerFilter }: Props) {
 
   return (
     <div className="cat-page">
-      <h2>
-        Catalog{" "}
-        <span className={`provider-badge ${providerToneClass(catalogProviderFilter)}`}>
-          {catalogProviderFilter === "all" ? "All Providers" : providerGroupLabel(catalogProviderFilter)}
-        </span>
-      </h2>
-      {error && <div className="banner err">{error}</div>}
+      <PageHeader
+        title="카탈로그"
+        meta={`${catalogProviderFilter === "all" ? "모든 provider" : providerGroupLabel(catalogProviderFilter)} · 스킬·에이전트·명령·지침·메모리·MCP·플러그인`}
+      />
+      {error && <Banner tone="err">{error}</Banner>}
 
-      <div className="cat-provider-tabs" role="tablist" aria-label="Catalog provider">
-        {CATALOG_PROVIDER_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            role="tab"
-            aria-selected={catalogProviderFilter === tab.key}
-            className={`cat-provider-tab ${providerToneClass(tab.key)}${catalogProviderFilter === tab.key ? " active" : ""}`}
-            onClick={() => changeCatalogProvider(tab.key)}
-          >
-            {tab.label} <span className="cat-seg-n">{providerCounts[tab.key]}</span>
-          </button>
-        ))}
-      </div>
+      <Tabs<ProviderFilter>
+        label="provider"
+        value={catalogProviderFilter}
+        onChange={changeCatalogProvider}
+        items={CATALOG_PROVIDER_TABS.map((tab) => ({
+          id: tab.key,
+          label: (
+            <>
+              {tab.label} <span className="count">{providerCounts[tab.key]}</span>
+            </>
+          ),
+        }))}
+      />
 
       <div className="cat-split">
         <div className="cat-master-col">
           <div className="cat-toolbar">
             <input
-              className="cat-search"
+              className="search"
               type="text"
               placeholder="이름·설명 검색…"
               value={query}
@@ -243,13 +235,13 @@ export default function Catalog({ providerFilter }: Props) {
                   className={`cat-seg-btn${kind === s.key ? " active" : ""}`}
                   onClick={() => changeKind(s.key)}
                 >
-                  {s.label} <span className="cat-seg-n">{counts[s.key]}</span>
+                  {s.label} <span className="count">{counts[s.key]}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="ws-master cat-master">
+          <div className="cat-master">
             {itemGroup("skill")}
             {itemGroup("agent")}
             {itemGroup("command")}
@@ -262,9 +254,9 @@ export default function Catalog({ providerFilter }: Props) {
                   : [{ provider: catalogProviderFilter as ProviderId, rows: mcpRows }]
                 ).map((group) => (
                   <div key={`mcp:${group.provider}`}>
-                    <div className="cat-group-head">
+                    <div className="section-label">
                       {GROUP_LABEL.mcp}{catalogProviderFilter === "all" ? ` · ${providerGroupLabel(group.provider)}` : ""}{" "}
-                      <span className="cat-count">{group.rows.length}</span>
+                      <span className="count">{group.rows.length}</span>
                     </div>
                     {group.rows.map((m) => {
                       const key = mcpKey(m);
@@ -294,9 +286,9 @@ export default function Catalog({ providerFilter }: Props) {
             )}
             {showGroup("plugin") && pluginRows.length > 0 && (
               <div>
-                <div className="cat-group-head">
+                <div className="section-label">
                   {GROUP_LABEL.plugin}{catalogProviderFilter === "all" ? " · Claude Code" : ""}{" "}
-                  <span className="cat-count">{pluginRows.length}</span>
+                  <span className="count">{pluginRows.length}</span>
                 </div>
                 {pluginRows.map((p) => {
                   const key = `plugin:${p.id}`;
@@ -309,9 +301,9 @@ export default function Catalog({ providerFilter }: Props) {
                       <div className="cat-mi-head">
                         <span className="bdg bdg-plugin">PLUGIN</span>
                         <span className="cat-mi-name">{p.id}</span>
-                        {p.enabledInSettings === true && <span className="tag ok">on</span>}
-                        {p.enabledInSettings === false && <span className="tag warn">off</span>}
-                        {p.blocked && <span className="tag warn">blocked</span>}
+                        {p.enabledInSettings === true && <StatusTag tone="ok">켜짐</StatusTag>}
+                        {p.enabledInSettings === false && <StatusTag tone="warn">꺼짐</StatusTag>}
+                        {p.blocked && <StatusTag tone="warn">차단</StatusTag>}
                       </div>
                       <div className="cat-mi-meta">
                         <span>
@@ -324,18 +316,14 @@ export default function Catalog({ providerFilter }: Props) {
               </div>
             )}
             {counts.all === 0 && (
-              <div className="muted cat-master-empty">
-                {items.length + mcps.length + plugins.length === 0
-                  ? "불러오는 중…"
-                  : "일치하는 항목이 없습니다."}
-              </div>
+              <EmptyState>
+                {items.length + mcps.length + plugins.length === 0 ? "불러오는 중…" : "일치하는 항목이 없습니다."}
+              </EmptyState>
             )}
           </div>
         </div>
 
-        <div className="ws-detail">
-          <div className="ws-detail-inner">{detail}</div>
-        </div>
+        <div className="panel cat-detail-panel">{detail}</div>
       </div>
     </div>
   );
@@ -348,7 +336,7 @@ function renderDetail(
   plugins: PluginInfo[],
   content: Record<string, CatalogContent>,
 ): ReactNode {
-  if (!selectedKey) return <div className="cat-detail-empty">왼쪽에서 항목을 선택하세요.</div>;
+  if (!selectedKey) return <EmptyState>왼쪽에서 항목을 선택하세요.</EmptyState>;
   if (selectedKey.startsWith("item:")) {
     const it = items.find((i) => `item:${i.path}` === selectedKey);
     if (it) return <ItemDetail it={it} data={content[it.path]} />;
@@ -359,14 +347,15 @@ function renderDetail(
     const p = plugins.find((x) => `plugin:${x.id}` === selectedKey);
     if (p) return <PluginDetail p={p} />;
   }
-  return <div className="cat-detail-empty">항목을 찾을 수 없습니다.</div>;
+  return <EmptyState>항목을 찾을 수 없습니다.</EmptyState>;
 }
 
 function CopyBtn({ text }: { text: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
-      className="cat-copy"
+      type="button"
+      className="btn ghost cat-copy"
       onClick={() => {
         navigator.clipboard?.writeText(text).then(
           () => {
@@ -377,7 +366,7 @@ function CopyBtn({ text }: { text: string }) {
         );
       }}
     >
-      {done ? "복사됨 ✓" : "복사"}
+      {done ? "복사됨" : "복사"}
     </button>
   );
 }
@@ -404,7 +393,7 @@ function ItemDetail({ it, data }: { it: CatalogItem; data?: CatalogContent }) {
           </div>
           {Object.keys(data.frontmatter ?? {}).length > 0 && (
             <div className="fm-table">
-              <div className="sec-label">Frontmatter</div>
+              <div className="section-label">Frontmatter</div>
               {Object.keys(data.frontmatter).map((k) => {
                 const v = data.frontmatter[k];
                 const text = Array.isArray(v)
@@ -421,7 +410,7 @@ function ItemDetail({ it, data }: { it: CatalogItem; data?: CatalogContent }) {
               })}
             </div>
           )}
-          <div className="sec-label">본문</div>
+          <div className="section-label">본문</div>
           <div
             className="md-body"
             dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(data.raw) }}
@@ -438,8 +427,13 @@ function McpDetail({ m }: { m: McpServer }) {
     <div className="fm-row" key={k}>
       <span className="fm-k">{k}</span>
       <span className="fm-v mono">{reveal[k] ? v : "••••••••••••"}</span>
-      <button className="eye" onClick={() => setReveal((p) => ({ ...p, [k]: !p[k] }))}>
-        {reveal[k] ? "🙈" : "👁"}
+      <button
+        type="button"
+        className="btn ghost cat-reveal"
+        aria-label={reveal[k] ? `${k} 값 가리기` : `${k} 값 보기`}
+        onClick={() => setReveal((p) => ({ ...p, [k]: !p[k] }))}
+      >
+        {reveal[k] ? "가리기" : "보기"}
       </button>
     </div>
   );
@@ -454,7 +448,7 @@ function McpDetail({ m }: { m: McpServer }) {
       <div className="cat-path mono">
         {m.provider === "codex" ? "~/.codex/config.toml" : "~/.claude.json"} · {m.scope === "project" ? m.projectPath : "user scope"}
       </div>
-      <div className="sec-label">연결</div>
+      <div className="section-label">연결</div>
       {m.command && (
         <div className="fm-row">
           <span className="fm-k">command</span>
@@ -475,13 +469,13 @@ function McpDetail({ m }: { m: McpServer }) {
       )}
       {m.env && Object.keys(m.env).length > 0 && (
         <>
-          <div className="sec-label">env</div>
+          <div className="section-label">env</div>
           {Object.entries(m.env).map(([k, v]) => secretRow(k, String(v)))}
         </>
       )}
       {m.headers && Object.keys(m.headers).length > 0 && (
         <>
-          <div className="sec-label">headers</div>
+          <div className="section-label">headers</div>
           {Object.entries(m.headers).map(([k, v]) => secretRow(k, String(v)))}
         </>
       )}
@@ -496,7 +490,7 @@ function PluginDetail({ p }: { p: PluginInfo }) {
         <span className="bdg bdg-plugin">PLUGIN</span>
         <span className="cat-detail-name">{p.id}</span>
       </div>
-      <div className="sec-label">상태</div>
+      <div className="section-label">상태</div>
       <div className="fm-row">
         <span className="fm-k">설정 활성</span>
         <span className="fm-v mono">
@@ -507,7 +501,7 @@ function PluginDetail({ p }: { p: PluginInfo }) {
         <span className="fm-k">차단</span>
         <span className="fm-v mono">{p.blocked ? "blocked" : "no"}</span>
       </div>
-      <div className="sec-label">설치 ({p.installs.length})</div>
+      <div className="section-label">설치 ({p.installs.length})</div>
       {p.installs.map((i, idx) => (
         <div className="fm-row" key={idx}>
           <span className="fm-k">{i.scope}</span>

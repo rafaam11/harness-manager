@@ -6,12 +6,8 @@ import { call, fmtSize, fmtDate, ApiError } from "../api/client";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { useResolvedTheme } from "../theme";
 import type { NormalizedConfigFile, ProviderFilter, ProviderId } from "@shared/provider-types";
-import { providerBadgeClass, providerLabel } from "../provider-ui";
-import { groupRowsByProvider, providerGroupLabel } from "../provider-ui";
-
-interface Props {
-  providerFilter: ProviderFilter;
-}
+import { Banner, PageHeader, StatusTag, Tabs, Toolbar } from "../components/ui";
+import { PROVIDER_FILTER_OPTIONS, groupRowsByProvider, providerGroupLabel, providerLabel, useStoredProviderFilter } from "../provider-ui";
 
 type EditorInstance = ReturnType<typeof createJSONEditor>;
 
@@ -76,8 +72,7 @@ function TextConfigEditor({
 }) {
   return (
     <textarea
-      className="input mono"
-      style={{ width: "100%", minHeight: 460, resize: "vertical" }}
+      className="config-text mono"
       value={value}
       readOnly={readOnly}
       onChange={(e) => onChange(e.target.value)}
@@ -86,7 +81,8 @@ function TextConfigEditor({
   );
 }
 
-export default function ConfigEditor({ providerFilter }: Props) {
+export default function ConfigEditor() {
+  const [providerFilter, setProviderFilter] = useStoredProviderFilter("harness-manager.configs.provider");
   const [files, setFiles] = useState<NormalizedConfigFile[]>([]);
   const [selectedId, setSelectedId] = useState<string>("settings");
   const [data, setData] = useState<ConfigData | null>(null);
@@ -222,49 +218,50 @@ export default function ConfigEditor({ providerFilter }: Props) {
     providerFilter === "all" ? groupRowsByProvider(files) : [{ provider: providerFilter as ProviderId, rows: files }];
 
   return (
-    <div>
+    <div className="configs-page">
       {dialog}
-      <h2>
-        Config Editor{" "}
-        <span className={`provider-badge ${providerFilter !== "all" ? providerBadgeClass(providerFilter) : ""}`}>
-          {providerFilter === "all" ? "All Providers" : providerLabel(providerFilter)}
-        </span>
-      </h2>
-      <div className="config-file-groups">
+      <PageHeader title="설정 편집기" meta={`${files.length}개 파일`} />
+      <Tabs<ProviderFilter>
+        label="provider"
+        value={providerFilter}
+        onChange={setProviderFilter}
+        items={PROVIDER_FILTER_OPTIONS.map((option) => ({ id: option.value, label: option.label }))}
+      />
+      <div className="configs-files">
         {fileGroups.map((group) => (
-          <div key={group.provider} className="config-file-group">
+          <div key={group.provider} className="configs-file-group">
             {providerFilter === "all" && (
-              <div className="cat-group-head">
-                {providerGroupLabel(group.provider)} <span className="cat-count">{group.rows.length}</span>
+              <div className="section-label">
+                {providerGroupLabel(group.provider)} <span className="count">{group.rows.length}</span>
               </div>
             )}
-            <p>
+            <div className="configs-file-buttons">
               {group.rows.map((file) => (
                 <button
                   key={file.id}
-                  className={`btn ghost${selectedId === file.id ? " active" : ""}`}
-                  style={selectedId === file.id ? { borderColor: "var(--accent)" } : undefined}
+                  type="button"
+                  className="btn ghost configs-file"
+                  aria-pressed={selectedId === file.id}
                   onClick={() => setSelectedId(file.id)}
                   title={file.path}
                 >
-                  {providerFilter === "all" ? `${providerLabel(file.provider)} · ` : ""}
                   {file.label}
-                  {!file.writable ? " 🔒" : ""}
+                  {!file.writable && <span className="muted"> (읽기 전용)</span>}
                 </button>
               ))}
-            </p>
+            </div>
           </div>
         ))}
       </div>
 
-      {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
+      {message && <Banner tone={message.kind}>{message.text}</Banner>}
       {externalChange && selectedFile && (
-        <div className="banner warn">
+        <Banner tone="warn">
           파일이 외부에서 변경되었습니다.{" "}
-          <button className="btn ghost" onClick={() => loadSelected(selectedFile.id)}>
+          <button type="button" className="btn ghost" onClick={() => loadSelected(selectedFile.id)}>
             다시 불러오기
           </button>
-        </div>
+        </Banner>
       )}
 
       {!selectedFile && <div className="muted">표시할 설정 파일이 없습니다.</div>}
@@ -272,16 +269,12 @@ export default function ConfigEditor({ providerFilter }: Props) {
       {data && selectedFile && (
         <div>
           {!data.descriptor.writable && (
-            <div className="banner warn">
-              이 {providerLabel(data.descriptor.provider)} 설정 파일은 읽기 전용입니다.
-            </div>
+            <Banner tone="warn">이 {providerLabel(data.descriptor.provider)} 설정 파일은 읽기 전용입니다.</Banner>
           )}
           <p className="muted mono">
             {data.descriptor.path} — {fmtDate(data.mtime)}
           </p>
-          {isToml && (
-            <div className="notice">TOML 파일은 텍스트 편집 후 저장 시 구문 검증을 수행합니다.</div>
-          )}
+          {isToml && <p className="muted">TOML 파일은 텍스트로 고치고, 저장할 때 구문을 검사합니다.</p>}
           {selectedFile.format === "json" ? (
             <JsonTreeEditor
               initialText={text}
@@ -291,37 +284,25 @@ export default function ConfigEditor({ providerFilter }: Props) {
               apiRef={editorRef}
             />
           ) : (
-            <TextConfigEditor
-              value={text}
-              readOnly={!data.descriptor.writable}
-              onChange={setText}
-            />
+            <TextConfigEditor value={text} readOnly={!data.descriptor.writable} onChange={setText} />
           )}
-          <p>
-            <button
-              className="btn"
-              onClick={save}
-              disabled={!data.descriptor.writable || !dirty || !jsonValid}
-            >
+          <Toolbar>
+            <button type="button" className="btn" onClick={save} disabled={!data.descriptor.writable || !dirty || !jsonValid}>
               저장
             </button>
             {isJson && (
-              <button
-                className="btn ghost"
-                onClick={prettify}
-                disabled={!data.descriptor.writable || !jsonValid}
-              >
+              <button type="button" className="btn ghost" onClick={prettify} disabled={!data.descriptor.writable || !jsonValid}>
                 정렬
               </button>
             )}
-            {!jsonValid && <span className="tag warn">JSON 파싱 오류 — 저장 불가</span>}
-            {dirty && jsonValid && <span className="tag muted">수정됨</span>}
-          </p>
+            {!jsonValid && <StatusTag tone="warn">JSON 파싱 오류 — 저장 불가</StatusTag>}
+            {dirty && jsonValid && <StatusTag tone="muted">수정됨</StatusTag>}
+          </Toolbar>
 
           {data.descriptor.writable && (
             <>
               <h3>백업 ({backups.length})</h3>
-              <table>
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>이름</th>
@@ -337,11 +318,9 @@ export default function ConfigEditor({ providerFilter }: Props) {
                       <td className="num">{fmtSize(b.size)}</td>
                       <td>{fmtDate(b.mtime)}</td>
                       <td>
-                        {data.descriptor.writable && (
-                          <button className="btn ghost" onClick={() => restore(b.name)}>
-                            복원
-                          </button>
-                        )}
+                        <button type="button" className="btn ghost" onClick={() => restore(b.name)}>
+                          복원
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -358,7 +337,6 @@ export default function ConfigEditor({ providerFilter }: Props) {
           )}
         </div>
       )}
-
     </div>
   );
 }

@@ -81,6 +81,7 @@
 | M10 | v3.0.0 릴리스 | 완료(2026-10-27 발행. 설치한 2.0.6이 3.0.0으로 자동 업데이트되고 hm 심을 쓰는 것까지 실측) |
 | M11 | jinmin-mods 폐기 | 완료(2026-10-27: jinmin을 이 레포로 옮기고 mod 재설치 → GitHub archive → 로컬 폴더 삭제) |
 | M12 | jk-external-api 흡수("외부 API" 섹션)와 원 레포 폐기 | 완료(v3.1.0 발행 뒤 README 이전 안내 → Pages 끄기 → automation 브랜치 14개 삭제 → archive. Actions 시크릿은 설정된 것이 없었고, Worker는 배포 기록이 없어 지울 것이 없는 것으로 판단. 로컬 폴더는 사용자가 지운다) |
+| M13 | UI 정리: 공통 컴포넌트(`components/ui.tsx`), v2 색 별칭·죽은 CSS 제거, 아이콘+글자 사이드바, provider 필터는 쓰는 화면 안으로·업데이트 배지는 타이틀바로, `style-contract.test.ts` | 완료(확인 대기) |
 
 ### v3 불변 원칙
 - **사용자 설정 불가침.** CLI가 직접 쓰는 파일(`settings.json`, `~/.claude.json`, `config.toml`)은 통째로 덮어쓰지 않는다.
@@ -104,6 +105,8 @@
 - 의미를 색만으로 전달하지 않는다. 글자 라벨을 함께 쓰고, 상태색과 분류색을 섞지 않는다.
 - UI 문구는 한국어로 쓴다. `window.confirm` 대신 앱 다이얼로그를 쓴다.
 - `App.tsx`는 셸 역할만 하게 얇게 유지한다. 화면은 `pages` 레지스트리와 view 상태 하나로 전환한다.
+- 화면 머리·탭·툴바·패널·상태 태그·상태 점·배너·빈 상태·체크박스는 `components/ui.tsx`의 공통 컴포넌트를 쓴다. 페이지 전용 스타일만 페이지 접두어(`ext-`, `wizard-` 등)를 붙인다.
+- 색은 `theme-colors.css` 토큰으로만 쓴다(상태 배경 `--ok/warn/err-surface`, 분류색 `--kind-*`). `style-contract.test.ts`가 `index.css`의 색 리터럴, v2 별칭(`--border`·`--accent` 등), 코드에서 쓰지 않는 클래스를 막는다.
 - 주석은 "왜"를 설명한다.
 
 ---
@@ -270,15 +273,16 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 
 ### Renderer (`src/renderer/src/`, React 18)
 - 라우터와 상태관리 라이브러리를 쓰지 않는다. 화면 목록은 `pages/registry.tsx` 하나이고, `App.tsx`는 타이틀바·내비·본문을 그리는 셸만 맡는다.
-- 프레임: `components/TitleBar.tsx`(메뉴는 `title-bar-menu.ts`의 데이터, 창 버튼·테마 토글), `components/toast.tsx`(`showToast`), `components/confirm-dialog.tsx`(`useConfirmDialog` — `window.confirm` 대신), `components/UpdateBadge.tsx`.
-- 테마: `theme.ts`(`applyTheme`·`applyStoredTheme`·`useResolvedTheme`, 저장 키 `harness-manager.theme.v1`). 색은 `theme-colors.css`(mcw와 같은 값), 타입·모션 토큰은 `index.css` `:root`. v2 변수 이름(`--panel`·`--card`·`--accent` 등)은 새 토큰을 가리키는 별칭으로 남아 있다(M5에서 정리).
-- 계약 테스트: `typography-contract.test.ts`(글자 크기 11/12/13/14/16px, 굵기 400/600/700만), `motion-contract.test.ts`(CSS와 `motion-tokens.ts` 일치, `transition: all` 금지, reduced-motion 블록마다 `:root[data-reduce-motion]` 짝).
+- 프레임: `components/TitleBar.tsx`(메뉴는 `title-bar-menu.ts`의 데이터, 창 버튼·테마 토글), `components/toast.tsx`(`showToast`), `components/confirm-dialog.tsx`(`useConfirmDialog` — `window.confirm` 대신), `components/UpdateBadge.tsx`(타이틀바 안에 그린다), `components/ui.tsx`(공통 컴포넌트).
+- 사이드바는 `nav.rail` 아이콘+짧은 글자 열이다. 페이지 정의(`registry.tsx`)가 `icon`(lucide)·`short`를 갖는다. 전역 provider 필터는 없고, 카탈로그·설정 편집기가 각자 `Tabs`로 provider를 고르며 선택을 localStorage에 기억한다(`useStoredProviderFilter`).
+- 테마: `theme.ts`(`applyTheme`·`applyStoredTheme`·`useResolvedTheme`, 저장 키 `harness-manager.theme.v1`). 색은 `theme-colors.css`(mcw와 같은 값), 타입·모션 토큰은 `index.css` `:root`.
+- 계약 테스트: `typography-contract.test.ts`(글자 크기 11/12/13/14/16px, 굵기 400/600/700만), `motion-contract.test.ts`(CSS와 `motion-tokens.ts` 일치, `transition: all` 금지, reduced-motion 블록마다 `:root[data-reduce-motion]` 짝), `style-contract.test.ts`(색 리터럴·v2 별칭·죽은 클래스 금지).
 - 보존 대상 페이지:
   - `Catalog`: 읽기 전용 카탈로그
   - `Cleanup`: 스캔 → 선택 → dry-run → 실행 → 복구
   - `ConfigEditor`: `vanilla-jsoneditor`, 409 충돌 처리
   - `UpdateBadge`
-- `provider-ui.ts`: provider 필터 옵션, `providerLabel`·`providerBadgeClass`·`providerToneClass`.
+- `provider-ui.ts`: provider 탭 옵션(`useStoredProviderFilter`), `providerLabel`·`providerBadgeClass`·`providerToneClass`.
 
 ### 공유 타입 (`src/shared/`)
 `api-types.ts`(IPC 계약 + DTO)와 `provider-types.ts`. `types.ts`는 둘을 다시 내보내는 진입점일 뿐이다.

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
-import { DOCTOR_CHECK_LABELS, DOCTOR_SECTION_LABELS } from "@shared/doctor-types";
+import { DOCTOR_CHECK_LABELS, DOCTOR_SECTION_LABELS, type DoctorCardState } from "@shared/doctor-types";
 import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type InstallStepResult } from "@shared/install-types";
+import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
@@ -103,13 +104,13 @@ export default function Install() {
   return (
     <div className="install-page">
       {dialog}
-      <div className="dashboard-head">
+      <div className="page-head">
         <h2>설치</h2>
-        {plan && <span className="tag muted">프로필 {plan.profile}</span>}
-        <span className="muted dashboard-time">
+        {plan && <StatusTag tone="muted">프로필 {plan.profile}</StatusTag>}
+        <span className="page-head-meta">
           {plan ? `정상 ${healthy} · 할 일 ${pending.length}` : "불러오는 중…"}
         </span>
-        <span className="cleanup-toolbar-spacer" />
+        <ToolbarSpacer />
         {running ? (
           <button className="btn danger" onClick={() => void call("install:cancel")}>
             취소
@@ -125,11 +126,11 @@ export default function Install() {
           </>
         )}
       </div>
-      {error && <div className="banner err">{error}</div>}
-      {plan?.repoError && <div className="banner warn">{plan.repoError}</div>}
+      {error && <Banner tone="err">{error}</Banner>}
+      {plan?.repoError && <Banner tone="warn">{plan.repoError}</Banner>}
       {current && (
         <div className="install-progress" role="status">
-          <span className="tag ok">진행 중</span>
+          <StatusTag tone="ok">진행 중</StatusTag>
           {current.index + 1}/{current.total} · {current.title}
         </div>
       )}
@@ -137,17 +138,17 @@ export default function Install() {
         <div className="install-summary">
           {summary.verify.map((card) => (
             <span key={card.section} className="install-summary-card">
-              <span className={`doctor-dot ${card.state}`} aria-hidden="true" />
+              <StateDot state={card.state as DoctorCardState} />
               {DOCTOR_SECTION_LABELS[card.section]}: {card.summary}
             </span>
           ))}
         </div>
       )}
 
-      {plan && pending.length === 0 && <div className="muted doctor-empty">할 일이 없습니다. 모든 항목이 manifest와 같습니다.</div>}
+      {plan && pending.length === 0 && <div className="empty">할 일이 없습니다. 모든 항목이 manifest와 같습니다.</div>}
       {pending.length > 0 && (
-        <div className="cleanup-toolbar">
-          <label className="cleanup-selall">
+        <div className="toolbar">
+          <label className="check">
             <input
               type="checkbox"
               checked={actionable.length > 0 && chosen.length === actionable.length}
@@ -156,7 +157,7 @@ export default function Install() {
             />
             실행할 수 있는 step 전체
           </label>
-          <span className="muted cleanup-count">
+          <span className="muted">
             선택 {chosen.length} / {actionable.length}
           </span>
         </div>
@@ -164,8 +165,8 @@ export default function Install() {
       {pending.map((step) => {
         const result = results[step.id];
         return (
-          <section className="capture-item" key={step.id}>
-            <header className="capture-item-head">
+          <section className="panel" key={step.id}>
+            <header className="panel-head">
               <input
                 type="checkbox"
                 aria-label={`${step.title} 선택`}
@@ -173,17 +174,17 @@ export default function Install() {
                 disabled={!step.actionable || running}
                 onChange={() => toggle(step.id)}
               />
-              <span className="capture-item-title">{step.title}</span>
-              <span className={`tag ${STATE_TONE[step.state]}`}>{step.manual ? "직접 해야 함" : DOCTOR_CHECK_LABELS[step.state]}</span>
-              {result && <span className={`tag ${OUTCOME_TONE[result.outcome]}`}>{INSTALL_OUTCOME_LABELS[result.outcome]}</span>}
-              <span className="mono muted capture-item-sources">{step.id}</span>
+              <span className="panel-title">{step.title}</span>
+              <StatusTag tone={STATE_TONE[step.state]}>{step.manual ? "직접 해야 함" : DOCTOR_CHECK_LABELS[step.state]}</StatusTag>
+              {result && <StatusTag tone={OUTCOME_TONE[result.outcome]}>{INSTALL_OUTCOME_LABELS[result.outcome]}</StatusTag>}
+              <span className="mono muted panel-aside">{step.id}</span>
             </header>
             <p className="doctor-card-summary install-detail">{result?.outcome === "failed" ? result.detail : step.detail}</p>
             {step.actions.map((action, index) =>
               action.diff ? (
                 <details className="capture-file" key={index}>
                   <summary>
-                    <span className="tag muted">파일</span>
+                    <StatusTag tone="muted">파일</StatusTag>
                     <span className="mono">{action.summary}</span>
                   </summary>
                   <pre className="capture-diff">{action.diff}</pre>

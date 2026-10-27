@@ -6,9 +6,9 @@ describe("provider filter options", () => {
     expect(DEFAULT_PROVIDER_FILTER).toBe("all");
   });
 
-  it("uses compact stacked labels for the provider switcher", () => {
+  it("화면 안 provider 탭은 한국어 전체와 provider 이름을 쓴다", () => {
     expect(PROVIDER_FILTER_OPTIONS.map((option) => option.label)).toEqual([
-      "All",
+      "전체",
       "Claude",
       "Codex",
     ]);

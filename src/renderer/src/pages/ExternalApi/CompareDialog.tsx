@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Catalog, Source } from "@shared/external-api/schema";
+import { ToolbarSpacer } from "../../components/ui";
 import { addToComparison, removeFromComparison } from "../../external-api/discovery";
 import type { RegistryView } from "../../external-api/registry";
 
@@ -40,7 +41,7 @@ export default function CompareDialog({ catalog, initialIds, onOpen, onClose }: 
       <div className="ext-dialog ext-compare" role="dialog" aria-modal="true" aria-labelledby="ext-compare-title">
         <div className="ext-dialog-head">
           <h2 id="ext-compare-title">정보원 비교</h2>
-          <span className="cleanup-toolbar-spacer" />
+          <ToolbarSpacer />
           <select
             value=""
             aria-label="정보원 추가"
@@ -61,9 +62,9 @@ export default function CompareDialog({ catalog, initialIds, onOpen, onClose }: 
           </button>
         </div>
         {chosen.length === 0 ? (
-          <p className="muted doctor-empty">비교할 정보원을 최대 4개 고르세요.</p>
+          <p className="empty">비교할 정보원을 최대 4개 고르세요.</p>
         ) : (
-          <table className="doctor-table">
+          <table className="data-table">
             <thead>
               <tr>
                 <th scope="col">항목</th>

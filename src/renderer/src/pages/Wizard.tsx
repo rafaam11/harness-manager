@@ -3,6 +3,7 @@ import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
 import { DOCTOR_CARD_LABELS, DOCTOR_SECTION_LABELS, type DoctorReport, type DoctorSection } from "@shared/doctor-types";
 import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type InstallStepResult } from "@shared/install-types";
 import type { AppSettings, Profile } from "@shared/manifest-types";
+import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
@@ -29,11 +30,11 @@ function Cards({ report }: { report: DoctorReport }) {
       {report.cards.map((card) => (
         <section className={`doctor-card ${card.state}`} key={card.section}>
           <header className="doctor-card-head">
-            <span className={`doctor-dot ${card.state}`} aria-hidden="true" />
+            <StateDot state={card.state} />
             <span className="doctor-card-title">{card.label}</span>
-            <span className={`tag ${card.state === "fail" ? "err" : card.state === "info" ? "muted" : card.state}`}>
+            <StatusTag tone={card.state === "fail" ? "err" : card.state === "info" ? "muted" : card.state}>
               {DOCTOR_CARD_LABELS[card.state]}
-            </span>
+            </StatusTag>
           </header>
           <p className="doctor-card-summary">{card.summary}</p>
         </section>
@@ -143,7 +144,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
           </li>
         ))}
       </ol>
-      {error && <div className="banner err">{error}</div>}
+      {error && <Banner tone="err">{error}</Banner>}
 
       <div className="wizard-body">
         {step === 0 && (
@@ -159,12 +160,12 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
                 <span className="mono">{report.repoRoot}</span>
               </div>
             ) : (
-              <div className="banner warn">
+              <Banner tone="warn">
                 {report?.repoError ?? "레포 위치를 확인하는 중…"}{" "}
                 <button className="btn ghost" onClick={() => void chooseRepo()} disabled={busy}>
                   레포 폴더 선택
                 </button>
-              </div>
+              </Banner>
             )}
           </>
         )}
@@ -241,9 +242,9 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
               ))
             )}
             {manual.length > 0 && (
-              <div className="banner warn">
+              <Banner tone="warn">
                 직접 해야 하는 항목: {manual.map((entry) => `${entry.title} — ${entry.actions[0]?.summary ?? ""}`).join(" · ")}
-              </div>
+              </Banner>
             )}
           </>
         )}
@@ -254,16 +255,16 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
               <p>고른 항목이 없습니다.</p>
             ) : (
               selectedSteps.map((entry) => (
-                <section className="capture-item" key={entry.id}>
-                  <header className="capture-item-head">
-                    <span className="capture-item-title">{entry.title}</span>
-                    <span className="mono muted capture-item-sources">{entry.id}</span>
+                <section className="panel" key={entry.id}>
+                  <header className="panel-head">
+                    <span className="panel-title">{entry.title}</span>
+                    <span className="mono muted panel-aside">{entry.id}</span>
                   </header>
                   {entry.actions.map((action, index) =>
                     action.diff ? (
                       <details className="capture-file" key={index}>
                         <summary>
-                          <span className="tag muted">파일</span>
+                          <StatusTag tone="muted">파일</StatusTag>
                           <span className="mono">{action.summary}</span>
                         </summary>
                         <pre className="capture-diff">{action.diff}</pre>
@@ -278,7 +279,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
                 </section>
               ))
             )}
-            <label className="cleanup-selall wizard-dry-run">
+            <label className="check wizard-dry-run">
               <input type="checkbox" checked={dryRun} onChange={() => setDryRun(!dryRun)} />
               실제로 실행하지 않고 끝까지 보기(dry-run)
             </label>
@@ -297,9 +298,9 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
               <ul className="wizard-results">
                 {runResult.results.map((entry) => (
                   <li key={entry.id}>
-                    <span className={`tag ${entry.outcome === "done" ? "ok" : entry.outcome === "failed" ? "err" : "muted"}`}>
+                    <StatusTag tone={entry.outcome === "done" ? "ok" : entry.outcome === "failed" ? "err" : "muted"}>
                       {INSTALL_OUTCOME_LABELS[entry.outcome]}
-                    </span>
+                    </StatusTag>
                     <span className="mono">{entry.id}</span>
                     <span className="muted">{entry.detail}</span>
                   </li>
@@ -308,7 +309,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
             )}
             {running && (
               <div className="install-progress" role="status">
-                <span className="tag ok">진행 중</span>
+                <StatusTag tone="ok">진행 중</StatusTag>
                 {Object.keys(results).length}/{selectedSteps.length}
                 <button className="btn danger" onClick={() => void call("install:cancel")}>
                   취소
@@ -338,7 +339,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
         <button className="btn ghost" onClick={() => setStep(step - 1)} disabled={step === 0 || busy || running || step === 6}>
           이전
         </button>
-        <span className="cleanup-toolbar-spacer" />
+        <ToolbarSpacer />
         {step < STEPS.length - 1 ? (
           <button className="btn" onClick={() => void go(step + 1)} disabled={!canNext}>
             다음

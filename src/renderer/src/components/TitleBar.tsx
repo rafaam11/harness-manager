@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "re
 import { call } from "../api/client";
 import type { TitleBarEntry, TitleBarMenu } from "../title-bar-menu";
 import { useDismissable } from "../use-dismissable";
+import { UpdateBadge } from "./UpdateBadge";
 
 interface TitleBarProps {
   menus: TitleBarMenu[];
@@ -132,6 +133,8 @@ export function TitleBar({ menus, onAction, theme, onToggleTheme, onOpenWizard }
       <div className="title-bar-title">하네스 매니저</div>
 
       <div className="window-controls">
+        {/* 버전과 업데이트 상태는 늘 보이는 타이틀바에 둔다(스펙 §5-9). */}
+        <UpdateBadge />
         <button type="button" className="title-bar-wizard" onClick={onOpenWizard}>
           <Wand2 size={14} />
           셋업 위저드

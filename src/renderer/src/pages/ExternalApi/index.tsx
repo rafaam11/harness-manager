@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "@shared/external-api/types";
+import { Banner, StatusTag, Tabs, ToolbarSpacer } from "../../components/ui";
 import { call } from "../../api/client";
 import { showToast } from "../../components/toast";
 import type { RegistryView } from "../../external-api/registry";
@@ -63,24 +64,24 @@ export default function ExternalApi() {
     }
   };
 
-  if (error) return <div className="banner err">{error}</div>;
+  if (error) return <Banner tone="err">{error}</Banner>;
   if (!snapshot) return <p className="muted">불러오는 중…</p>;
   const { catalog } = snapshot;
   const broken = links?.filter((link) => !link.ok) ?? [];
 
   return (
     <div className="ext-page">
-      <div className="dashboard-head">
+      <div className="page-head">
         <h2>외부 API</h2>
-        <span className="muted dashboard-time">
+        <span className="page-head-meta">
           정보원 {catalog.sources.length} · k-skill {catalog.skills.length} · 청사진 {catalog.blueprints.length} · 기술 {catalog.technologies.length}
         </span>
-        <span className="cleanup-toolbar-spacer" />
-        <span className="tag muted">
+        <ToolbarSpacer />
+        <StatusTag tone="muted">
           {snapshot.skillsSource === "refreshed" && snapshot.updatedAt
             ? `k-skill ${new Date(snapshot.updatedAt).toLocaleDateString("ko-KR")} 받음`
             : "k-skill 앱 기본 스냅샷"}
-        </span>
+        </StatusTag>
         <button type="button" className="btn ghost" onClick={() => void refresh()} disabled={busy !== null}>
           {busy === "refresh" ? "받는 중…" : "스냅샷 새로고침"}
         </button>
@@ -88,28 +89,15 @@ export default function ExternalApi() {
           {busy === "links" ? "점검 중…" : "공식 링크 점검"}
         </button>
       </div>
-      {snapshot.warning && <div className="banner warn">{snapshot.warning}</div>}
+      {snapshot.warning && <Banner tone="warn">{snapshot.warning}</Banner>}
       {links && (
-        <div className={`banner ${broken.length === 0 ? "ok" : "warn"}`}>
+        <Banner tone={broken.length === 0 ? "ok" : "warn"}>
           공식 링크 {links.length - broken.length}/{links.length}개 정상
           {broken.length > 0 && `: ${broken.map((link) => `${link.name}(${link.status ?? link.error})`).join(", ")}`}
-        </div>
+        </Banner>
       )}
 
-      <div className="ws-detail-mode dashboard-tabs" role="tablist">
-        {TABS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === entry.id}
-            className={`ws-mode-tab${tab === entry.id ? " active" : ""}`}
-            onClick={() => setTab(entry.id)}
-          >
-            {entry.label}
-          </button>
-        ))}
-      </div>
+      <Tabs<Tab> label="외부 API 목록" value={tab} onChange={setTab} items={TABS} />
 
       {tab === "sources" && <SourcesExplorer catalog={catalog} onOpen={open} onCompare={setCompareIds} />}
       {tab === "skills" && <RegistryTable kind="skill" catalog={catalog} onOpen={open} />}

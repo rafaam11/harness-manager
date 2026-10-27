@@ -29,6 +29,29 @@
   --danger-text: #f09595;
   --danger-line: #7a3b3b;
   --warning-text: #d9b36f;
+  /* 상태 배경(태그·배너). 상태색을 표면에 섞어 만든다 — 테마가 바뀌면 함께 바뀐다. */
+  --ok-surface: color-mix(in srgb, var(--green) 14%, var(--surface));
+  --warn-surface: color-mix(in srgb, var(--amber) 12%, var(--surface));
+  --warn-line: color-mix(in srgb, var(--amber) 45%, var(--surface));
+  --err-surface: color-mix(in srgb, var(--red) 14%, var(--surface));
+  /* 청록 바탕 버튼의 글자. 다크 테마의 밝은 청록에는 흰 글자 대비가 모자라 어두운 글자를 쓴다. */
+  --on-teal: #0d1f1b;
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 30%);
+  /*
+   * 분류색(카탈로그 종류 배지). 상태색과 섞지 않는다. 배지에는 종류 이름이 글자로 함께 나온다.
+   * 흰 글자와 대비가 맞도록 진한 값만 쓴다.
+   */
+  --kind-skill: #2f6fd6;
+  --kind-agent: #7a4fd6;
+  --kind-command: #0c7f5c;
+  --kind-instruction: #55606f;
+  --kind-memory: #0b6fa8;
+  --kind-mcp: #a35f00;
+  --kind-plugin: #0b7484;
+  --kind-config: #55606f;
+  --on-kind: #ffffff;
+  /* 빨강 바탕(창 닫기 hover) 위의 글자. */
+  --on-danger: #ffffff;
 }
 
 /*
@@ -62,4 +85,6 @@
   --danger-text: #b42318;
   --danger-line: #e0a3a3;
   --warning-text: #875800;
+  --on-teal: #ffffff;
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 12%);
 }

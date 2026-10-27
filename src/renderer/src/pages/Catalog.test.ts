@@ -7,7 +7,7 @@ import {
 
 describe("catalog provider tabs", () => {
   it("offers horizontal provider tabs for All, Claude, and Codex", () => {
-    expect(CATALOG_PROVIDER_TABS.map((tab) => tab.label)).toEqual(["All", "Claude", "Codex"]);
+    expect(CATALOG_PROVIDER_TABS.map((tab) => tab.label)).toEqual(["전체", "Claude", "Codex"]);
   });
 
   it("filters provider-owned catalog rows while keeping All mixed", () => {

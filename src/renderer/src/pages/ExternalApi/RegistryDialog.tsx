@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Catalog } from "@shared/external-api/schema";
+import { StatusTag, ToolbarSpacer } from "../../components/ui";
 import { call } from "../../api/client";
 import { formatDomains, formatSkillCategory, formatTechnologyCategory } from "../../external-api/labels";
 import type { RegistryKind, RegistryView } from "../../external-api/registry";
@@ -73,9 +74,9 @@ export default function RegistryDialog({ catalog, view, canGoBack, onOpen, onBac
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div className="ext-dialog" role="dialog" aria-modal="true" aria-labelledby="ext-dialog-title">
         <div className="ext-dialog-head">
-          <span className="tag muted">{kindLabels[view.kind]}</span>
+          <StatusTag tone="muted">{kindLabels[view.kind]}</StatusTag>
           <code className="mono muted">{view.id}</code>
-          <span className="cleanup-toolbar-spacer" />
+          <ToolbarSpacer />
           {canGoBack && (
             <button type="button" className="btn ghost" onClick={onBack}>
               뒤로

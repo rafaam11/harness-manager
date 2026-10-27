@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CaptureItem, CapturePlan, CaptureTargetId, ManifestFileReport } from "@shared/manifest-types";
+import { Banner, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { showToast } from "../components/toast";
@@ -137,7 +138,7 @@ export default function Capture() {
         이 PC의 설정을 레포 템플릿과 manifest로 끌어옵니다. 개인 부분은 로컬 프로필로 나뉘고, 공개 파일에 개인 정보가 남으면 적용할 수
         없습니다.
       </p>
-      {error && <div className="banner err">{error}</div>}
+      {error && <Banner tone="err">{error}</Banner>}
 
       {plan && (
         <div className="capture-repo">
@@ -148,18 +149,18 @@ export default function Capture() {
           </button>
         </div>
       )}
-      {plan?.repoError && <div className="banner warn">{plan.repoError}</div>}
+      {plan?.repoError && <Banner tone="warn">{plan.repoError}</Banner>}
       {plan?.warnings.map((warning) => (
-        <div className="banner warn" key={warning}>
+        <Banner tone="warn" key={warning}>
           {warning}
-        </div>
+        </Banner>
       ))}
 
       {reports && (
         <div className="capture-validate">
-          <span className={`tag ${failedReports.length === 0 ? "ok" : "warn"}`}>
+          <StatusTag tone={failedReports.length === 0 ? "ok" : "warn"}>
             {failedReports.length === 0 ? "정상" : "오류 있음"}
-          </span>
+          </StatusTag>
           <span>
             manifest 검사 {reports.length - failedReports.length}/{reports.length} 통과
           </span>
@@ -177,8 +178,8 @@ export default function Capture() {
       )}
 
       {plan?.repoRoot && (
-        <div className="cleanup-toolbar">
-          <label className="cleanup-selall">
+        <div className="toolbar">
+          <label className="check">
             <input
               type="checkbox"
               checked={applicable.length > 0 && chosen.length === applicable.length}
@@ -189,10 +190,10 @@ export default function Capture() {
             />
             적용 가능한 항목 전체
           </label>
-          <span className="muted cleanup-count">
+          <span className="muted">
             선택 {chosen.length} / {applicable.length}
           </span>
-          <span className="cleanup-toolbar-spacer" />
+          <ToolbarSpacer />
           <button className="btn ghost" onClick={() => void load()} disabled={busy}>
             다시 불러오기
           </button>
@@ -205,8 +206,8 @@ export default function Capture() {
       {plan?.items.map((item) => {
         const state = itemState(item);
         return (
-          <section className="capture-item" key={item.id}>
-            <header className="capture-item-head">
+          <section className="panel" key={item.id}>
+            <header className="panel-head">
               <input
                 type="checkbox"
                 aria-label={`${item.label} 선택`}
@@ -214,11 +215,11 @@ export default function Capture() {
                 disabled={!item.applicable || busy}
                 onChange={() => toggle(item.id)}
               />
-              <span className="capture-item-title">{item.label}</span>
-              <span className={`tag ${state.tone}`}>{state.label}</span>
-              <span className="mono muted capture-item-sources">{item.sources.join(" · ")}</span>
+              <span className="panel-title">{item.label}</span>
+              <StatusTag tone={state.tone}>{state.label}</StatusTag>
+              <span className="mono muted panel-aside">{item.sources.join(" · ")}</span>
             </header>
-            {item.error && <div className="banner err">{item.error}</div>}
+            {item.error && <Banner tone="err">{item.error}</Banner>}
             {item.notes.length > 0 && (
               <ul className="capture-notes">
                 {item.notes.map((note) => (
@@ -231,15 +232,15 @@ export default function Capture() {
               .map((change) => (
                 <details className="capture-file" key={change.displayPath} open>
                   <summary>
-                    <span className={`tag ${change.scope === "repo" ? "ok" : "muted"}`}>
+                    <StatusTag tone={change.scope === "repo" ? "ok" : "muted"}>
                       {change.scope === "repo" ? "레포" : "로컬 전용"}
-                    </span>
+                    </StatusTag>
                     <span className="mono">{change.displayPath}</span>
-                    {!change.existed && <span className="tag muted">새 파일</span>}
+                    {!change.existed && <StatusTag tone="muted">새 파일</StatusTag>}
                   </summary>
                   {change.exposure.map((flag) => (
                     <div className="capture-exposure" key={`${flag.line}-${flag.kind}`}>
-                      <span className="tag warn">{EXPOSURE_LABELS[flag.kind]}</span>
+                      <StatusTag tone="warn">{EXPOSURE_LABELS[flag.kind]}</StatusTag>
                       <span className="mono">
                         {flag.line}행: {flag.text}
                       </span>
