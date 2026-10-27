@@ -1,9 +1,19 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import { discoverSessionEnvironment, prependPath } from "./platform-env.js";
+import { discoverSessionEnvironment, prependPath, refreshWindowsEnvironment, mergeWindowsEnvironment } from "./platform-env.js";
 
 describe("platform environment", () => {
+  it("refreshes PATH and NVM variables together without retaining duplicate PATH keys or stale NVM values", async () => {
+    const inherited = { PATH: "C:\\old-node", Path: "C:\\also-old", NVM_HOME: "old", KEEP: "value" };
+    const stored = { Path: "C:\\nvm;C:\\active-node;C:\\Windows", NVM_HOME: "C:\\nvm", NVM_SYMLINK: "C:\\active-node" };
+    const execute = vi.fn(async () => ({ stdout: JSON.stringify(stored) }));
+    const next = await refreshWindowsEnvironment(inherited, "win32", execute);
+    expect(next).toEqual({ ...stored, KEEP: "value" });
+    expect(inherited.PATH).toBe("C:\\old-node");
+    expect(mergeWindowsEnvironment(next, { Path: "C:\\Windows", NVM_HOME: null, NVM_SYMLINK: null })).toEqual({ Path: "C:\\Windows", KEEP: "value" });
+    expect(() => mergeWindowsEnvironment(next, { Path: "" })).toThrow();
+  });
   it("uses the native PATH delimiter", () => {
     expect(prependPath({ PATH: "/usr/bin" }, "/app/bin", "linux").PATH).toBe("/app/bin:/usr/bin");
     expect(prependPath({ Path: "C:\\Windows" }, "C:\\app\\bin", "win32").Path).toBe(

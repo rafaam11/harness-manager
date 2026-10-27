@@ -2,12 +2,13 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InstallEvent } from "@shared/install-types";
 import { runDoctorWith } from "../doctor/doctor.js";
 import { planInstallWith, runInstallWith, type InstallContext } from "./engine.js";
 import type { CommandRunner, CommandSpec } from "./exec.js";
 import { MARKDOWN_MARKERS, patchTomlScalars } from "./merge.js";
+import type { NodeRuntimeState } from "../node-runtime.js";
 
 let root: string;
 let ctx: InstallContext;
@@ -106,7 +107,9 @@ beforeEach(() => {
     documentsDir: path.join(home, "Documents"),
     gitScope: { file: path.join(home, ".gitconfig") },
     findExecutable: async (command) => onPath[command] ?? null,
-    readVersion: async () => null,
+    readVersion: async () => "1.2.3",
+    inspectNodeRuntime: async () => ({ state: "ready", detail: "existing Node", candidates: [], registrations: [], versions: [] } as unknown as NodeRuntimeState),
+    refreshEnvironment: async () => false,
     now: () => new Date("2026-10-26T00:00:00.000Z"),
     runner: simulator,
     selfSource: "directory",
@@ -169,6 +172,85 @@ const ALL = [
 ];
 
 describe("install 엔진", () => {
+  const nodeState = (state: NodeRuntimeState["state"]): NodeRuntimeState => ({
+    state, detail: `runtime ${state}`, node: null, nodeVersion: null, npmVersion: null,
+    nvm: null, nvmRoot: null, nvmLink: null, candidates: [], registrations: [], versions: [], environment: {}, pathChanged: false,
+  });
+  const includeNode = () => write(path.join(ctx.repoRoot, "manifest", "packages.json"), {
+    schemaVersion: 1,
+    packages: [{ id: "nvm", source: "winget", name: "CoreyButler.NVMforWindows", profiles: ["dev"], bin: "node" }],
+  });
+
+  it("preserves an existing MSI Node even when the NVM step is explicitly requested", async () => {
+    includeNode();
+    ctx.inspectNodeRuntime = vi.fn(async () => nodeState("ready"));
+    expect((await planInstallWith(ctx)).steps.find((step) => step.id === "packages.winget.nvm")).toMatchObject({ state: "ok", actionable: false });
+    const result = await runInstallWith(ctx, ["packages.winget.nvm"], () => undefined, new AbortController().signal);
+    expect(result.results[0]?.outcome).toBe("skipped");
+    expect(commands).toEqual([]);
+  });
+
+  it("blocks broken/mixed Node in both the preview and direct step execution", async () => {
+    includeNode();
+    ctx.inspectNodeRuntime = vi.fn(async () => nodeState("blocked"));
+    expect((await planInstallWith(ctx)).steps.find((step) => step.id === "packages.winget.nvm")).toMatchObject({ manual: true, actionable: false });
+    const result = await runInstallWith(ctx, ["packages.winget.nvm", "tools.codex"], () => undefined, new AbortController().signal);
+    expect(result.results.map((item) => item.outcome)).toEqual(["failed", "failed"]);
+    expect(commands).toEqual([]);
+  });
+
+  it("stops a new NVM install if protection cannot read the registry or its script", async () => {
+    includeNode();
+    ctx.inspectNodeRuntime = vi.fn(async () => { throw new Error("inspection unavailable"); });
+    expect((await planInstallWith(ctx)).steps.find((step) => step.id === "packages.winget.nvm")).toMatchObject({ manual: true, actionable: false });
+    const result = await runInstallWith(ctx, ["packages.winget.nvm"], () => undefined, new AbortController().signal);
+    expect(result.results[0]?.outcome).toBe("failed");
+    expect(commands).toEqual([]);
+  });
+
+  it("verifies runtime setup before allowing npm and is idempotent", async () => {
+    includeNode();
+    let state = nodeState("fresh");
+    ctx.inspectNodeRuntime = async () => state;
+    const specs: CommandSpec[] = [];
+    ctx.refreshEnvironment = async () => { ctx.env.Path = "C:\\new-node"; return true; };
+    ctx.runner = { run: async (spec, log, signal) => {
+      specs.push(spec);
+      if (spec.args.includes("-Install")) {
+        state = nodeState("ready");
+        return { code: 0, timedOut: false, notFound: false };
+      }
+      return simulator.run(spec, log, signal);
+    } };
+    const result = await runInstallWith(ctx, ["tools.codex", "packages.winget.nvm"], () => undefined, new AbortController().signal);
+    expect(specs.map((spec) => spec.command)).toEqual(["powershell.exe", "npm"]);
+    expect(specs[0]?.args).toContain(path.join(ctx.repoRoot, "scripts", "node-runtime.ps1"));
+    expect(specs[1]?.env?.Path).toBe("C:\\new-node");
+    expect(result.results.every((item) => item.outcome === "done")).toBe(true);
+    expect(result.notices).toHaveLength(1);
+    await runInstallWith(ctx, ["packages.winget.nvm", "tools.codex"], () => undefined, new AbortController().signal);
+    expect(specs).toHaveLength(2);
+  });
+
+  it("blocks npm if the runtime installer exits zero but Node is still unusable", async () => {
+    includeNode();
+    ctx.inspectNodeRuntime = async () => nodeState("fresh");
+    const run = vi.fn(async () => ({ code: 0, timedOut: false, notFound: false }));
+    ctx.runner = { run };
+    const result = await runInstallWith(ctx, ["packages.winget.nvm", "tools.codex"], () => undefined, new AbortController().signal);
+    expect(result.results.every((item) => item.outcome === "failed")).toBe(true);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists timestamped results and masks secrets in logs", async () => {
+    ctx.logDir = path.join(root, "logs");
+    const result = await runInstallWith(ctx, ["tools.codex"], () => undefined, new AbortController().signal);
+    expect(result.logFile).toBeTruthy();
+    const rows = fs.readFileSync(result.logFile!, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+    expect(rows.at(-1).event.type).toBe("run-done");
+    expect(rows.every((row) => typeof row.time === "string")).toBe(true);
+  });
+
   it("계획: 정상이 아닌 항목마다 step을 실행 순서대로 만들고 명령·파일 diff를 보인다", async () => {
     const plan = await planInstallWith(ctx);
     expect(plan.steps.filter((step) => step.actionable).map((step) => step.id)).toEqual(ALL);

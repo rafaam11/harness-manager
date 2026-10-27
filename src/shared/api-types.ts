@@ -5,6 +5,7 @@ import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/type
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
+import type { RepairEvent, RepairProvider, RepairSnapshot } from "./repair-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
 
@@ -151,6 +152,12 @@ export interface ApiChannels {
   "install:run": (ids: string[]) => InstallRunResult;
   "install:cancel": () => void;
 
+  "repair:providers": () => RepairProvider[];
+  "repair:status": () => RepairSnapshot;
+  "repair:run": (stepId: string, provider: ProviderId) => RepairSnapshot;
+  "repair:respond": (approvalId: string, allow: boolean) => void;
+  "repair:cancel": () => void;
+
   "settings:get": () => AppSettings;
   /** 바꿀 키만 보낸다. 모르는 키나 값은 400. */
   "settings:set": (patch: Partial<AppSettings>) => AppSettings;
@@ -198,6 +205,11 @@ export const API_CHANNELS = [
   "install:plan",
   "install:run",
   "install:cancel",
+  "repair:providers",
+  "repair:status",
+  "repair:run",
+  "repair:respond",
+  "repair:cancel",
   "settings:get",
   "settings:set",
   "external-api:catalog",
@@ -223,16 +235,18 @@ export type ApiResult<T = unknown> =
 export const UPDATER_EVENT_CHANNEL = "updater:event";
 export const WINDOW_STATE_EVENT_CHANNEL = "window:state-changed";
 export const INSTALL_EVENT_CHANNEL = "install:event";
+export const REPAIR_EVENT_CHANNEL = "repair:event";
 
 export interface ApiEvents {
   [UPDATER_EVENT_CHANNEL]: UpdaterStatus;
   [WINDOW_STATE_EVENT_CHANNEL]: WindowChromeState;
   [INSTALL_EVENT_CHANNEL]: InstallEvent;
+  [REPAIR_EVENT_CHANNEL]: RepairEvent;
 }
 
 export type ApiEvent = keyof ApiEvents;
 
-export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, INSTALL_EVENT_CHANNEL] as const satisfies readonly ApiEvent[];
+export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, INSTALL_EVENT_CHANNEL, REPAIR_EVENT_CHANNEL] as const satisfies readonly ApiEvent[];
 
 // --- preload가 노출하는 표면 -----------------------------------------------------
 

@@ -10,8 +10,8 @@ export interface CommandSpec {
   command: string;
   args: string[];
   timeoutMs: number;
-  /** 자식 환경에 더할 값. */
-  env?: Record<string, string>;
+  /** 자식에게 전달할 전체 환경. 생략하면 현재 프로세스 환경을 쓴다. */
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface CommandResult {
@@ -64,8 +64,11 @@ function lineSplitter(onLine: (line: string) => void): { push(chunk: Buffer): vo
 
 export const processRunner: CommandRunner = {
   async run(spec, log, signal) {
-    const resolved = await findOnPath(spec.command);
+    if (signal.aborted) return { code: null, timedOut: false, notFound: false };
+    const env = spec.env ?? process.env;
+    const resolved = await findOnPath(spec.command, process.platform, env);
     if (!resolved) return { code: null, timedOut: false, notFound: true };
+    if (signal.aborted) return { code: null, timedOut: false, notFound: false };
     const isShim = /\.(cmd|bat)$/i.test(resolved);
     const file = isShim ? process.env.ComSpec || "cmd.exe" : resolved;
     const args = isShim ? ["/d", "/s", "/c", `"${[`"${resolved}"`, ...spec.args.map(quoteForCmd)].join(" ")}"`] : spec.args;
@@ -73,7 +76,7 @@ export const processRunner: CommandRunner = {
       const child = spawn(file, args, {
         windowsHide: true,
         windowsVerbatimArguments: isShim,
-        env: { ...process.env, ...spec.env },
+        env,
         stdio: ["ignore", "pipe", "pipe"],
       });
       let timedOut = false;
@@ -88,6 +91,7 @@ export const processRunner: CommandRunner = {
       }, spec.timeoutMs);
       const onAbort = () => kill();
       signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) kill();
       const out = lineSplitter((line) => log("stdout", line));
       const err = lineSplitter((line) => log("stderr", line));
       child.stdout.on("data", (chunk: Buffer) => out.push(chunk));

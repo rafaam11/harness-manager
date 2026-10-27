@@ -22,6 +22,8 @@ import type {
 } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR } from "../../config.js";
 import { findOnPath } from "../../providers/provider-launch.js";
+import { refreshWindowsEnvironment } from "../../platform-env.js";
+import { inspectNodeRuntime, type NodeRuntimeState } from "../node-runtime.js";
 import { powershellProfilePath, readGitConfig, resolveDocumentsDir, stripBom, type GitConfigScope } from "../dotfiles.js";
 import { HASH_MARKERS } from "../install/merge.js";
 import { findBrokenLinks, findDuplicateSkills, findLeftovers, skillDirs, type CleanupScanContext } from "../cleanup-targets.js";
@@ -45,6 +47,9 @@ export interface DoctorContext {
   documentsDir: string;
   /** git 전역 설정 대신 읽을 파일(테스트). */
   gitScope: GitConfigScope;
+  env: NodeJS.ProcessEnv;
+  inspectNodeRuntime(): Promise<NodeRuntimeState>;
+  refreshEnvironment(): Promise<boolean>;
   findExecutable(command: string): Promise<string | null>;
   /** 실행 파일의 버전 한 줄. 실패하면 null. */
   readVersion(executable: string, args: string[]): Promise<string | null>;
@@ -167,6 +172,9 @@ async function toolCheck(ctx: DoctorContext, tool: ToolEntry | undefined, fallba
   const found = await ctx.findExecutable(command);
   if (!found) return { id: `tools.${tool?.id ?? command}`, title, state: "missing", detail: `PATH에서 ${command}를 찾지 못했습니다` };
   const version = tool && tool.verify.args.includes("--version") ? await ctx.readVersion(found, tool.verify.args) : null;
+  if (tool?.verify.args.includes("--version") && !version) {
+    return { id: `tools.${tool.id}`, title, state: "error", detail: `${found}는 있지만 실행 검증에 실패했습니다. Node·PATH 등 실행 의존성을 확인하세요` };
+  }
   return { id: `tools.${tool?.id ?? command}`, title, state: "ok", detail: version ? `${version} · ${found}` : found };
 }
 
@@ -176,6 +184,19 @@ async function checkToolchain(ctx: DoctorContext, manifests: Manifests): Promise
       const id = `packages.${entry.source}.${entry.id}`;
       const title = `${entry.id} (${entry.source} ${entry.name})`;
       if (!entry.profiles.includes(ctx.profile)) return { id, title, state: "skipped", detail: `프로필 ${entry.profiles.join("·")}` };
+      if (entry.source === "winget" && entry.name === "CoreyButler.NVMforWindows") {
+        try {
+          const runtime = await ctx.inspectNodeRuntime();
+          const paths = runtime.candidates.map((item) => `${item.version ?? "실행 실패"} ${item.path} → ${item.realPath}`);
+          return {
+            id, title: "Node.js 실행 환경 (기존 설치 보존)",
+            state: runtime.state === "ready" ? "ok" : runtime.state === "blocked" ? "error" : "missing",
+            detail: [runtime.detail, ...paths, ...runtime.registrations.map((entry) => `${entry.name} ${entry.version} (${entry.id})`)].join(" · "),
+          };
+        } catch (error) {
+          return { id, title, state: "error", detail: `Node 보호 검사 실패 — 자동 설치하지 않습니다: ${(error as Error).message}` };
+        }
+      }
       if (!entry.bin) return { id, title, state: "info", detail: "실행 파일 이름이 없어 설치 여부를 확인하지 않습니다" };
       const found = await ctx.findExecutable(entry.bin);
       return found
@@ -617,13 +638,13 @@ export async function runDoctorWith(ctx: DoctorContext): Promise<DoctorReport> {
 
 // ───────────────────────────── 실제 PC용 기본값 ─────────────────────────────
 
-export function readVersionLine(executable: string, args: string[]): Promise<string | null> {
+export function readVersionLine(executable: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
   // npm 전역 설치는 .cmd 심이라 셸 없이는 못 띄운다. 경로는 PATH에서 찾은 값, 인자는 manifest 상수뿐이다.
   const isShim = /\.(cmd|bat)$/i.test(executable);
   const file = isShim ? process.env.ComSpec || "cmd.exe" : executable;
   const fileArgs = isShim ? ["/d", "/s", "/c", `"${executable}" ${args.join(" ")}`] : args;
   return new Promise((resolve) => {
-    execFile(file, fileArgs, { windowsHide: true, timeout: 8_000, windowsVerbatimArguments: isShim }, (error, stdout) => {
+    execFile(file, fileArgs, { env, windowsHide: true, timeout: 8_000, windowsVerbatimArguments: isShim }, (error, stdout) => {
       const line = String(stdout ?? "")
         .split(/\r?\n/)
         .map((entry) => entry.trim())
@@ -634,6 +655,9 @@ export function readVersionLine(executable: string, args: string[]): Promise<str
 }
 
 export async function defaultDoctorContext(repoRoot: string, profile?: Profile): Promise<DoctorContext> {
+  const env = await refreshWindowsEnvironment(process.env);
+  // 레지스트리에 없는 세션 전용 Node도 이관 보호 검사에서는 놓치지 않는다.
+  env.HM_NODE_ORIGINAL_PATH = Object.entries(process.env).find(([key]) => key.toUpperCase() === "PATH")?.[1] ?? "";
   return {
     repoRoot,
     home: HM_USER_HOME,
@@ -645,8 +669,17 @@ export async function defaultDoctorContext(repoRoot: string, profile?: Profile):
     documentsDir: await resolveDocumentsDir(HM_USER_HOME),
     gitScope: {},
     profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
-    findExecutable: (command) => findOnPath(command),
-    readVersion: readVersionLine,
+    env,
+    inspectNodeRuntime: () => inspectNodeRuntime(repoRoot, env),
+    refreshEnvironment: async () => {
+      const next = await refreshWindowsEnvironment(env);
+      const changed = JSON.stringify(env) !== JSON.stringify(next);
+      for (const key of Object.keys(env)) delete env[key];
+      Object.assign(env, next);
+      return changed;
+    },
+    findExecutable: (command) => findOnPath(command, process.platform, env),
+    readVersion: (executable, args) => readVersionLine(executable, args, env),
     now: () => new Date(),
   };
 }

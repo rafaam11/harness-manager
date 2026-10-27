@@ -3,9 +3,9 @@
 새 PC에서 harness-manager를 받고 개발환경 셋업을 시작한다(앱이 아직 없을 때의 진입점).
 
 .DESCRIPTION
-1. winget으로 git, gh, Node.js LTS를 설치한다(이미 있으면 건너뛴다).
+1. winget으로 git, gh를 설치한다(이미 있으면 건너뛴다).
 2. 레포를 클론한다(있으면 fast-forward로 최신화한다).
-3. 의존성을 받고 hm CLI를 빌드한다. CLI는 Electron 바이너리가 필요 없어 내려받지 않는다.
+3. 기존 Node는 보존하고, 없는 PC만 NVM/Node 22를 설치·검증한 뒤 hm CLI를 빌드한다.
 4. 프로필과 jinmin 마켓플레이스 소스를 저장하고 doctor와 install 미리보기를 보여 준다.
 5. -Run이면 할 수 있는 step을 모두 실행한다. -InstallApp이면 최신 릴리스의 설치 파일을 받아 실행한다.
 
@@ -46,19 +46,25 @@ function Test-Command([string]$Name) { [bool](Get-Command $Name -ErrorAction Sil
 
 # winget으로 설치한 직후에는 이 셸의 PATH에 반영되지 않는다. 시스템·사용자 PATH를 다시 읽는다.
 function Update-SessionPath {
+  foreach ($name in @('NVM_HOME', 'NVM_SYMLINK')) {
+    $value = [Environment]::GetEnvironmentVariable($name, 'User')
+    if (-not $value) { $value = [Environment]::GetEnvironmentVariable($name, 'Machine') }
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+  }
   $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
   $user = [Environment]::GetEnvironmentVariable("Path", "User")
-  $env:Path = "$machine;$user"
+  $env:Path = ([Environment]::ExpandEnvironmentVariables("$machine;$user") -split ';' | ForEach-Object { $_.Replace('"', '').Trim() } | Where-Object { $_ }) -join ';'
 }
 
-Write-Step "필수 도구 확인 (git, gh, node)"
+if (-not $env:HM_NODE_ORIGINAL_PATH) { $env:HM_NODE_ORIGINAL_PATH = $env:Path }
+if (-not $DryRun) { Update-SessionPath }
+Write-Step "필수 도구 확인 (git, gh)"
 if (-not (Test-Command "winget")) {
   throw "winget이 없습니다. Microsoft Store에서 '앱 설치 관리자'를 설치한 뒤 다시 실행하세요."
 }
 $required = @(
   @{ Command = "git"; Id = "Git.Git" },
-  @{ Command = "gh"; Id = "GitHub.cli" },
-  @{ Command = "node"; Id = "OpenJS.NodeJS.LTS" }
+  @{ Command = "gh"; Id = "GitHub.cli" }
 )
 foreach ($tool in $required) {
   if (Test-Command $tool.Command) {
@@ -82,15 +88,22 @@ if (Test-Path (Join-Path $Target ".git")) {
   }
 }
 
+Write-Step "Node 실행 환경 확인 (기존 설치 보존)"
+Invoke-Change "Node 검사 -> 필요한 경우에만 NVM/Node 22 설치·활성화" {
+  # 앱과 같은 파일로 검사한다. MSI Node를 먼저 설치해 NVM 이관을 유발하지 않는다.
+  & (Join-Path $Target 'scripts\node-runtime.ps1') -Install
+  Update-SessionPath
+}
+
 Write-Step "hm CLI 빌드"
 $cli = Join-Path $Target "out\main\cli.js"
 Invoke-Change "npm ci; npm run build" {
   Push-Location $Target
   try {
     $env:ELECTRON_SKIP_BINARY_DOWNLOAD = "1"
-    npm ci
+    npm.cmd ci
     if ($LASTEXITCODE -ne 0) { throw "npm ci 실패" }
-    npm run build
+    npm.cmd run build
   } finally {
     Pop-Location
   }
@@ -124,7 +137,7 @@ if ($InstallApp) {
     if (-not $asset) { throw "최신 릴리스에 Windows 설치 파일이 없습니다." }
     $installer = Join-Path $env:TEMP $asset.name
     Invoke-WebRequest $asset.browser_download_url -OutFile $installer
-    Start-Process $installer -Wait
+    Start-Process $installer -Wait -WindowStyle Hidden
   }
 }
 

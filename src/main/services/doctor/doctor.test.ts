@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DoctorCheck, DoctorReport, DoctorSection } from "@shared/doctor-types";
 import { cardState, runDoctorWith, type DoctorContext } from "./doctor.js";
+import type { NodeRuntimeState } from "../node-runtime.js";
 
 let root: string;
 let ctx: DoctorContext;
@@ -30,6 +31,9 @@ beforeEach(() => {
     profile: "dev",
     documentsDir: path.join(home, "Documents"),
     gitScope: { file: path.join(home, ".gitconfig") },
+    env: {},
+    inspectNodeRuntime: async () => ({ state: "ready", detail: "existing Node", candidates: [], registrations: [], versions: [] } as unknown as NodeRuntimeState),
+    refreshEnvironment: async () => false,
     findExecutable: async (command) => onPath[command] ?? null,
     readVersion: async () => "1.2.3",
     now: () => new Date("2026-10-26T00:00:00.000Z"),
@@ -106,6 +110,11 @@ function checksOf(report: DoctorReport, section: DoctorSection): Record<string, 
 }
 
 describe("doctor", () => {
+  it("reports a broken Codex shim as an error, even if the file is present", async () => {
+    onPath.codex = "C:\\npm\\codex.cmd";
+    ctx.readVersion = async () => null;
+    expect(checksOf(await runDoctorWith(ctx), "codex")["tools.codex"]).toMatchObject({ state: "error" });
+  });
   it("카드 8개를 섹션 순서대로 만든다", async () => {
     const report = await runDoctorWith(ctx);
     expect(report.cards.map((card) => card.section)).toEqual(["toolchain", "claude", "codex", "plugins", "skills", "mcp", "cua", "dotfiles"]);

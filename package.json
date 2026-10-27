@@ -59,6 +59,7 @@
     "files": [
       "out/**"
     ],
+    "asarUnpack": ["out/main/node-runtime.ps1"],
     "artifactName": "Harness-Manager-Setup-${version}.${ext}",
     "win": {
       "target": "nsis",

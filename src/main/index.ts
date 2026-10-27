@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import path from "node:path";
-import { INSTALL_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
+import { INSTALL_EVENT_CHANNEL, REPAIR_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, type WindowChromeState } from "@shared/api-types";
 import { createApiHandlers } from "./api-handlers.js";
 import { installHmCliShim } from "./cli-shim.js";
 import { HM_CLI_BIN_DIR } from "./config.js";
@@ -34,11 +34,11 @@ async function confirmQuitDuringInstall(): Promise<boolean> {
   if (!installSession.running) return true;
   const options = {
     type: "warning" as const,
-    buttons: ["설치 취소하고 종료", "계속 설치"],
+    buttons: ["작업 중단하고 종료", "계속 진행"],
     defaultId: 1,
     cancelId: 1,
-    title: "설치 중",
-    message: "설치가 진행 중입니다.",
+    title: "설치 또는 AI 복구 진행 중",
+    message: "설치 또는 AI 복구가 진행 중입니다.",
     detail: "지금 끄면 도는 명령을 멈춥니다. 끝난 step은 그대로 남고, 나머지는 다음에 다시 실행하면 됩니다.",
   };
   const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
@@ -153,6 +153,9 @@ if (!app.requestSingleInstanceLock()) {
         },
         install: {
           session: installSession,
+          emitRepair: (event) => {
+            if (mainWindow && !mainWindow.isDestroyed()) sendToMainWindow(mainWindow, REPAIR_EVENT_CHANNEL, event);
+          },
           emit: (event) => {
             if (mainWindow && !mainWindow.isDestroyed()) sendToMainWindow(mainWindow, INSTALL_EVENT_CHANNEL, event);
           },

@@ -147,7 +147,7 @@ interface Step {
 }
 ```
 - **실행 순서**
-  1. packages: winget → scoop → rustup → nvm/node 22 → npm global → uv
+  1. packages: winget(보호 검사 포함 Node 환경 단계) → scoop → npm global → cargo → uv. 기존 정상 Node ≥22.12와 npm은 유지한다. 신규 환경만 NVM → Node 22 설치 → 정확한 설치 버전 활성화 → node/npm 실행 검증을 진행한다. MSI/NVM 혼재·중복·깨진 설치는 자동 이관·제거하지 않는다. 앱과 bootstrap은 `scripts/node-runtime.ps1`을 공유한다.
   2. ai-cli: Claude native, codex
   3. dotfiles
   4. claude: marketplace, plugin, settings merge
@@ -158,6 +158,7 @@ interface Step {
 - 렌더러는 **step id만** 보낸다. 실행 파일과 인자는 main이 manifest에서 정한다.
 - **로그와 진행률**
   - 로그: child_process의 stdout/stderr를 로그 이벤트로 흘려 보낸다.
+  - 실행별 JSONL 기록을 앱 데이터의 `logs/install/`에 남긴다(시각·결과, 비밀값 마스킹, 2 MiB 상한). 환경 변경 뒤 후속 명령은 갱신된 PATH·NVM 환경변수를 쓰고, 기존 터미널·호스트 앱은 재시작하도록 안내한다.
   - 진행률: 작업표시줄 진행 막대(`window-progress`)와 `osc-progress`로 표시한다.
   - 실행기 원형: mcw `worktree-script-runner.ts`(숨긴 spawn, 타임아웃, 출력 끝 4KB 보관)
 - 설치 중 앱을 끄려 하면 `quit-coordinator`로 막고 확인을 받는다.

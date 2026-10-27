@@ -54,6 +54,9 @@ export interface InstallRunResult {
   /** 끝난 뒤 doctor를 다시 돌린 카드 상태 요약. */
   verify: { section: DoctorSection; state: string; summary: string }[];
   cancelled: boolean;
+  /** 설치 후 기존 터미널 등 사용자가 재시작해야 하는 항목. */
+  notices?: string[];
+  logFile?: string;
 }
 
 export type InstallEvent =

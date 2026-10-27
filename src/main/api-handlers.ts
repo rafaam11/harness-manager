@@ -18,6 +18,11 @@ import { loadExternalApi, refreshExternalApi } from "./services/external-api/sto
 import { PROFILES, type AppSettings, type Profile } from "@shared/manifest-types";
 import { APP_SETTINGS_FILE, APP_STATE_DIR } from "./config.js";
 import type { InstallEvent } from "@shared/install-types";
+import type { RepairEvent } from "@shared/repair-types";
+import path from "node:path";
+import { refreshWindowsEnvironment } from "./platform-env.js";
+import { RepairSession } from "./services/repair/session.js";
+import { repairProviders } from "./services/repair/agent.js";
 import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
 import { getProviders } from "./providers/registry.js";
 import {
@@ -62,6 +67,7 @@ export interface ApiDependencies {
   install: {
     session: InstallSession;
     emit(event: InstallEvent): void;
+    emitRepair(event: RepairEvent): void;
     setProgress(progress: TaskbarProgress): void;
   };
 }
@@ -76,6 +82,7 @@ function captureIds(value: unknown): CaptureTargetId[] {
 }
 
 export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
+  const repair = new RepairSession();
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
@@ -199,6 +206,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
           ctx,
           requested,
           (event) => {
+            repair.remember(event);
             deps.install.emit(event);
             const report = progress(event);
             if (report === "clear") deps.install.setProgress(aggregateTaskbarProgress([]));
@@ -209,6 +217,20 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       );
     },
     "install:cancel": () => deps.install.session.cancel(),
+
+    "repair:providers": async () => repairProviders(await refreshWindowsEnvironment(process.env)),
+    "repair:status": () => repair.snapshot(),
+    "repair:run": (stepId, provider) => {
+      const id = nonEmptyString(stepId, "stepId");
+      if (provider !== "codex" && provider !== "claude") throw new RequestError(400, "provider must be codex or claude");
+      return deps.install.session.run(async (signal) => {
+        const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
+        if (!repoRoot) throw new RequestError(409, "harness-manager 레포 위치를 모릅니다");
+        return repair.run(await defaultInstallContext(repoRoot), id, provider, signal, deps.install.emitRepair, deps.install.emit, path.join(APP_STATE_DIR, "repair"));
+      });
+    },
+    "repair:respond": (approvalId, allow) => repair.answer(nonEmptyString(approvalId, "approvalId"), booleanValue(allow, "allow")),
+    "repair:cancel": () => { if (repair.snapshot().running) deps.install.session.cancel(); },
 
     "settings:get": () => readAppSettings(APP_SETTINGS_FILE),
     "settings:set": async (patch) => {

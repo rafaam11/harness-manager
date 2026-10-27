@@ -54,9 +54,17 @@ const deps: ApiDependencies = {
   updater: { status: () => ({ state: "idle" }), check: vi.fn(async () => undefined), install: vi.fn() },
   repoStartDirs: () => [],
   chooseDirectory: vi.fn(async () => null),
-  install: { session: new InstallSession(), emit: vi.fn(), setProgress: vi.fn() },
+  install: { session: new InstallSession(), emit: vi.fn(), emitRepair: vi.fn(), setProgress: vi.fn() },
 };
 const handlers = createApiHandlers(deps);
+
+it("validates AI repair providers and live approval identifiers at the IPC boundary", () => {
+  expect(() => handlers["repair:run"]("tools.codex", "shell")).toThrow();
+  expect(() => handlers["repair:run"]({ command: "cmd" }, "codex")).toThrow();
+  expect(() => handlers["repair:respond"]("unknown", true)).toThrow();
+  expect(() => handlers["repair:respond"]("unknown", "yes")).toThrow();
+  expect(handlers["repair:status"]()).toMatchObject({ running: false, approvals: [] });
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

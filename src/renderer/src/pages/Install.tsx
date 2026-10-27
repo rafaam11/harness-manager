@@ -8,6 +8,7 @@ import RepoConnect from "../components/RepoConnect";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
+import RepairPanel from "../components/RepairPanel";
 
 const MAX_LOG_LINES = 2_000;
 
@@ -18,6 +19,7 @@ export default function Install() {
   const [plan, setPlan] = useState<InstallPlan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [running, setRunning] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const [current, setCurrent] = useState<{ index: number; total: number; title: string } | null>(null);
   const [results, setResults] = useState<Record<string, InstallStepResult>>({});
   const [summary, setSummary] = useState<InstallRunResult | null>(null);
@@ -118,10 +120,10 @@ export default function Install() {
           </button>
         ) : (
           <>
-            <button className="btn ghost" onClick={() => void load()}>
+            <button className="btn ghost" onClick={() => void load()} disabled={repairing}>
               다시 검사
             </button>
-            <button className="btn" onClick={() => void run()} disabled={chosen.length === 0}>
+            <button className="btn" onClick={() => void run()} disabled={chosen.length === 0 || repairing}>
               실행 ({chosen.length})
             </button>
           </>
@@ -145,6 +147,8 @@ export default function Install() {
           ))}
         </div>
       )}
+      {summary?.notices?.map((notice) => <Banner tone="warn" key={notice}>{notice}</Banner>)}
+      {summary?.logFile && <p className="muted">설치 기록: {summary.logFile}</p>}
 
       {plan && pending.length === 0 && <div className="empty">할 일이 없습니다. 모든 항목이 manifest와 같습니다.</div>}
       {pending.length > 0 && (
@@ -202,6 +206,12 @@ export default function Install() {
       })}
 
       <LogTerminal lines={lines} onClear={running ? undefined : () => setLines([])} />
+      <RepairPanel
+        targets={pending.filter((step) => results[step.id]?.outcome === "failed" || step.state === "error").map((step) => ({ id: step.id, title: step.title }))}
+        disabled={running}
+        onBusyChange={setRepairing}
+        onResult={(result) => { setResults((prev) => ({ ...prev, [result.id]: result })); void load(); }}
+      />
     </div>
   );
 }

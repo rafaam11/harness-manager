@@ -128,6 +128,8 @@ export async function runInstallCli(argv: string[]): Promise<number> {
     const rows = result.results.map((entry) => `${INSTALL_OUTCOME_LABELS[entry.outcome]}  ${entry.id}  ${entry.detail}`);
     const cards = result.verify.map((card) => `${card.section}: ${card.summary}`);
     process.stdout.write(`${rows.join("\n")}\n\n${cards.join("\n")}\n`);
+    for (const notice of result.notices ?? []) process.stderr.write(`${notice}\n`);
+    if (result.logFile) process.stderr.write(`설치 기록: ${result.logFile}\n`);
   }
   return result.results.some((entry) => entry.outcome === "failed") ? 5 : 0;
 }

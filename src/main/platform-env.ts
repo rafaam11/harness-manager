@@ -67,3 +67,33 @@ export async function discoverSessionEnvironment(
   }
   return { ...inherited, PATH: discovered || fallbackLinuxPath(inherited.PATH) };
 }
+
+/** 설치 직후 레지스트리 환경을 읽되, 관련 키만 갱신하고 기존 프로세스의 다른 설정은 유지한다. */
+export async function refreshWindowsEnvironment(
+  inherited: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+  execute: ExecFile = execFileAsync,
+): Promise<NodeJS.ProcessEnv> {
+  if (platform !== "win32") return { ...inherited };
+  const script = [
+    "[Console]::OutputEncoding = New-Object Text.UTF8Encoding $false",
+    "$result = @{}",
+    "foreach ($name in @('NVM_HOME','NVM_SYMLINK')) { $value = [Environment]::GetEnvironmentVariable($name,'User'); if (-not $value) { $value = [Environment]::GetEnvironmentVariable($name,'Machine') }; [Environment]::SetEnvironmentVariable($name,$value,'Process'); $result[$name] = $value }",
+    "$machine = [Environment]::GetEnvironmentVariable('Path','Machine')",
+    "$user = [Environment]::GetEnvironmentVariable('Path','User')",
+    "$result.Path = [Environment]::ExpandEnvironmentVariables(\"$machine;$user\")",
+    "$result | ConvertTo-Json -Compress",
+  ].join("; ");
+  const { stdout } = await execute("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { env: inherited, timeout: 10_000, windowsHide: true });
+  return mergeWindowsEnvironment(inherited, JSON.parse(stdout.replace(/^\uFEFF/, "")) as Record<string, unknown>);
+}
+
+export function mergeWindowsEnvironment(inherited: NodeJS.ProcessEnv, stored: Record<string, unknown>): NodeJS.ProcessEnv {
+  if (typeof stored.Path !== "string" || !stored.Path.trim()) throw new Error("Windows PATH를 읽지 못했습니다");
+  const next = { ...inherited };
+  // Path/PATH가 함께 있으면 Node가 이전 값을 자식에게 넘길 수 있다.
+  for (const key of Object.keys(next)) if (["PATH", "NVM_HOME", "NVM_SYMLINK"].includes(key.toUpperCase())) delete next[key];
+  next.Path = stored.Path.split(";").map((part) => part.replaceAll('"', "").trim()).filter(Boolean).join(";");
+  for (const key of ["NVM_HOME", "NVM_SYMLINK"]) if (typeof stored[key] === "string" && stored[key]) next[key] = stored[key] as string;
+  return next;
+}

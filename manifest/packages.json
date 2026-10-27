@@ -3,7 +3,7 @@
   "packages": [
     { "id": "git", "source": "winget", "name": "Git.Git", "profiles": ["core", "dev", "full"], "bin": "git" },
     { "id": "gh", "source": "winget", "name": "GitHub.cli", "profiles": ["core", "dev", "full"], "bin": "gh" },
-    { "id": "nvm", "source": "winget", "name": "CoreyButler.NVMforWindows", "profiles": ["core", "dev", "full"], "bin": "nvm", "description": "Node 22는 nvm으로 설치한다" },
+    { "id": "nvm", "source": "winget", "name": "CoreyButler.NVMforWindows", "profiles": ["core", "dev", "full"], "bin": "node", "description": "정상 Node 22.12 이상은 보존한다. 신규 환경만 NVM과 Node 22를 설치·활성화한다" },
     { "id": "ripgrep", "source": "winget", "name": "BurntSushi.ripgrep.GNU", "profiles": ["core", "dev", "full"], "bin": "rg" },
     { "id": "uv", "source": "winget", "name": "astral-sh.uv", "profiles": ["dev", "full"], "bin": "uv" },
     { "id": "python", "source": "winget", "name": "Python.Python.3.13", "profiles": ["dev", "full"], "bin": "python" },

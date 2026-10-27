@@ -218,9 +218,13 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 앱 설정 `~/.harness-manager/settings.json`(`profile`, `selfMarketplaceSource`)은 `services/settings.ts`가 읽고 쓴다(모르는 키 보존). 채널은 `settings:get`·`settings:set`, CLI는 `hm settings`.
   - AI 위저드: `plugins/jinmin-skills/skills/jinmin-setup/SKILL.md`. 위의 "설치해줘" 절차와 같다.
   - `scripts/bootstrap.ps1`: 새 PC의 첫 진입점. PowerShell 5.1이 읽도록 **UTF-8 BOM으로 저장한다**(BOM이 없으면 한글이 깨진다).
-    - 순서: winget으로 git·gh·node 설치 → 클론 또는 ff-only pull → `npm ci`(Electron 바이너리는 받지 않음) + 빌드 → settings → doctor → install 미리보기
+    - 순서: winget으로 git·gh 설치 → 클론 또는 ff-only pull → 기존 Node 보호 검사(없는 환경만 NVM/Node 22) → `npm ci`(Electron 바이너리는 받지 않음) + 빌드 → settings → doctor → install 미리보기
     - 옵션: `-Run`은 전부 실행, `-InstallApp`은 최신 릴리스 설치 파일 실행, `-DryRun`은 출력만 한다.
 - **install(M6)**: `services/install/`
+  - Node 보호 정책: 기존 정상 Node ≥22.12와 npm은 설치 방식·활성 버전을 유지한다. `packages.winget.nvm`은 이제 NVM 유무가 아닌 Node 실행 환경을 검사한다. MSI/NVM 혼재, 중복 실체, 깨진 설치는 자동 이관·제거하지 않는다.
+  - Windows Node 검사·설치는 `scripts/node-runtime.ps1`을 앱과 bootstrap이 함께 사용한다(UTF-8 BOM). 신규 환경만 NVM → `nvm install 22` → 설치된 정확한 버전 `nvm use` → node/npm 검증 순서로 진행한다. 실패하면 npm·npx·Codex 후속 명령을 막는다. 정상 활성 버전을 다른 버전으로 강제 전환하지 않는다.
+  - 설치 후 PATH와 NVM 환경변수를 함께 다시 읽고, 기존 터미널·호스트 앱 재시작을 안내한다. 실행 로그는 `~/.harness-manager/logs/install/*.jsonl`에 시각·결과와 함께 기록하며 비밀값을 가린다(실행별 2 MiB 상한).
+  - 앱은 Node 보호 스크립트를 빌드 산출물에 포함하고 asar 밖에 unpack한다. 오래된 레포를 연결한 PC도 앱에 포함된 검사부터 사용한다.
   - step은 doctor 검사에서 만든다(`engine.ts`). id 체계가 같아서, 실행 뒤 같은 검사로 다시 확인한다. 이미 정상이면 건너뛰므로 멱등이다.
   - 실행 순서: 패키지 → 도구 → 전역 CLAUDE.md·AGENTS.md → Claude 설정·마켓플레이스·플러그인 → Codex → MCP → 외부 스킬.
   - 렌더러·CLI는 step id만 보낸다. 명령과 인자는 manifest에서 main이 만든다.
@@ -240,6 +244,12 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 화면: "설치" 페이지(`pages/Install.tsx`)는 할 일 목록, 명령, 파일 diff, `LogTerminal`로 되어 있다.
   - CLI: `hm install`(미리보기), `hm install --run --only <id,…|all> --yes`(실패 step이 있으면 종료 코드 5)
   - self 마켓플레이스 소스는 `~/.harness-manager/settings.json`의 `selfMarketplaceSource`(directory 기본 / github)이고, CLI는 `--self-source`로 바꾼다.
+- **AI 설치 복구**: `services/repair/`, 공통 화면 `components/RepairPanel.tsx`.
+  - 위저드 실행 결과·설치 페이지의 실패 항목에서 설치된 Codex/Claude Code에 해결을 요청한다. 렌더러는 step id와 provider만 전달하고 main이 계획·최근 오류·로그를 구성한다.
+  - Codex app-server(stdio JSON-RPC), Claude Code(stream-json control protocol)를 사용하며 기존 로그인·모델 설정을 유지한다. 실행파일이 없거나 실행 검증이 실패하면 해당 버튼을 비활성화한다.
+  - 명령·파일 수정 요청은 내용과 함께 위저드에 표시하고 이번 요청만 승인/거절한다. 권한 우회·세션 전체 자동 승인은 사용하지 않는다. 요청 id는 main의 대기 목록과 대조한다.
+  - AI 종료 후 doctor/plan을 다시 확인한다. 필요한 설치 재실행도 내용을 보여 주고 확인받는다. 문제가 남으면 최신 오류로 최대 3회 시도한다(회당 15분, Claude는 20턴 상한). 재실행 거절 시 추가 시도를 멈춘다.
+  - 설치와 같은 `InstallSession`을 공유해 동시 실행을 막고 종료·취소 시 프로세스 트리를 정리한다. 화면 재진입 시 main의 상태·승인·로그를 복원한다. 복구 로그는 `~/.harness-manager/repair/logs/`에 비밀값을 가려 보관한다.
 - **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
   - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.
   - 프로필은 `~/.harness-manager/settings.json`의 `profile`(없으면 full). CLI는 `hm doctor [--profile p] [--all] [--json]`.

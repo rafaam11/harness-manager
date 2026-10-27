@@ -12,12 +12,14 @@ import type {
   InstallStepState,
 } from "@shared/install-types";
 import type { MarketplaceEntry, McpEntry, PackageEntry, Profile, ToolEntry } from "@shared/manifest-types";
-import { APP_SETTINGS_FILE } from "../../config.js";
+import { APP_SETTINGS_FILE, APP_STATE_DIR } from "../../config.js";
+import { createInstallJournal } from "./journal.js";
 import { readAppSettings } from "../settings.js";
 import { gitConfigSetArgs, powershellProfilePath, readGitConfig, stripBom } from "../dotfiles.js";
 import { writeFileChecked } from "../capture/capture.js";
 import { tildify } from "../capture/exposure.js";
 import { SELF_MARKETPLACE } from "../capture/targets.js";
+import { nodeRuntimeCommand, TERMINAL_NOTICE } from "../node-runtime.js";
 import { splitMarkdownSections, stableJson, unifiedDiff, withTrailingNewline } from "../capture/text.js";
 import { defaultDoctorContext, loadManifests, managedKeys, runDoctorWith, type DoctorContext, type Manifests } from "../doctor/doctor.js";
 import { displayCommand, processRunner, type CommandRunner, type CommandSpec, type LogSink } from "./exec.js";
@@ -29,6 +31,7 @@ export interface InstallContext extends DoctorContext {
   selfSource: "directory" | "github";
   /** MCP env 자리표시(`${NAME}`)를 채울 환경. */
   env: NodeJS.ProcessEnv;
+  logDir?: string;
 }
 
 export const SELF_GITHUB_SOURCE = "rafaam11/harness-manager";
@@ -94,11 +97,19 @@ function needsWork(state: InstallStepState): boolean {
 }
 
 async function runCommand(ctx: InstallContext, spec: CommandSpec, log: LogSink, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) throw new StepFailure("취소했습니다");
+  if (["npm", "npx", "codex"].includes(spec.command)) {
+    const runtime = await ctx.inspectNodeRuntime();
+    if (runtime.state !== "ready") throw new StepFailure(`Node 선행 검증 실패 — ${spec.command} 실행을 중단합니다: ${runtime.detail}`);
+  }
   // 명령줄만 가리면 부족하다: CLI가 받은 값을 출력에 되풀이할 수 있어 이 step의 모든 로그 줄에서 값을 지운다.
   const secrets = spec.args.filter((arg) => /^[A-Z_][A-Z0-9_]*=./.test(arg)).map((arg) => arg.slice(arg.indexOf("=") + 1));
   const masked: LogSink = (stream, line) => log(stream, secrets.reduce((text, secret) => text.split(secret).join("***"), line));
   masked("info", `$ ${displayCommand({ command: spec.command, args: spec.args.map(maskEnvArg) })}`);
-  const result = await ctx.runner.run(spec, masked, signal);
+  const result = await ctx.runner.run({ ...spec, env: { ...ctx.env, ...spec.env } }, masked, signal);
+  if (["winget", "scoop"].includes(spec.command) || spec.args.includes("-Install")) {
+    if (await ctx.refreshEnvironment()) log("info", TERMINAL_NOTICE);
+  }
   if (signal.aborted) throw new StepFailure("취소했습니다");
   if (result.notFound) throw new StepFailure(`${spec.command}를 PATH에서 찾지 못했습니다`);
   if (result.timedOut) throw new StepFailure(`${Math.round(spec.timeoutMs / 1000)}초 안에 끝나지 않았습니다`);
@@ -176,6 +187,32 @@ function toolStep(tool: ToolEntry, section: DoctorSection, rank: number): StepDe
     };
   }
   return commandStep(base, spec);
+}
+
+function nodeRuntimeStep(entry: PackageEntry): StepDef {
+  const id = `packages.${entry.source}.${entry.id}`;
+  return {
+    id, section: "toolchain", title: "Node.js 실행 환경 (기존 설치 보존)", rank: 100, checks: byId(id),
+    plan: async (ctx) => {
+      const runtime = await ctx.inspectNodeRuntime();
+      if (runtime.state === "blocked") return [{ kind: "manual", summary: runtime.detail }];
+      if (runtime.state === "ready") return [];
+      return [
+        { kind: "manual", summary: "기존 Node·MSI·NVM을 실행 직전에 다시 확인합니다. 자동 이관·제거는 하지 않습니다." },
+        ...(!runtime.nvm ? [{ kind: "command" as const, summary: "winget install --id CoreyButler.NVMforWindows --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity" }] : []),
+        { kind: "command", summary: "nvm install 22" },
+        { kind: "command", summary: "nvm use <설치·실행 검증을 통과한 정확한 22.x.y 버전>" },
+        { kind: "manual", summary: "node/npm 버전과 실제 활성 경로를 확인한 뒤 다음 단계로 진행합니다. " + TERMINAL_NOTICE },
+      ];
+    },
+    apply: async (ctx, log, signal) => {
+      const runtime = await ctx.inspectNodeRuntime();
+      if (runtime.state === "ready") return;
+      if (runtime.state === "blocked") throw new StepFailure(runtime.detail);
+      await runCommand(ctx, nodeRuntimeCommand(ctx.repoRoot, "install"), log, signal);
+      log("info", TERMINAL_NOTICE);
+    },
+  };
 }
 
 // ───────────────────────────── 파일 merge ─────────────────────────────
@@ -458,6 +495,10 @@ function mcpStep(entry: McpEntry, target: "claude" | "codex", rank: number): Ste
 function buildStepDefs(manifests: Manifests): StepDef[] {
   const defs: StepDef[] = [];
   for (const entry of manifests.packages) {
+    if (entry.source === "winget" && entry.name === "CoreyButler.NVMforWindows") {
+      defs.push(nodeRuntimeStep(entry));
+      continue;
+    }
     defs.push(
       commandStep(
         {
@@ -531,8 +572,6 @@ async function describe(def: StepDef, report: DoctorReport, ctx: InstallContext)
   const checks = def.checks(report);
   const state = worstState(checks);
   const detail = stepDetail(checks);
-  const manual = Boolean(def.manual);
-  const actionable = needsWork(state) && !manual;
   let actions: InstallAction[] = [];
   if (needsWork(state)) {
     try {
@@ -541,6 +580,8 @@ async function describe(def: StepDef, report: DoctorReport, ctx: InstallContext)
       actions = [{ kind: "manual", summary: `계획하지 못했습니다: ${(error as Error).message}` }];
     }
   }
+  const manual = Boolean(def.manual) || (actions.length > 0 && actions.every((action) => action.kind === "manual"));
+  const actionable = needsWork(state) && !manual;
   return { id: def.id, section: def.section, title: def.title, state, detail: detail || (state === "ok" ? "정상" : ""), actionable, manual, actions };
 }
 
@@ -564,6 +605,35 @@ export async function runInstallWith(
   onEvent: (event: InstallEvent) => void,
   signal: AbortSignal,
 ): Promise<InstallRunResult> {
+  const journal = ctx.logDir ? await createInstallJournal(ctx.logDir, ctx.env) : null;
+  try {
+    const result = await executeInstallWith(ctx, ids, (event) => {
+      if (event.type === "run-done" && journal) event.result.logFile = journal.filePath;
+      journal?.record(event);
+      onEvent(event);
+    }, signal);
+    return result;
+  } catch (error) {
+    journal?.record({ type: "error", message: (error as Error).message });
+    throw error;
+  } finally {
+    await journal?.close();
+  }
+}
+
+async function executeInstallWith(
+  ctx: InstallContext,
+  ids: readonly string[],
+  onEvent: (event: InstallEvent) => void,
+  signal: AbortSignal,
+): Promise<InstallRunResult> {
+  const notices = new Set<string>();
+  const emit = onEvent;
+  onEvent = (event) => {
+    if (event.type === "log" && event.line.includes(TERMINAL_NOTICE)) notices.add(TERMINAL_NOTICE);
+    emit(event);
+  };
+  if (await ctx.refreshEnvironment()) notices.add(TERMINAL_NOTICE);
   const manifests = await loadManifests(ctx);
   const defs = buildStepDefs(manifests).filter((def) => ids.includes(def.id));
   const unknown = ids.filter((id) => !defs.some((def) => def.id === id));
@@ -603,6 +673,7 @@ export async function runInstallWith(
     results,
     verify: report.cards.map((card) => ({ section: card.section, state: card.state, summary: card.summary })),
     cancelled: signal.aborted,
+    notices: [...notices],
   };
   onEvent({ type: "run-done", result: runResult });
   return runResult;
@@ -618,6 +689,6 @@ export async function defaultInstallContext(
     ...(await defaultDoctorContext(repoRoot, options.profile)),
     runner: processRunner,
     selfSource: options.selfSource ?? (await readAppSettings(APP_SETTINGS_FILE)).selfMarketplaceSource,
-    env: process.env,
+    logDir: path.join(APP_STATE_DIR, "logs", "install"),
   };
 }

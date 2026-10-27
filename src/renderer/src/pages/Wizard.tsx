@@ -8,6 +8,7 @@ import { call } from "../api/client";
 import RepoConnect from "../components/RepoConnect";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
+import RepairPanel from "../components/RepairPanel";
 
 const STEPS = ["환영", "진단", "프로필", "항목", "미리보기", "실행", "인증", "완료"] as const;
 
@@ -52,6 +53,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [dryRun, setDryRun] = useState(false);
   const [running, setRunning] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const [results, setResults] = useState<Record<string, InstallStepResult>>({});
   const [runResult, setRunResult] = useState<InstallRunResult | null>(null);
   const [finalReport, setFinalReport] = useState<DoctorReport | null>(null);
@@ -126,6 +128,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
   const canNext =
     !busy &&
     !running &&
+    !repairing &&
     (step !== 0 || Boolean(report?.repoRoot)) &&
     (step !== 5 || runResult !== null);
 
@@ -281,8 +284,10 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
 
         {step === 5 && (
           <>
+            {runResult?.notices?.map((notice) => <Banner tone="warn" key={notice}>{notice}</Banner>)}
+            {runResult?.logFile && <p className="muted">설치 기록: {runResult.logFile}</p>}
             {runResult === null ? (
-              <button className="btn" onClick={() => void run()} disabled={busy || running}>
+              <button className="btn" onClick={() => void run()} disabled={busy || running || repairing}>
                 {dryRun || selectedSteps.length === 0 ? "dry-run으로 넘어가기" : `${selectedSteps.length}개 step 실행`}
               </button>
             ) : runResult.results.length === 0 ? (
@@ -310,6 +315,12 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
               </div>
             )}
             <LogTerminal lines={lines} />
+            <RepairPanel
+              targets={(runResult?.results ?? []).filter((entry) => entry.outcome === "failed").map((entry) => ({ id: entry.id, title: plan?.steps.find((item) => item.id === entry.id)?.title ?? entry.id }))}
+              disabled={running || busy}
+              onBusyChange={setRepairing}
+              onResult={(result) => setRunResult((prev) => prev ? { ...prev, results: prev.results.map((entry) => entry.id === result.id ? result : entry) } : prev)}
+            />
           </>
         )}
 
@@ -329,7 +340,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
       </div>
 
       <div className="wizard-nav">
-        <button className="btn ghost" onClick={() => setStep(step - 1)} disabled={step === 0 || busy || running || step === 6}>
+        <button className="btn ghost" onClick={() => setStep(step - 1)} disabled={step === 0 || busy || running || repairing || step === 6}>
           이전
         </button>
         <ToolbarSpacer />
