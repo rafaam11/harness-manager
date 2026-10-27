@@ -234,7 +234,7 @@ function fileStep(base: Omit<StepDef, "plan" | "apply">, compute: (ctx: InstallC
         {
           kind: "file",
           summary: `${tildify(change.absPath, ctx.home)} ${change.before === null ? "만들기" : "고치기(백업 후)"}`,
-          diff: unifiedDiff(tildify(change.absPath, ctx.home), change.before, change.after),
+          diff: unifiedDiff(tildify(change.absPath, ctx.home), change.before, change.after, { before: "이 PC", after: "레포" }),
         },
       ];
     },

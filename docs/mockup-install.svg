@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" font-family="Pretendard, Segoe UI, Malgun Gothic, sans-serif" role="img" aria-label="설치 — 할 일 목록, 명령과 파일 diff, 로그">
+  <rect width="960" height="540" rx="12" fill="#181716"/>
+  <rect x="0.5" y="0.5" width="959" height="539" rx="11.5" fill="none" stroke="#3b3633"/>
+  <path d="M12 0.5h936a11.5 11.5 0 0 1 11.5 11.5v22h-959v-22A11.5 11.5 0 0 1 12 0.5z" fill="#1b1918"/>
+  <line x1="0" y1="34" x2="960" y2="34" stroke="#3b3633"/>
+  <text x="480" y="22" font-size="12" fill="#a59e98" text-anchor="middle">하네스 매니저</text>
+  <rect x="0" y="34" width="62" height="506" fill="#1e1c1b"/>
+  <line x1="62" y1="34" x2="62" y2="540" stroke="#3b3633"/>
+  <rect x="6" y="92" width="50" height="46" rx="6" fill="#2c231e"/><rect x="6" y="92" width="2.5" height="46" fill="#e8825f"/>
+  <g font-size="10" fill="#a59e98" text-anchor="middle">
+    <text x="31" y="82">상태판</text><text x="31" y="130" fill="#ece8e5">설치</text><text x="31" y="176">카탈로그</text><text x="31" y="222">정리</text><text x="31" y="268">가져오기</text><text x="31" y="314">외부 API</text>
+  </g>
+
+  <text x="86" y="72" font-size="18" font-weight="700" fill="#ece8e5">설치</text>
+  <rect x="130" y="58" width="70" height="20" rx="10" fill="#2e2a28"/><text x="165" y="72" font-size="11" fill="#a59e98" text-anchor="middle">프로필 full</text>
+  <text x="212" y="72" font-size="11.5" fill="#a59e98">정상 34 · 할 일 3</text>
+  <rect x="742" y="54" width="88" height="28" rx="6" fill="none" stroke="#4f4945"/><text x="786" y="73" font-size="12.5" fill="#ece8e5" text-anchor="middle">다시 검사</text>
+  <rect x="840" y="54" width="96" height="28" rx="6" fill="#e8825f"/><text x="888" y="73" font-size="12.5" font-weight="600" fill="#2a1408" text-anchor="middle">실행 (1)</text>
+  <rect x="86" y="98" width="13" height="13" rx="3" fill="none" stroke="#7b746f"/>
+  <text x="108" y="109" font-size="12" fill="#ece8e5">실행할 수 있는 step 전체</text><text x="250" y="109" font-size="11.5" fill="#a59e98">선택 1 / 3</text>
+
+  <!-- step 1: 파일 diff -->
+  <g transform="translate(86,124)">
+    <rect width="850" height="152" rx="7" fill="#221f1e" stroke="#e8825f"/>
+    <rect x="14" y="14" width="13" height="13" rx="3" fill="#e8825f"/><path d="M17 20.5l2.6 2.6 4.6-5" stroke="#2a1408" stroke-width="1.8" fill="none"/>
+    <text x="36" y="26" font-size="13" font-weight="700" fill="#ece8e5">Claude 설정(관리 키)</text>
+    <rect x="170" y="14" width="36" height="17" rx="8.5" fill="#3a2f1e"/><text x="188" y="26" font-size="10.5" fill="#d8a24a" text-anchor="middle">다름</text>
+    <text x="836" y="26" font-size="11" fill="#a59e98" text-anchor="end" font-family="Cascadia Mono, Consolas, monospace">claude.settings</text>
+    <text x="14" y="50" font-size="11" fill="#a59e98">language: 이 PC English · 레포 한국어 · effortLevel: 이 PC high · 레포 xhigh</text>
+    <rect x="14" y="60" width="822" height="80" rx="5" fill="#1b1918"/>
+    <g font-family="Cascadia Mono, Consolas, monospace" font-size="11">
+      <text x="24" y="78" fill="#7b746f">--- ~/.claude/settings.json  이 PC</text>
+      <text x="24" y="92" fill="#7b746f">+++ ~/.claude/settings.json  레포</text>
+      <rect x="20" y="97" width="300" height="14" fill="#3a2222"/><text x="24" y="108" fill="#f09595">-  "effortLevel": "high",</text>
+      <rect x="20" y="113" width="300" height="14" fill="#26352b"/><text x="24" y="124" fill="#9fd4ae">+  "effortLevel": "xhigh",</text>
+    </g>
+  </g>
+  <!-- step 2: 명령 -->
+  <g transform="translate(86,286)">
+    <rect width="850" height="74" rx="7" fill="#221f1e" stroke="#3b3633"/>
+    <rect x="14" y="14" width="13" height="13" rx="3" fill="none" stroke="#7b746f"/>
+    <text x="36" y="26" font-size="13" font-weight="700" fill="#ece8e5">codex-watch@jinmin (Claude)</text>
+    <rect x="222" y="14" width="36" height="17" rx="8.5" fill="#3a2222"/><text x="240" y="26" font-size="10.5" fill="#d46a6a" text-anchor="middle">없음</text>
+    <rect x="14" y="40" width="822" height="24" rx="5" fill="#1b1918"/>
+    <text x="24" y="56" font-size="11" fill="#ece8e5" font-family="Cascadia Mono, Consolas, monospace">$ claude plugin enable codex-watch@jinmin --scope user</text>
+  </g>
+  <!-- 로그 -->
+  <g transform="translate(86,372)">
+    <rect width="850" height="150" rx="7" fill="#1b1918" stroke="#3b3633"/>
+    <text x="14" y="22" font-size="11.5" fill="#a59e98">로그 3줄</text>
+    <line x1="0" y1="34" x2="850" y2="34" stroke="#3b3633"/>
+    <g font-family="Cascadia Mono, Consolas, monospace" font-size="11.5">
+      <text x="14" y="56" fill="#a59e98">▶ claude.settings — Claude 설정(관리 키)</text>
+      <text x="14" y="76" fill="#ece8e5">  ~/.claude/settings.json을(를) 썼습니다(원본은 ~/.harness-manager/backups).</text>
+      <text x="14" y="96" fill="#73b987">✓ 1/1 step 완료 — 같은 검사로 다시 확인: 정상</text>
+    </g>
+  </g>
+</svg>

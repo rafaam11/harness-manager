@@ -10,7 +10,8 @@ import path from "node:path";
 
 /** 문서 폴더는 OneDrive 등으로 옮겨져 있을 수 있어 OS에 묻는다. 실패하면 `~/Documents`. */
 export async function resolveDocumentsDir(home: string): Promise<string> {
-  if (process.platform !== "win32") return path.join(home, "Documents");
+  // HM_HOME 격리 실행에서 OS가 알려 주는 실제 문서 폴더를 쓰면 시험 install이 진짜 PS 프로필을 고친다.
+  if (process.platform !== "win32" || process.env.HM_HOME) return path.join(home, "Documents");
   const output = await new Promise<string>((resolve) => {
     execFile(
       "powershell.exe",

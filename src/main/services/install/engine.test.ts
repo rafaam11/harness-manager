@@ -264,6 +264,8 @@ describe("install 엔진", () => {
     // 비밀 env 값은 미리보기에 나오지 않는다.
     expect(JSON.stringify(plan)).not.toContain("s3cr3t");
     expect(byId["claude.settings"]!.actions[0]!.diff).toContain('+  "model": "opus"');
+    // install은 이 PC → 레포 방향이다. 머리글도 그 방향이어야 -/+ 줄을 바로 읽는다.
+    expect(byId["claude.settings"]!.actions[0]!.diff).toMatch(/^--- .*\t이 PC\n\+\+\+ .*\t레포$/m);
   });
 
   it("전부 실행하면 모두 완료되고 doctor 카드가 정상이 되며, 두 번째 실행은 전부 건너뛴다", async () => {
