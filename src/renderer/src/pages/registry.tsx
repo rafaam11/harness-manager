@@ -3,7 +3,6 @@ import {
   Archive,
   BookOpen,
   Download,
-  FileCog,
   Globe,
   Import,
   LayoutDashboard,
@@ -13,7 +12,6 @@ import {
 import Capture from "./Capture";
 import Catalog from "./Catalog";
 import Cleanup from "./Cleanup";
-import ConfigEditor from "./ConfigEditor";
 import Dashboard from "./Dashboard";
 import ExternalApi from "./ExternalApi";
 import Install from "./Install";
@@ -46,7 +44,6 @@ export const PAGES = {
   install: { label: "설치", short: "설치", icon: Download, writesUserFiles: true, render: () => <Install /> },
   catalog: { label: "카탈로그", short: "카탈로그", icon: BookOpen, wide: true, render: () => <Catalog /> },
   cleanup: { label: "정리", short: "정리", icon: Archive, writesUserFiles: true, render: () => <Cleanup /> },
-  configs: { label: "설정 편집기", short: "설정", icon: FileCog, writesUserFiles: true, render: () => <ConfigEditor /> },
   capture: { label: "가져오기", short: "가져오기", icon: Import, render: () => <Capture /> },
   "external-api": { label: "외부 API", short: "외부 API", icon: Globe, wide: true, render: () => <ExternalApi /> },
   // 사이드바에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.
@@ -62,4 +59,4 @@ export const PAGES = {
 export type PageKey = keyof typeof PAGES;
 
 // 첫 화면은 상태판이다(상태판 + 섹션 탭).
-export const PAGE_ORDER: PageKey[] = ["dashboard", "install", "catalog", "cleanup", "configs", "capture", "external-api"];
+export const PAGE_ORDER: PageKey[] = ["dashboard", "install", "catalog", "cleanup", "capture", "external-api"];

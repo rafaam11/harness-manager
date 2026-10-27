@@ -49,6 +49,7 @@
 | D24 | **정리 확장**(M8, 옛 Q3 결론). v2 앱 데이터와 v2 백업은 지우지 않고 `leftovers` 후보로 보인다. 중복 스킬은 해당 provider에서 플러그인이 켜져 있을 때만 후보로 한다. Codex는 오래된 로그만 다루고 세션·DB는 다루지 않는다. doctor와 정리 화면은 같은 탐색 함수를 쓴다 |
 | D25 | **dotfiles 범위**(M6 후속). PowerShell 5.1 프로필(마커 블록, BOM)과 git 전역 설정(관리 키, `git config`로만 읽기·쓰기)을 다룬다. Windows Terminal은 settings.json이 주석 있는 JSON(JSONC)이라 안전한 부분 merge가 없어 보류한다. pwsh 7 프로필은 pwsh를 쓰기 시작하면 같은 방식으로 더한다 |
 | D26 | **외부 API 흡수 형태**(M12, 옛 Q13). 카탈로그는 main이 만들어 렌더러에 넘긴다(zod는 main에만). 상세 페이지는 대화상자 하나로 합치고 라우트를 두지 않는다. 실시간 미리보기(Worker)는 넣지 않는다. 사용자 API 키를 앱에 저장하지 않기 위해서다. yaml 대신 gray-matter를 쓴다 |
+| D27 | **설정 편집기 제거**(v3.3.0, D3 일부 철회). 설정은 install(관리 키 merge)과 capture(레포 템플릿)로 다루고, 파일을 통째로 손으로 고치는 화면은 두지 않는다. `config:*` 채널, 편집용 백업·복원, `vanilla-jsoneditor`를 함께 걷어냈다 |
 | D17 | **jk-external-api 흡수**: 공개 색인 사이트였던 jk-external-api(한국 생활·지역 외부 정보원, k-skill 스냅샷, 청사진)를 앱 기능 **"외부 API"** 섹션으로 다시 만든다(M12, v3.0.0 릴리스 뒤). 소스는 단순 복사한다. GitHub Pages 사이트, Cloudflare Worker 미리보기, 주간 자동 PR은 폐기하고 원 레포는 archive한다 |
 | D16 | **mod version 규약**: `mods/*`는 고칠 때마다 `plugin.json` version을 올린다. GitHub 소스에서 version이 그대로면 update를 건너뛰기 때문이다. `plugins/*`에는 version을 두지 않고 커밋 SHA를 따라가게 한다 |
 
@@ -225,8 +226,8 @@ interface Step {
   - 카드 8개. 각 카드는 상태 점, 글자 라벨, 요약 한 줄(예: "패키지 18/20"), 주 동작 버튼 하나를 갖는다.
   - 상단에 doctor 재실행 버튼과 마지막 검사 시각을 둔다.
 - **섹션 페이지**: 표 형태(상태 / 이름 / 설치 버전 vs manifest / 동작)이고, 아래에 접히는 LogTerminal을 둔다.
-- **Config**: v2 설정 편집기. **Cleanup**: v2 기능에 "깨진 symlink", "loose 스킬 중복", Codex 대상을 추가한다.
-- 사이드바는 아이콘 열 하나다(M13: 아이콘 아래 짧은 글자, 폭 약 72px). provider 필터는 사이드바에 두지 않고 쓰는 화면(카탈로그·설정 편집기) 안의 탭으로 둔다. `App.tsx`는 셸만 맡고 화면은 `pages` 레지스트리와 view 상태로 전환한다.
+- ~~**Config**: v2 설정 편집기~~(v3.3.0에서 제거, D27). **Cleanup**: v2 기능에 "깨진 symlink", "loose 스킬 중복", Codex 대상을 추가한다.
+- 사이드바는 아이콘 열 하나다(M13: 아이콘 아래 짧은 글자, 폭 약 72px). provider 필터는 사이드바에 두지 않고 쓰는 화면(카탈로그) 안의 탭으로 둔다. `App.tsx`는 셸만 맡고 화면은 `pages` 레지스트리와 view 상태로 전환한다.
 
 ## 6. v2 정리 목록 (K=보존, R=제거, K\*=보존·정리)
 

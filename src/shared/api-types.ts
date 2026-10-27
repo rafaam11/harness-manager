@@ -4,7 +4,7 @@ import type { DoctorReport } from "./doctor-types";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
-import type { NormalizedConfigFile, ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
+import type { ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
 
@@ -56,24 +56,6 @@ export interface PluginInfo {
 export interface PluginsSnapshot {
   plugins: PluginInfo[];
   blocklist: { plugin: string; reason: string }[];
-}
-
-export interface ConfigFileData {
-  content: string;
-  sha256: string;
-  mtime: number;
-  descriptor: NormalizedConfigFile;
-}
-
-export interface ConfigWriteResult {
-  sha256: string;
-  backup: string;
-}
-
-export interface BackupInfo {
-  name: string;
-  size: number;
-  mtime: number;
 }
 
 export interface CleanupCandidate {
@@ -136,11 +118,6 @@ export interface ApiChannels {
 
   "provider:status": () => ProviderStatus[];
 
-  "config:list": (filter: ProviderFilter) => NormalizedConfigFile[];
-  "config:read": (fileId: string) => ConfigFileData;
-  "config:write": (fileId: string, content: string, baseHash: string) => ConfigWriteResult;
-  "config:backups": (fileId: string) => BackupInfo[];
-  "config:restore": (fileId: string, backupName: string) => { sha256: string };
 
   "catalog:list": (filter: ProviderFilter) => CatalogItem[];
   "catalog:content": (filePath: string) => CatalogContent;
@@ -203,11 +180,6 @@ export const API_CHANNELS = [
   "updater:check",
   "updater:install",
   "provider:status",
-  "config:list",
-  "config:read",
-  "config:write",
-  "config:backups",
-  "config:restore",
   "catalog:list",
   "catalog:content",
   "plugins:list",

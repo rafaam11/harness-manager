@@ -6,7 +6,7 @@ export interface IpcRegistrar {
   handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void;
 }
 
-/** 상태코드를 들고 던진 에러(path-guard 403, safe-write 409, json-validate 422, 검증 400 등)를 봉투로 바꾼다. */
+/** 상태코드를 들고 던진 에러(path-guard 403, 원본 대조 409, 검증 400 등)를 봉투로 바꾼다. */
 export function toApiResult(error: unknown): ApiResult<never> {
   const e = error as { statusCode?: unknown; message?: unknown };
   const statusCode = typeof e?.statusCode === "number" ? e.statusCode : 500;

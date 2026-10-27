@@ -33,7 +33,7 @@ export function currentTheme(): ResolvedTheme {
 }
 
 /**
- * CSS 밖에서 색을 칠하는 컴포넌트(vanilla-jsoneditor 등)용 현재 테마. 설정이 아니라 `data-theme`을 따르므로
+ * CSS 밖에서 테마를 알아야 하는 곳(셸의 테마 토글 등)용 현재 테마. 설정이 아니라 `data-theme`을 따르므로
  * 스타일시트와 어긋날 수 없다.
  */
 export function useResolvedTheme(): ResolvedTheme {

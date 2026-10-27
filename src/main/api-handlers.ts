@@ -1,8 +1,5 @@
 import type { ApiChannel, ApiReturn, CleanupExecuteResult, ManifestEntry } from "@shared/api-types";
 import { CAPTURE_TARGET_IDS, type CaptureTargetId } from "@shared/manifest-types";
-import type { NormalizedConfigFile } from "@shared/provider-types";
-import { validateConfigContent } from "./lib/config-write.js";
-import { readConfig, safeWrite, listBackups, restoreBackup } from "./lib/safe-write.js";
 import { assertCleanupCategory } from "./lib/path-scope.js";
 import { archiveItems, restoreItem, listManifests } from "./lib/archive.js";
 import { readCatalogContent } from "./services/catalog.js";
@@ -78,24 +75,6 @@ function captureIds(value: unknown): CaptureTargetId[] {
   return ids as CaptureTargetId[];
 }
 
-async function findConfigFile(id: string): Promise<NormalizedConfigFile> {
-  for (const provider of getProviders("all")) {
-    const found = (await provider.listConfigFiles()).find((file) => file.id === id);
-    if (found) return found;
-  }
-  throw new RequestError(404, `unknown config file: ${id}`);
-}
-
-/** 쓰기 가능한 설정 파일만 돌려준다. Codex profile toml은 descriptor가 잘못돼도 읽기 전용으로 막는다. */
-async function writableConfigFile(id: string): Promise<NormalizedConfigFile> {
-  const entry = await findConfigFile(id);
-  if (entry.provider === "codex" && entry.id !== "codex-config") {
-    throw new RequestError(403, "Codex profile config는 읽기 전용입니다");
-  }
-  if (!entry.writable) throw new RequestError(403, "읽기 전용 파일");
-  return entry;
-}
-
 export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
@@ -122,29 +101,6 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
           roots: [p.roots.home, ...p.roots.configFiles],
         })),
       ),
-
-    "config:list": async (filter) =>
-      (await Promise.all(getProviders(providerFilter(filter)).map((p) => p.listConfigFiles()))).flat(),
-    "config:read": async (fileId) => {
-      const entry = await findConfigFile(nonEmptyString(fileId, "fileId"));
-      return { ...(await readConfig(entry.path)), descriptor: entry };
-    },
-    "config:write": async (fileId, content, baseHash) => {
-      const entry = await writableConfigFile(nonEmptyString(fileId, "fileId"));
-      return safeWrite(entry.id, entry.path, stringValue(content, "content"), nonEmptyString(baseHash, "baseHash"), {
-        validate: (_name, text) => validateConfigContent(entry, text),
-      });
-    },
-    "config:backups": async (fileId) => {
-      const entry = await findConfigFile(nonEmptyString(fileId, "fileId"));
-      return entry.writable ? listBackups(entry.path) : [];
-    },
-    "config:restore": async (fileId, backupName) => {
-      const entry = await writableConfigFile(nonEmptyString(fileId, "fileId"));
-      return restoreBackup(entry.id, entry.path, nonEmptyString(backupName, "backupName"), {
-        validate: (_name, text) => validateConfigContent(entry, text),
-      });
-    },
 
     "catalog:list": async (filter) =>
       (

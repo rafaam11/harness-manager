@@ -369,31 +369,6 @@ select:focus-visible { outline: none; border-color: var(--teal); }
 .md-body a { color: var(--teal); }
 .md-body table { margin: 8px 0; }
 
-/* --- Config Editor (vanilla-jsoneditor tree/text) --- */
-.jse-wrap { height: 520px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-/* 편집기 툴바도 앱 강조색을 쓴다(라이브러리 기본 파랑 대신). 다크 테마 CSS보다 우선하도록 두 클래스로 잡는다. */
-.jse-wrap,
-.jse-wrap.jse-theme-dark {
-  --jse-theme-color: var(--teal);
-  --jse-theme-color-highlight: var(--surface-accent);
-  --jse-menu-color: var(--on-teal);
-}
-
-/* --- 설정 편집기 --- */
-.configs-files { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-.configs-file-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.configs-file[aria-pressed="true"] { border-color: var(--teal); background: var(--surface-accent); }
-.config-text {
-  width: 100%;
-  min-height: 460px;
-  padding: 12px;
-  resize: vertical;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--text);
-  background: var(--surface-accent-soft);
-}
-
 /* --- Catalog master-detail (검색/종류 세그먼트) --- */
 .cat-split { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
 /* 우측 상세가 길어 페이지가 스크롤돼도 좌측 목록/검색은 상단에 고정(nav와 동일한 sticky 방식).

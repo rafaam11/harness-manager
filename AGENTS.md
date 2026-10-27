@@ -40,7 +40,7 @@
 
 ### 확정 결정 (다시 묻지 않는다)
 - 버전은 **v3.0.0**이다. v2.x 태그가 이미 있으므로 2.0.0을 다시 쓰면 updater가 다운그레이드로 판단한다.
-- v2 기능 중 **정리/아카이브**와 **설정 편집기**만 남긴다. 카탈로그의 스킬·플러그인·MCP 조회 로직은 섹션 화면의 기반으로 재사용한다.
+- v2 기능 중 **정리/아카이브**만 남긴다(설정 편집기는 v3.3.0에서 뺐다. 설정은 install·capture가 관리 키 단위로 다룬다). 카탈로그의 스킬·플러그인·MCP 조회 로직은 섹션 화면의 기반으로 재사용한다.
 - 첫 화면은 **상태판 + 섹션 탭**이다. 위저드는 상단 버튼으로 연다.
 - 레포는 **public을 유지**하고 민감한 내용만 걸러낸다. electron-updater 익명 업데이트 때문이다.
 - Claude 마켓플레이스 이름은 **`jinmin`**을 유지한다. 플러그인 ID가 바뀌지 않게 하기 위해서다.
@@ -88,7 +88,7 @@
   - JSON은 레포가 정의한 **관리 키만** deep-merge한다.
   - TOML은 관리 테이블만 바꾼다. 주석이 보존되지 않으면 마커 블록 방식으로 전환한다.
   - 텍스트 파일(PS 프로필 등)은 `# >>> harness-manager >>>` … `# <<< harness-manager <<<` 마커 블록만 관리한다. 마크다운(AGENTS.md)은 `#`이 제목이라 `<!-- >>> harness-manager >>> -->` … `<!-- <<< harness-manager <<< -->`를 쓴다.
-  - 쓰기는 반드시 `lib/safe-write.ts` 경로를 탄다.
+  - 쓰기는 반드시 `writeFileChecked`(`services/capture/capture.ts`, install도 같은 함수) 경로를 탄다.
 - **경로 allowlist는 경로 단위로 연다.** manifest에서 정확한 경로 목록을 파생하고, 폴더 전체를 열지 않는다.
 - **렌더러는 step id만 보낸다.** 실행 파일과 인자는 main이 manifest에서 정한다. 렌더러가 보낸 임의 문자열은 실행하지 않는다.
 - **엔진은 Electron에 의존하지 않는다.** doctor·install·capture는 순수 Node 모듈로 만들어 앱, `hm-cli`, vitest가 함께 쓴다. 테스트는 `HM_HOME`·`HM_CLAUDE_HOME`·`HM_CODEX_HOME` 같은 환경변수로 임시 홈을 써서 실제 홈을 건드리지 않는다.
@@ -145,10 +145,10 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 2. **쓰기 직렬화**(`lib/lock.ts`)
    - 모든 변경 연산은 `withLock()` in-process 뮤텍스로 직렬화한다.
    - 이 방식은 앱이 하나만 떠 있어야 성립한다. 그래서 `app.requestSingleInstanceLock()`으로 단일 인스턴스를 강제한다.
-3. **낙관적 동시성과 백업**(`lib/safe-write.ts`)
-   - 쓰기는 다음 순서로 진행한다: `baseHash`(sha256) 대조 → `validateConfig` 구조 검증 → `.bak` 백업(20개 순환) → temp 파일 작성 → atomic rename.
-   - `baseHash`가 맞지 않으면 `ConflictError`(409)를 던진다.
-   - 백업은 `~/.harness-manager/backups`(`BACKUP_DIR`) 한 곳이다. 목록·복원은 설정 파일 basename으로 소속을 판단하고, 다른 파일의 백업으로는 복원하지 않는다. v2의 `~/.claude/backups/harness-manager`는 더 이상 쓰지 않는다.
+3. **낙관적 동시성과 백업**(`writeFileChecked`, `lib/safe-write.ts`의 `ConflictError`·`sha256`)
+   - 쓰기는 다음 순서로 진행한다: 계획 때 읽은 원본과 지금 파일 대조 → `~/.harness-manager/backups`(`BACKUP_DIR`)에 원본 백업 → temp 파일 작성 → atomic rename.
+   - 원본이 바뀌었으면 `ConflictError`(409)를 던진다.
+   - v2의 `~/.claude/backups/harness-manager`는 더 이상 쓰지 않는다.
 4. **사용자 레포의 git 작업(repo-sync)**
    - 대상 레포는 path-guard 밖이다. 대신 다음 규칙으로 지킨다.
      - 셸 없이 고정된 인자 목록만 실행한다: `rev-parse`·`status`·`fetch --prune`·`rev-list`·`merge --ff-only @{u}`.
@@ -266,22 +266,21 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 그래도 없으면 상태판·설치·가져오기·위저드가 연결 카드(`components/RepoConnect.tsx`)를 띄운다. "레포 받기"(`repo:clone`)는 공개 레포를 `~/dev/harness-manager`에 클론한다. 주소와 위치는 main이 정하고, 다른 파일이 든 폴더에는 받지 않는다(409).
   - CLI: `hm capture [--dry-run]`, `hm capture --apply --only <id,…> --yes`, `hm manifest validate`(실패 시 종료 코드 3).
   - 화면: "가져오기" 페이지(`pages/Capture.tsx`)가 항목별 diff·노트·노출 경고를 보여 주고 고른 항목만 적용한다.
-- `config.ts`: 경로 상수와 정책 값의 단일 출처다(`ALLOWED_ROOTS`, `CONFIG_FILES`, `STALE_DAYS`, `BACKUP_KEEP`, `APP_STATE_DIR=~/.harness-manager` 등).
+- `config.ts`: 경로 상수와 정책 값의 단일 출처다(`ALLOWED_ROOTS`, `STALE_DAYS`, `BACKUP_DIR`, `APP_STATE_DIR=~/.harness-manager` 등).
 - `providers/`: `ProviderAdapter`(claude, codex)와 `registry`. provider별 home·설정 파일·카탈로그·MCP·실행 감지를 맡는다.
-  - 인터페이스는 `listConfigFiles`·`readMcpServers`·`listCatalog`·`detectRunning`만 갖는다(세션·프로젝트·계획 조회는 M1에서 제거).
+  - 인터페이스는 `readMcpServers`·`listCatalog`·`detectRunning`만 갖는다(세션·프로젝트·계획 조회는 M1에서, 설정 파일 목록은 v3.3.0에서 제거).
 - `services/`: `catalog`, `plugins`, `mcp`, `scan`, `projects`(stale 계산 `getProjects`·`guessOriginalPath`).
 - v2가 사용자 PC에 남긴 앱 데이터(`~/.harness-manager/board.json`·`projects.json`, `~/.claude/harness-manager/*`)는 더 이상 읽지 않는다. 지우지 않고 정리 화면의 `leftovers` 후보로 보인다(스펙 D24).
 
 ### Renderer (`src/renderer/src/`, React 18)
 - 라우터와 상태관리 라이브러리를 쓰지 않는다. 화면 목록은 `pages/registry.tsx` 하나이고, `App.tsx`는 타이틀바·내비·본문을 그리는 셸만 맡는다.
 - 프레임: `components/TitleBar.tsx`(메뉴는 `title-bar-menu.ts`의 데이터, 창 버튼·테마 토글), `components/toast.tsx`(`showToast`), `components/confirm-dialog.tsx`(`useConfirmDialog` — `window.confirm` 대신), `components/UpdateBadge.tsx`(타이틀바 안에 그린다), `components/ui.tsx`(공통 컴포넌트).
-- 사이드바는 `nav.rail` 아이콘+짧은 글자 열이다. 페이지 정의(`registry.tsx`)가 `icon`(lucide)·`short`를 갖는다. 전역 provider 필터는 없고, 카탈로그·설정 편집기가 각자 `Tabs`로 provider를 고르며 선택을 localStorage에 기억한다(`useStoredProviderFilter`).
+- 사이드바는 `nav.rail` 아이콘+짧은 글자 열이다. 페이지 정의(`registry.tsx`)가 `icon`(lucide)·`short`를 갖는다. 전역 provider 필터는 없고, 카탈로그가 `Tabs`로 provider를 고르며 선택을 localStorage에 기억한다(`useStoredProviderFilter`).
 - 테마: `theme.ts`(`applyTheme`·`applyStoredTheme`·`useResolvedTheme`, 저장 키 `harness-manager.theme.v1`). 색은 `theme-colors.css`(mcw와 같은 값), 타입·모션 토큰은 `index.css` `:root`.
 - 계약 테스트: `typography-contract.test.ts`(글자 크기 11/12/13/14/16px, 굵기 400/600/700만), `motion-contract.test.ts`(CSS와 `motion-tokens.ts` 일치, `transition: all` 금지, reduced-motion 블록마다 `:root[data-reduce-motion]` 짝), `style-contract.test.ts`(색 리터럴·v2 별칭·죽은 클래스 금지).
 - 보존 대상 페이지:
   - `Catalog`: 읽기 전용 카탈로그
   - `Cleanup`: 스캔 → 선택 → dry-run → 실행 → 복구
-  - `ConfigEditor`: `vanilla-jsoneditor`, 409 충돌 처리
   - `UpdateBadge`
 - `provider-ui.ts`: provider 탭 옵션(`useStoredProviderFilter`), `providerLabel`·`providerBadgeClass`·`providerToneClass`.
 
@@ -289,8 +288,8 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 `api-types.ts`(IPC 계약 + DTO)와 `provider-types.ts`. `types.ts`는 둘을 다시 내보내는 진입점일 뿐이다.
 
 ### 설정 파일 정책
-- `settings.json`과 `settings.local.json`은 편집할 수 있다. `~/.claude.json`은 Claude Code가 상시 재작성하므로 **읽기 전용**이다. 쓰기 핸들러는 `writable:false`이면 403을 낸다. MCP 정의도 조회만 한다.
-- 검증은 `lib/json-validate.ts`(TOML은 `toml-validate.ts`)의 수동 구조 검사다. 공개 schemastore 스키마는 쓰지 않는다. 목적은 CC 기동을 깨뜨리는 저장을 막는 것뿐이다.
+- 앱에는 설정 파일을 직접 편집하는 화면이 없다(v3.3.0에서 설정 편집기 제거). `settings.json`·`config.toml`은 install이 관리 키만 merge하고, capture가 레포 템플릿으로 끌어온다.
+- `~/.claude.json`은 Claude Code가 상시 재작성하므로 **읽기 전용**이다. MCP 정의도 조회만 한다.
 
 ### 코드 규약
 - **ESM 상대 import는 `.js` 확장자를 유지한다**(`from "./config.js"`). `moduleResolution: Bundler`로 타입체크하고 esbuild가 resolve한다. 확장자를 임의로 떼지 않는다.

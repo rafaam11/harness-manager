@@ -21,7 +21,7 @@ describe("registerMainIpc", () => {
     const { listeners } = setup(() => {
       throw Object.assign(new Error("conflict"), { statusCode: 409 });
     });
-    await expect(listeners.get("config:write")?.({}, "a")).resolves.toEqual({
+    await expect(listeners.get("capture:apply")?.({}, "a")).resolves.toEqual({
       ok: false,
       statusCode: 409,
       error: "conflict",
@@ -37,16 +37,16 @@ describe("registerMainIpc", () => {
 
   it("passes arguments through and returns data", async () => {
     const { listeners, handlers } = setup((x) => `got ${String(x)}`);
-    await expect(listeners.get("config:read")?.({}, "settings")).resolves.toEqual({ ok: true, data: "got settings" });
-    expect(handlers["config:read"]).toHaveBeenCalledWith("settings");
+    await expect(listeners.get("catalog:content")?.({}, "settings")).resolves.toEqual({ ok: true, data: "got settings" });
+    expect(handlers["catalog:content"]).toHaveBeenCalledWith("settings");
   });
 
   it("refuses requests from untrusted senders without calling the handler", async () => {
     const { listeners, handlers } = setup(() => "secret", false);
-    await expect(listeners.get("config:read")?.({}, "settings")).resolves.toMatchObject({
+    await expect(listeners.get("catalog:content")?.({}, "settings")).resolves.toMatchObject({
       ok: false,
       statusCode: 403,
     });
-    expect(handlers["config:read"]).not.toHaveBeenCalled();
+    expect(handlers["catalog:content"]).not.toHaveBeenCalled();
   });
 });

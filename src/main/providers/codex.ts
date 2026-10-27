@@ -9,40 +9,10 @@ import type { ProviderAdapter } from "./types.js";
 export { CODEX_HOME };
 export const CODEX_CONFIG = path.join(CODEX_HOME, "config.toml");
 
-async function listProfileConfigs(): Promise<string[]> {
-  const entries = await fs.readdir(CODEX_HOME).catch(() => [] as string[]);
-  return entries
-    .filter((name) => name.endsWith(".config.toml") && name !== "config.toml")
-    .map((name) => path.join(CODEX_HOME, name));
-}
-
 export const codexProvider: ProviderAdapter = {
   id: "codex",
   label: "Codex",
   roots: { home: CODEX_HOME, configFiles: [CODEX_CONFIG] },
-  async listConfigFiles() {
-    const profiles = await listProfileConfigs();
-    return [
-      {
-        id: "codex-config",
-        provider: "codex",
-        label: "config.toml",
-        path: CODEX_CONFIG,
-        format: "toml",
-        scope: "user",
-        writable: true,
-      },
-      ...profiles.map((p) => ({
-        id: `codex-profile:${path.basename(p)}`,
-        provider: "codex" as const,
-        label: path.basename(p),
-        path: p,
-        format: "toml" as const,
-        scope: "user" as const,
-        writable: false,
-      })),
-    ];
-  },
   async readMcpServers() {
     const raw = await fs.readFile(CODEX_CONFIG, "utf8").catch(() => "");
     return raw ? readCodexMcpServersFromToml(raw) : [];

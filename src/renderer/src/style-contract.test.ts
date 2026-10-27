@@ -28,7 +28,7 @@ const V2_ALIASES = [
  * 코드가 이름을 조립해 붙이는 클래스의 접두. 이 접두로 시작하는 선택자는 TSX에 그대로 나오지 않아도 된다.
  * 예: `toast-${tone}`, `bdg-${kind}`, provider-ui의 `provider-${id}`, UpdateBadge의 `update-status ${state}`.
  */
-const DYNAMIC_PREFIXES = ["toast-", "bdg-", "provider-", "jse-", "md-body"];
+const DYNAMIC_PREFIXES = ["toast-", "bdg-", "provider-", "md-body"];
 const DYNAMIC_STATES = ["downloaded", "available", "error", "spinning", "ok", "warn", "fail", "info", "selected", "muted", "active", "open", "visible"];
 
 describe("style contract", () => {

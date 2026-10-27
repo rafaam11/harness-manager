@@ -62,26 +62,9 @@ describe("codex provider", () => {
     );
 
     const { codexProvider } = await loadCodexProvider();
-    const files = await codexProvider.listConfigFiles();
     const servers = await codexProvider.readMcpServers();
     const catalog = await codexProvider.listCatalog();
 
-    expect(files).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "codex-config",
-          format: "toml",
-          writable: true,
-          label: "config.toml",
-        }),
-        expect.objectContaining({
-          id: "codex-profile:work.config.toml",
-          format: "toml",
-          writable: false,
-          label: "work.config.toml",
-        }),
-      ]),
-    );
     expect(servers).toMatchObject([
       { name: "context7", scope: "user", transport: "stdio", command: "npx" },
     ]);

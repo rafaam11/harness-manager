@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NormalizedConfigFile } from "@shared/provider-types";
 
-const { getProvidersMock, claudeProvider, codexProvider, safeWriteMock, scanCandidatesMock, archiveItemsMock } =
+const { getProvidersMock, claudeProvider, codexProvider, scanCandidatesMock, archiveItemsMock } =
   vi.hoisted(() => {
     const makeProvider = (id: "claude" | "codex", catalogName: string, mcpName: string) => ({
       id,
       label: id,
       roots: { home: `/tmp/${id}`, configFiles: [] as string[] },
-      listConfigFiles: vi.fn(async (): Promise<NormalizedConfigFile[]> => []),
       readMcpServers: vi.fn(async () => [{ name: mcpName }]),
       listCatalog: vi.fn(async () => [{ name: catalogName }]),
       detectRunning: vi.fn(async () => false),
@@ -23,7 +21,6 @@ const { getProvidersMock, claudeProvider, codexProvider, safeWriteMock, scanCand
       getProvidersMock,
       claudeProvider,
       codexProvider,
-      safeWriteMock: vi.fn(async () => ({ sha256: "x", backup: "b" })),
       scanCandidatesMock: vi.fn(),
       archiveItemsMock: vi.fn(async (list: { path: string; reason: string }[]) =>
         list.map((i) => ({ original: i.path, archived: `/archive${i.path}`, reason: i.reason, movedAt: "t" })),
@@ -34,10 +31,6 @@ const { getProvidersMock, claudeProvider, codexProvider, safeWriteMock, scanCand
 vi.mock("./providers/registry.js", async () => ({
   ...(await vi.importActual<typeof import("./providers/registry.js")>("./providers/registry.js")),
   getProviders: getProvidersMock,
-}));
-vi.mock("./lib/safe-write.js", async () => ({
-  ...(await vi.importActual<typeof import("./lib/safe-write.js")>("./lib/safe-write.js")),
-  safeWrite: safeWriteMock,
 }));
 vi.mock("./services/scan.js", () => ({ scanCandidates: scanCandidatesMock }));
 vi.mock("./lib/archive.js", async () => ({
@@ -67,8 +60,6 @@ const handlers = createApiHandlers(deps);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  claudeProvider.listConfigFiles.mockResolvedValue([]);
-  codexProvider.listConfigFiles.mockResolvedValue([]);
 });
 
 describe("provider-aware catalog and MCP channels", () => {
@@ -92,46 +83,6 @@ describe("provider-aware catalog and MCP channels", () => {
   it.each(["", "bogus", undefined, 3])("rejects the provider filter %s with 400", async (filter) => {
     await expect(handlers["catalog:list"](filter)).rejects.toMatchObject({ statusCode: 400 });
     await expect(handlers["mcp:list"](filter)).rejects.toMatchObject({ statusCode: 400 });
-  });
-});
-
-describe("config writes", () => {
-  it("rejects Codex profile config writes even if a descriptor is mistakenly writable", async () => {
-    codexProvider.listConfigFiles.mockResolvedValue([
-      {
-        id: "codex-profile:work.config.toml",
-        provider: "codex",
-        label: "work.config.toml",
-        path: "/tmp/codex/work.config.toml",
-        format: "toml",
-        scope: "user",
-        writable: true,
-      },
-    ]);
-    await expect(
-      handlers["config:write"]("codex-profile:work.config.toml", 'model = "x"\n', "abc"),
-    ).rejects.toMatchObject({ statusCode: 403 });
-    expect(safeWriteMock).not.toHaveBeenCalled();
-  });
-
-  it("returns 404 for an unknown config id", async () => {
-    await expect(handlers["config:read"]("nope")).rejects.toMatchObject({ statusCode: 404 });
-  });
-
-  it("rejects a non-string content with 400 before touching the file", async () => {
-    claudeProvider.listConfigFiles.mockResolvedValue([
-      {
-        id: "settings",
-        provider: "claude",
-        label: "settings",
-        path: "/tmp/s.json",
-        format: "json",
-        scope: "user",
-        writable: true,
-      },
-    ]);
-    await expect(handlers["config:write"]("settings", 42, "abc")).rejects.toMatchObject({ statusCode: 400 });
-    expect(safeWriteMock).not.toHaveBeenCalled();
   });
 });
 

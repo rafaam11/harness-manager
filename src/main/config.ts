@@ -28,19 +28,12 @@ export const ALLOWED_ROOTS = [CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, APP_STATE_DI
 
 // 설정 파일 쓰기·복원의 .bak 백업 위치(앱 소유). v2의 ~/.claude/backups/harness-manager는 더 이상 쓰지 않는다.
 export const BACKUP_DIR = path.join(APP_STATE_DIR, "backups");
-export const BACKUP_KEEP = 20;
 
 export const ARCHIVE_ROOT = path.join(CLAUDE_HOME, "archive");
 
 export const STALE_DAYS = 30;
 export const AGENT_SIZE_WARN_BYTES = 19 * 1024;
 
-// 편집 가능한 설정 파일. claude-json은 MVP에서 읽기 전용 (CC가 상시 재작성).
-export const CONFIG_FILES: Record<string, { path: string; writable: boolean }> = {
-  settings: { path: path.join(CLAUDE_HOME, "settings.json"), writable: true },
-  "settings-local": { path: path.join(CLAUDE_HOME, "settings.local.json"), writable: true },
-  "claude-json": { path: CLAUDE_JSON, writable: false },
-};
 
 // 레포 일괄 최신화(repo-sync)의 결과·잠금·설정. 계약은 docs/contracts/repo-sync.md.
 export const REPO_SYNC_DIR = path.join(APP_STATE_DIR, "repo-sync");

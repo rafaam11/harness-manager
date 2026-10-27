@@ -9,12 +9,3 @@ export interface ProviderStatus {
   roots: string[];
 }
 
-export interface NormalizedConfigFile {
-  id: string;
-  provider: ProviderId;
-  label: string;
-  path: string;
-  format: "json" | "toml" | "markdown";
-  scope: "user" | "project" | "app";
-  writable: boolean;
-}

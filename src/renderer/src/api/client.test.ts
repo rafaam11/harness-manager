@@ -16,7 +16,7 @@ describe("call", () => {
 
   it("restores main's status code so callers can tell a conflict apart", async () => {
     installBridge((async () => ({ ok: false, statusCode: 409, error: "changed" })) as HarnessBridge["invoke"]);
-    const error = await call("config:write", "settings", "{}", "abc").catch((caught: unknown) => caught);
+    const error = await call("capture:apply", ["agents"], {}).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 409, message: "changed" });
   });

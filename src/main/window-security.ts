@@ -9,8 +9,6 @@ export const RENDERER_CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: https:",
   "font-src 'self' data:",
   "connect-src 'self' ws://localhost:* ws://127.0.0.1:*",
-  // vanilla-jsoneditor가 blob 워커를 쓴다.
-  "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
