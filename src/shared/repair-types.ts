@@ -24,7 +24,7 @@ export interface RepairSnapshot {
   lines: RepairLine[];
   result?: InstallStepResult;
   logFile?: string;
-  source?: { state: "unchanged" | "published" | "failed"; detail: string; workspace: string; commit?: string };
+  source?: { state: "unchanged" | "published" | "failed"; detail: string; workspace: string; commit?: string; url?: string };
 }
 
 export interface RepairBatchSnapshot { jobs: RepairSnapshot[]; maxParallel: number }

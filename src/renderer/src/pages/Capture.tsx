@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { CaptureItem, CapturePlan, CaptureTargetId, ManifestFileReport } from "@shared/manifest-types";
 import { Banner, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
-import RepoConnect from "../components/RepoConnect";
+import SetupProfilePicker from "../components/SetupProfilePicker";
+import PrivateTerms from "../components/PrivateTerms";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { showToast } from "../components/toast";
 
@@ -15,6 +16,7 @@ function itemState(item: CaptureItem): { tone: "ok" | "warn" | "err" | "muted"; 
 }
 
 const EXPOSURE_LABELS = {
+  credential: "인증 정보",
   "home-path": "홈 경로",
   "absolute-path": "절대경로",
   email: "이메일",
@@ -47,6 +49,7 @@ function DiffView({ diff }: { diff: string }) {
 }
 
 export default function Capture() {
+  const [profileVersion, setProfileVersion] = useState(0);
   const [plan, setPlan] = useState<CapturePlan | null>(null);
   const [reports, setReports] = useState<ManifestFileReport[] | null>(null);
   const [selected, setSelected] = useState<Set<CaptureTargetId>>(new Set());
@@ -74,17 +77,7 @@ export default function Capture() {
     void load();
   }, []);
 
-  const chooseRepo = async () => {
-    try {
-      const chosen = await call("capture:choose-repo");
-      if (chosen) {
-        showToast({ tone: "success", title: "레포 위치를 기억했습니다", detail: chosen });
-        await load();
-      }
-    } catch (caught) {
-      showToast({ tone: "error", title: "레포 폴더가 아닙니다", detail: (caught as Error).message });
-    }
-  };
+
 
   const applicable = plan?.items.filter((item) => item.applicable) ?? [];
   const chosen = applicable.filter((item) => selected.has(item.id));
@@ -135,22 +128,11 @@ export default function Capture() {
     <div className="capture-page">
       {dialog}
       <h2>가져오기</h2>
-      <p className="muted capture-intro">
-        이 PC의 설정을 레포 템플릿과 manifest로 끌어옵니다. 개인 부분은 로컬 프로필로 나뉘고, 공개 파일에 개인 정보가 남으면 적용할 수
-        없습니다.
-      </p>
+      <p className="muted capture-intro">이 PC의 설정을 선택한 개인 프로필로 가져옵니다. 실제 PC에 적용하는 작업은 설치 화면에서 실행합니다.</p>
+      <SetupProfilePicker disabled={busy} onChanged={() => { setProfileVersion((v) => v + 1); void load(); }} />
+      <PrivateTerms refreshKey={profileVersion} onSaved={() => void load()} />
       {error && <Banner tone="err">{error}</Banner>}
-
-      {plan && (
-        <div className="capture-repo">
-          <span className="muted">레포</span>
-          <span className="mono">{plan.repoRoot ?? "(모름)"}</span>
-          <button className="btn ghost" onClick={chooseRepo} disabled={busy}>
-            레포 폴더 선택
-          </button>
-        </div>
-      )}
-      {plan?.repoError && <RepoConnect onConnected={() => void load()} />}
+      {plan && <p className="capture-repo">저장할 프로필: {plan.repoRoot}</p>}
       {plan?.warnings.map((warning) => (
         <Banner tone="warn" key={warning}>
           {warning}
@@ -234,7 +216,7 @@ export default function Capture() {
                 <details className="capture-file" key={change.displayPath} open>
                   <summary>
                     <StatusTag tone={change.scope === "repo" ? "ok" : "muted"}>
-                      {change.scope === "repo" ? "레포" : "로컬 전용"}
+                      {change.scope === "repo" ? "프로필" : "개인 설정"}
                     </StatusTag>
                     <span className="mono">{change.displayPath}</span>
                     {!change.existed && <StatusTag tone="muted">새 파일</StatusTag>}

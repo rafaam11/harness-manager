@@ -1,3 +1,5 @@
+import { SetupProfileStore } from "./services/setup-profiles.js";
+import { APP_STATE_DIR } from "./config.js";
 import path from "node:path";
 import { CAPTURE_TARGET_IDS, type CaptureItem, type CaptureTargetId } from "@shared/manifest-types";
 import { ConflictError } from "./lib/safe-write.js";
@@ -7,7 +9,7 @@ import { validateManifest } from "./services/manifest/validate.js";
 export const CAPTURE_USAGE = `  hm capture [--dry-run] [--only <id,…>] [--repo <레포>] [--json]   현재 PC → 레포 템플릿 미리보기(기본)
   hm capture --apply --only <id,…> --yes [--repo <레포>] [--json]   미리보기와 같은 내용을 쓴다
   hm manifest validate [--repo <레포>] [--json]                      manifest/*.json 검사(실패하면 종료 코드 3)
-  capture --apply가 거절되면(미리보기 뒤 변경, 노출 경고, private-terms.json 없음) 종료 코드 4
+  capture --apply가 거절되면(미리보기 뒤 변경, 노출 경고, 잘못된 프로필 형식) 종료 코드 4
 
   capture 대상 id: ${CAPTURE_TARGET_IDS.join(", ")}`;
 
@@ -106,13 +108,10 @@ export async function runCaptureCli(argv: string[]): Promise<number> {
     return 2;
   }
   const repoRoot = await repoFor(args);
-  if (!repoRoot) {
-    process.stderr.write("harness-manager 레포를 찾지 못했습니다. --repo <경로>나 HM_REPO를 주세요.\n");
-    return 2;
-  }
+
 
   if (args.command === "validate") {
-    const reports = await validateManifest(repoRoot);
+    const reports = await validateManifest((await new SetupProfileStore(APP_STATE_DIR, repoRoot).active()).root);
     if (args.json) process.stdout.write(`${JSON.stringify(reports)}\n`);
     else {
       for (const report of reports) {

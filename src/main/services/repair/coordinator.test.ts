@@ -13,6 +13,14 @@ beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), "hm-para
 afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
 const context = async () => ({ repoRoot: "/repo", env: {}, refreshEnvironment: async () => false }) as unknown as InstallContext;
 
+it("does not prepare or publish source changes without contribution consent", async () => {
+  const tasks=new InstallSession();const prepare=vi.fn();
+  const coordinator=new RepairCoordinator(tasks,vi.fn(),root,prepare,async()=>undefined);
+  coordinator.enqueue(context,ids[0],"codex");
+  await vi.waitFor(()=>expect(coordinator.snapshot().jobs[0].running).toBe(false));
+  expect(prepare).not.toHaveBeenCalled();
+});
+
 it("runs independent repairs concurrently, queues at three, rejects duplicates, and cancels queued jobs", async () => {
   const tasks = new InstallSession();
   const started: string[] = [];

@@ -144,13 +144,25 @@ if (!app.requestSingleInstanceLock()) {
           state: () => (mainWindow ? chromeState(mainWindow) : { maximized: false, fullScreen: false }),
         },
         updater: { status: updaterStatus, check: checkForUpdates, install: installUpdateAndQuit },
-        // 개발 빌드는 앱 경로가 곧 레포 클론이다. 설치본은 asar라 repo.json(폴더 선택)이 필요하다.
+        // 개발 소스 연결은 선택 사항이다. 설치본의 프로필·설치 기능은 번들로 동작한다.
         repoStartDirs: () => (app.isPackaged ? [] : [app.getAppPath()]),
         chooseDirectory: async (title) => {
           const options = { title, properties: ["openDirectory" as const] };
           const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
           return result.canceled ? null : (result.filePaths[0] ?? null);
         },
+        chooseProfileFile: async (mode) => {
+          const filters = [{ name: "HM 프로필", extensions: ["hmprofile.json"] }];
+          if (mode === "save") {
+            const options = { title: "프로필 내보내기", defaultPath: "my-profile.hmprofile.json", filters };
+            const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+            return result.canceled ? null : result.filePath ?? null;
+          }
+          const options = { title: "프로필 가져오기", filters, properties: ["openFile" as const] };
+          const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+          return result.canceled ? null : result.filePaths[0] ?? null;
+        },
+        profileLog: (event) => { if (mainWindow && !mainWindow.isDestroyed()) sendToMainWindow(mainWindow, "profiles:log", event); },
         install: {
           session: installSession,
           emitRepair: (event) => {

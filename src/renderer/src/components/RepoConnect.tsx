@@ -34,7 +34,7 @@ export default function RepoConnect({ onConnected }: { onConnected: (repoRoot: s
       <FolderGit2 className="repo-connect-icon" size={28} aria-hidden />
       <h3 id="repo-connect-title">레포를 연결하세요</h3>
       <p className="muted">
-        상태판·설치·가져오기는 harness-manager 레포의 manifest를 기준으로 합니다. 이 PC에서 클론을 찾지 못했습니다.
+        앱 소스 개발이나 기존 레포 프로필 가져오기에 사용할 폴더를 연결합니다. 일반 프로필 관리·진단·설치에는 필요하지 않습니다.
       </p>
       <div className="repo-connect-actions">
         <button className="btn" onClick={() => void act("clone")} disabled={busy !== null}>

@@ -243,19 +243,21 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
     - 설치 중 종료는 QuitCoordinator가 묻고 취소한 뒤 끝나기를 기다린다.
   - 화면: "설치" 페이지(`pages/Install.tsx`)는 할 일 목록, 명령, 파일 diff, `LogTerminal`로 되어 있다.
   - CLI: `hm install`(미리보기), `hm install --run --only <id,…|all> --yes`(실패 step이 있으면 종료 코드 5)
-  - self 마켓플레이스 소스는 `~/.harness-manager/settings.json`의 `selfMarketplaceSource`(directory 기본 / github)이고, CLI는 `--self-source`로 바꾼다.
+  - self 마켓플레이스 소스는 `~/.harness-manager/settings.json`의 `selfMarketplaceSource`(github 기본 / directory는 개발자 선택)이고, CLI는 `--self-source`로 바꾼다.
 - **AI 설치 복구**: `services/repair/`, 공통 화면 `components/RepairPanel.tsx`.
   - 위저드 실행 결과·설치 페이지의 실패 항목에서 설치된 Codex/Claude Code에 해결을 요청한다. 렌더러는 step id와 provider만 전달하고 main이 계획·최근 오류·로그를 구성한다.
   - 사용자 요청에 따라 Codex `exec --json --dangerously-bypass-approvals-and-sandbox`, Claude Code `--dangerously-skip-permissions`(stream-json)를 쓴다. 실행 전 앱 대화상자에 자동 실행·문맥 전달·소스 커밋/푸시 범위를 표시한다. 기존 로그인·모델 설정은 유지한다.
   - AI 종료 후 doctor/plan을 확인하고 해당 항목만 자동 재실행한다. 최대 3회, 회당 15분, Claude는 20턴 상한이다. 시스템 패키지 제거·MSI/NVM 이관은 프롬프트에서 수동 조치로 제한한다. YOLO는 OS 격리 장치가 아니다.
   - `RepairCoordinator`가 최대 3개를 병렬 실행한다. 같은 provider 설정과 공용 플러그인/MCP·런타임 자원은 순서를 지킨다. `InstallSession`은 일반 설치와 복구를 서로 배제하며 앱 종료 시 대기·실행 중 작업을 모두 취소하고 프로세스 트리 종료를 기다린다.
   - 작업별 상태·로그·취소를 제공한다. 복구 로그는 `~/.harness-manager/repair/logs/`에 비밀값을 가려 보관한다.
-  - 공통 버그는 `repair/workspaces/`의 별도 dev 클론에서 수정한다. 호스트가 공개할 파일 범위·홈 경로·비공개 낱말·비밀값을 검사하고 npm test → typecheck → build 후 커밋한다. fetch/merge/재검증/push는 직렬화한다. 충돌·권한 부족·실패는 사본을 남기고 보고한다. force/reset/stash/자동 태그·배포는 하지 않는다. 개인 프로필은 HM 공개 소스 반영 대상이 아니다.
-- **사용자 프로필**: `services/setup-profiles.ts`, `SetupProfilePicker`, `hm profiles`.
-  - `settings.json.setupProfileId`로 하나만 선택한다. 공통 기본은 Git·Node·Claude·Codex만 관리한다. 기존 루트 manifest/home은 `legacy`(jinmin 예시)로 명시 선택할 때만 사용한다.
-  - 로컬 프로필은 `~/.harness-manager/profiles/<id>/definition/{manifest,home}`에 저장한다. 별도 비공개 Git 클론도 폴더로 연결할 수 있다. PC 전용 오버레이는 `<id>/local/`에 따로 보관한다.
-  - doctor/install의 `repoRoot`는 HM 앱 소스, `templateRoot`는 선택한 프로필이다. 자체 마켓플레이스와 Node 보호 스크립트는 앱 레포를 가리킨다. capture는 선택한 프로필만 갱신한다. 공통 기본은 읽기 전용이며 capture 전에 개인 사본을 만든다.
-  - 프로필 누락·잘못된 manifest는 오류로 중단한다. 다른 프로필로 대체하거나 개인 설정을 자동 이관하지 않는다. 토큰·로그인 파일은 복사하지 않는다.
+  - 요청별 기여 동의가 있는 경우에만 공통 버그를 `repair/workspaces/`의 별도 dev 클론에서 수정한다. 일반 사용자는 fork·작업 브랜치·PR을 사용하며, 명시적인 관리자 모드와 쓰기 권한을 확인한 경우에만 dev 직접 push를 허용한다. 호스트가 공개할 파일 범위·홈 경로·비공개 낱말·비밀값을 검사하고 npm test → typecheck → build 후 커밋한다. fetch/merge/재검증/push는 직렬화한다. 충돌·권한 부족·실패는 사본을 남기고 보고한다. force/reset/stash/자동 태그·배포는 하지 않는다. 개인 프로필은 HM 공개 소스 반영 대상이 아니다.
+- **사용자 프로필**: `services/setup-profiles.ts`, `profile-document.ts`, `profile-sync.ts`, 프로필 화면, `hm profiles`.
+  - 일반 사용은 Git·HM 소스 레포 없이 동작한다. 번들 공통 기본은 읽기 전용이며 개인 사본을 만들어 편집한다. 설치 정의는 `profiles/<id>/definition/`, 개인 오버레이와 비공개 낱말·이동 선택은 `<id>/local/`이다.
+  - `repoRoot`는 선택적인 개발 소스 경로(null 허용), `templateRoot`는 선택한 프로필이다. Node 보호 스크립트는 앱 번들을 사용하며 self 마켓플레이스는 일반 사용자에게 GitHub 소스를 사용한다.
+  - 프로필 편집은 구조화된 입력 → main 검증·미리보기 토큰 → 지문 재확인·백업 후 저장이다. 저장·동기화와 실제 설치는 별도이다. 프로필 보관·복원은 파일을 지우지 않는다. 외부 폴더는 연결만 해제한다.
+  - 파일 이동은 버전 1 `.hmprofile.json`이다. 정의와 선택한 개인 설정만 포함하고 인증 정보·PC 절대경로는 제외한다. 지원하지 않는 형식·파일·링크는 거부한다.
+  - GitHub 동기화는 프로필별 선택 기능이며 git/gh와 비공개 저장소를 쓴다. 전용 클론에서 작업하며 원격 변경·로컬 지문·공개 전환을 재확인한다. 충돌은 파일별 선택한다. force push·reset·원격 자동 적용은 하지 않는다.
+  - 기존 `legacy` 선택은 원본을 보존하여 개인 사본으로 이전한다. 기존 local/linked ID와 선택은 유지한다. 비공개 낱말 파일이 없으면 빈 목록을 자동 생성하며 가져오기 화면에서 편집한다.
 - **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
   - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.
   - 프로필은 `~/.harness-manager/settings.json`의 `profile`(없으면 full). CLI는 `hm doctor [--profile p] [--all] [--json]`.
@@ -274,12 +276,12 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - 레포 `home/`: 배포 템플릿. `home/managed-keys.json`이 settings.json·config.toml에서 관리할 키 목록이다. 템플릿 값은 capture가 채운다.
   - `services/capture/`: 현재 PC → 레포 템플릿. 대상은 agents, claude-md, claude-settings, codex-config, plugins, mcp, skills.
     - 공개·개인 분리: 개인 값은 `~/.harness-manager/profile/`(AGENTS.local.md, `*.local.json`, `manifest.local.json`)로 보낸다.
-    - 비공개 낱말 목록은 `profile/private-terms.json`(`{"terms":[…]}`)이다. **이 파일이 없으면 미리보기만 되고 적용은 막힌다.**
+    - 비공개 낱말 목록은 `profile/private-terms.json`(`{"terms":[…]}`)이다. 파일이 없으면 빈 목록을 초기화하며 UI에서 수정한다. 인증 정보 검사는 목록과 독립적으로 유지한다.
     - 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 적용을 막는다.
     - plugins·mcp·skills는 더하기만 한다(빼기는 사람이 manifest를 직접 고친다). MCP env 값은 옮기지 않고 `${이름}` 자리표시로 적는다.
     - 적용: 렌더러는 대상 id와 미리보기 지문만 보내고, main이 다시 계획해 지문이 같을 때만 계획한 파일을 쓴다(파일 단위 allowlist, 원본 백업, temp → rename). 다르면 409다.
   - 레포 위치: `HM_REPO` → `~/.harness-manager/repo.json` → 개발 빌드는 앱 경로 → 자동 탐색(`jinmin` 마켓플레이스의 directory 소스, `~/dev` 등 흔한 폴더의 `harness-manager`, 찾으면 repo.json에 기억). CLI는 `--repo`도 받는다.
-  - 그래도 없으면 상태판·설치·가져오기·위저드가 연결 카드(`components/RepoConnect.tsx`)를 띄운다. "레포 받기"(`repo:clone`)는 공개 레포를 `~/dev/harness-manager`에 클론한다. 주소와 위치는 main이 정하고, 다른 파일이 든 폴더에는 받지 않는다(409).
+  - 일반 화면에는 레포 연결을 요구하지 않는다. 프로필 화면의 개발자 설정에서만 연결 카드(`components/RepoConnect.tsx`)를 제공한다. "레포 받기"(`repo:clone`)는 공개 레포를 `~/dev/harness-manager`에 클론한다. 주소와 위치는 main이 정하고, 다른 파일이 든 폴더에는 받지 않는다(409).
   - CLI: `hm capture [--dry-run]`, `hm capture --apply --only <id,…> --yes`, `hm manifest validate`(실패 시 종료 코드 3).
   - 화면: "가져오기" 페이지(`pages/Capture.tsx`)가 항목별 diff·노트·노출 경고를 보여 주고 고른 항목만 적용한다.
 - `config.ts`: 경로 상수와 정책 값의 단일 출처다(`ALLOWED_ROOTS`, `STALE_DAYS`, `BACKUP_DIR`, `APP_STATE_DIR=~/.harness-manager` 등).
@@ -304,7 +306,7 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
 `api-types.ts`(IPC 계약 + DTO)와 `provider-types.ts`. `types.ts`는 둘을 다시 내보내는 진입점일 뿐이다.
 
 ### 설정 파일 정책
-- 앱에는 설정 파일을 직접 편집하는 화면이 없다(v3.3.0에서 설정 편집기 제거). `settings.json`·`config.toml`은 install이 관리 키만 merge하고, capture가 레포 템플릿으로 끌어온다.
+- 프로필 화면은 설치 정의와 관리 템플릿을 편집한다. 살아 있는 CLI 설정 파일을 직접 편집하는 화면은 없다. `settings.json`·`config.toml`은 install이 관리 키만 merge하고, capture가 레포 템플릿으로 끌어온다.
 - `~/.claude.json`은 Claude Code가 상시 재작성하므로 **읽기 전용**이다. MCP 정의도 조회만 한다.
 
 ### 코드 규약

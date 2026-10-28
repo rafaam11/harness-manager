@@ -27,6 +27,7 @@ import { displayCommand, processRunner, type CommandRunner, type CommandSpec, ty
 import { HASH_MARKERS, MARKDOWN_MARKERS, adoptSectionsIntoBlock, mergeManagedJson, patchTomlScalars, tomlEntriesFor, upsertMarkerBlock } from "./merge.js";
 
 export interface InstallContext extends DoctorContext {
+  contribution?: "none" | "pr" | "direct";
   runner: CommandRunner;
   /** 이 레포 마켓플레이스(jinmin)를 붙일 소스. 개발 PC는 레포 폴더, 새 PC는 GitHub(D15). */
   selfSource: "directory" | "github";
@@ -249,7 +250,7 @@ function fileStep(base: Omit<StepDef, "plan" | "apply">, compute: (ctx: InstallC
 
 async function claudeMdChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.claudeHome, "CLAUDE.md");
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "CLAUDE.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "claude", "CLAUDE.md"));
   if (template === null) throw new StepFailure("레포에 home/claude/CLAUDE.md가 없습니다");
   const before = await readText(absPath);
   // 내용이 없거나 레포 것만 있던 파일은 그대로 바꾸고, 사용자가 쓴 다른 내용이 있으면 마커 블록으로 덧붙인다.
@@ -259,7 +260,7 @@ async function claudeMdChange(ctx: InstallContext): Promise<FileChange> {
 
 async function agentsMdChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.codexHome, "AGENTS.md");
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "agents", "AGENTS.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "agents", "AGENTS.md"));
   if (template === null) throw new StepFailure("레포에 home/agents/AGENTS.md가 없습니다");
   const before = await readText(absPath);
   const headings = splitMarkdownSections(template)
@@ -277,7 +278,7 @@ async function claudeSettingsChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.claudeHome, "settings.json");
   const before = await readText(absPath);
   const current = before === null ? {} : (JSON.parse(before) as Record<string, unknown>);
-  const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "settings.managed.json"));
+  const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "claude", "settings.managed.json"));
   const overlay = await readJsonObject(path.join(ctx.profileDir, "claude-settings.local.json"));
   const keys = (await managedKeys(ctx)).claudeSettings;
   const next = mergeManagedJson(current, keys, template, overlay);
@@ -288,7 +289,7 @@ async function claudeSettingsChange(ctx: InstallContext): Promise<FileChange> {
 async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = path.join(ctx.codexHome, "config.toml");
   const before = (await readText(absPath)) ?? null;
-  const templateText = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "codex", "config.managed.toml"));
+  const templateText = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "codex", "config.managed.toml"));
   const template = templateText ? (parseToml(templateText) as Record<string, unknown>) : {};
   const overlay = await readJsonObject(path.join(ctx.profileDir, "codex-config.local.json"));
   const keys = (await managedKeys(ctx)).codexConfig;
@@ -302,7 +303,7 @@ async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
  */
 async function powershellProfileChange(ctx: InstallContext): Promise<FileChange> {
   const absPath = powershellProfilePath(ctx.documentsDir);
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "powershell", "profile.ps1"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "powershell", "profile.ps1"));
   if (template === null) throw new StepFailure("레포에 home/powershell/profile.ps1이 없습니다");
   const before = await readText(absPath);
   const body = stripBom(before ?? "");
@@ -316,7 +317,7 @@ async function powershellProfileChange(ctx: InstallContext): Promise<FileChange>
 /** git 전역 설정의 관리 키를 `git config`로 맞춘다. 레포 값 위에 로컬 오버레이(이메일 등)를 얹는다. */
 function gitconfigStep(rank: number): StepDef {
   const desired = async (ctx: InstallContext): Promise<CommandSpec[]> => {
-    const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "git", "gitconfig.json"));
+    const template = await readJsonObject(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "git", "gitconfig.json"));
     const overlay = await readJsonObject(path.join(ctx.profileDir, "gitconfig.local.json"));
     const expected = { ...template, ...overlay };
     const keys = (await managedKeys(ctx)).gitconfig.filter((key) => typeof expected[key] === "string");
@@ -341,7 +342,7 @@ function gitconfigStep(rank: number): StepDef {
 // ───────────────────────────── 마켓플레이스·플러그인 ─────────────────────────────
 
 function marketplaceSource(ctx: InstallContext, entry: MarketplaceEntry): string {
-  if (entry.source.kind === "self") return ctx.selfSource === "directory" ? ctx.repoRoot : SELF_GITHUB_SOURCE;
+  if (entry.source.kind === "self") return ctx.selfSource === "directory" && ctx.repoRoot ? ctx.repoRoot : SELF_GITHUB_SOURCE;
   return entry.source.kind === "github" ? entry.source.repo : entry.source.url;
 }
 
@@ -686,7 +687,7 @@ async function executeInstallWith(
 // ───────────────────────────── 실제 PC용 기본값 ─────────────────────────────
 
 export async function defaultInstallContext(
-  repoRoot: string,
+  repoRoot: string | null,
   options: { profile?: Profile; selfSource?: "directory" | "github" } = {},
 ): Promise<InstallContext> {
   return {

@@ -24,6 +24,7 @@ import { refreshWindowsEnvironment } from "./platform-env.js";
 import { RepairCoordinator } from "./services/repair/coordinator.js";
 import { createRepairSource } from "./services/repair/source.js";
 import { SetupProfileStore } from "./services/setup-profiles.js";
+import { profileHandlers } from "./profile-handlers.js";
 import { repairProviders } from "./services/repair/agent.js";
 import { aggregateTaskbarProgress, type TaskbarProgress } from "./window-progress.js";
 import { getProviders } from "./providers/registry.js";
@@ -66,6 +67,8 @@ export interface ApiDependencies {
   repoStartDirs(): string[];
   /** OS 폴더 선택 창. 취소하면 null. */
   chooseDirectory(title: string): Promise<string | null>;
+  chooseProfileFile?(mode: "open" | "save"): Promise<string | null>;
+  profileLog?(event: { stream: "stdout" | "stderr" | "info"; text: string }): void;
   install: {
     session: InstallSession;
     emit(event: InstallEvent): void;
@@ -87,12 +90,12 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
   const repair = new RepairCoordinator(deps.install.session, deps.install.emitRepair, path.join(APP_STATE_DIR, "repair"), createRepairSource());
   const profileStore = async () => {
     const root = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
-    if (!root) throw new RequestError(409, "먼저 HM 앱 레포를 연결하세요");
     return new SetupProfileStore(APP_STATE_DIR, root);
   };
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
+    ...profileHandlers(deps, profileStore),
     "app:version": () => deps.appVersion(),
     "app:open-releases": () => deps.openReleases(),
     "app:open-external": (url) => deps.openExternal(externalUrl(url)),
@@ -180,7 +183,6 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     "repo:clone": () => withLock(() => cloneRepo(processRunner)),
     "manifest:validate": async () => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
-      if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
       return validateManifest((await new SetupProfileStore(APP_STATE_DIR, repoRoot).active()).root);
     },
 
@@ -188,21 +190,12 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
 
     "install:plan": async () => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
-      if (!repoRoot) {
-        return {
-          repoRoot: null,
-          repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
-          profile: (await readAppSettings(APP_SETTINGS_FILE)).profile,
-          steps: [],
-        };
-      }
       return planInstallWith(await defaultInstallContext(repoRoot));
     },
     "install:run": async (ids) => {
       const requested = nonEmptyStringArray(ids, "ids", 1_000);
       return deps.install.session.run(async (signal) => {
       const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
-      if (!repoRoot) throw new RequestError(409, "harness-manager 레포 클론 위치를 모릅니다");
       const ctx = await defaultInstallContext(repoRoot);
       // 렌더러가 보낸 id는 지금 계획에 있는 step이어야 한다. 실행할 명령은 main이 manifest에서 다시 만든다.
       const known = new Set((await planInstallWith(ctx)).steps.map((step) => step.id));
@@ -227,19 +220,21 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
 
     "repair:providers": async () => repairProviders(await refreshWindowsEnvironment(process.env)),
     "repair:status": () => repair.snapshot(),
-    "repair:run": (stepId, provider) => {
+    "repair:run": (stepId, provider, contribution = "none") => {
       const id = nonEmptyString(stepId, "stepId");
       if (provider !== "codex" && provider !== "claude") throw new RequestError(400, "provider must be codex or claude");
+      if (!["none", "pr", "direct"].includes(contribution as string)) throw new RequestError(400, "잘못된 기여 방식입니다");
       return repair.enqueue(async () => {
+        if (contribution === "direct" && !(await readAppSettings(APP_SETTINGS_FILE)).maintainerMode) throw new RequestError(403, "관리자 모드를 먼저 활성화하세요");
         const repoRoot = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
-        if (!repoRoot) throw new RequestError(409, "harness-manager 레포 위치를 모릅니다");
-        return defaultInstallContext(repoRoot);
+        return { ...await defaultInstallContext(repoRoot), contribution: contribution as "none" | "pr" | "direct" };
       }, id, provider);
     },
     "repair:cancel": (jobId) => repair.cancel(nonEmptyString(jobId, "jobId")),
+    "repair:retry-source": (jobId) => repair.retrySource(nonEmptyString(jobId, "jobId")),
 
     "settings:get": () => readAppSettings(APP_SETTINGS_FILE),
-    "profiles:list": async () => (await profileStore()).list(),
+    "profiles:list": async () => { const store = await profileStore(); const list = await store.list(); if (list.activeId === "legacy") { await store.active(); return store.list(); } return list; },
     "profiles:select": (id) => {
       const value = nonEmptyString(id, "id");
       return deps.install.session.run(async () => { const result = await (await profileStore()).select(value); repair.reset(); return result; });
@@ -258,8 +253,9 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       });
     },
     "settings:set": async (patch) => {
-      const value = exactObject(patch, ["profile", "selfMarketplaceSource"], "settings");
+      const value = exactObject(patch, ["profile", "selfMarketplaceSource", "maintainerMode"], "settings");
       const next: Partial<AppSettings> = {};
+      if (value.maintainerMode !== undefined) next.maintainerMode = booleanValue(value.maintainerMode, "maintainerMode");
       if (value.profile !== undefined) {
         if (!PROFILES.includes(value.profile as Profile)) throw new RequestError(400, "profile must be core, dev or full");
         next.profile = value.profile as Profile;

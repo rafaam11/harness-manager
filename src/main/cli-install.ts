@@ -94,10 +94,7 @@ export async function runInstallCli(argv: string[]): Promise<number> {
     return 2;
   }
   const repoRoot = await resolveRepoRoot({ explicit: args.repo, startDirs: [path.dirname(process.argv[1] ?? "."), process.cwd()] });
-  if (!repoRoot) {
-    process.stderr.write("harness-manager 레포를 찾지 못했습니다. --repo <경로>나 HM_REPO를 주세요.\n");
-    return 2;
-  }
+
   const ctx = await defaultInstallContext(repoRoot, { profile: args.profile, selfSource: args.selfSource });
   const plan = await planInstallWith(ctx);
   if (!args.run) {

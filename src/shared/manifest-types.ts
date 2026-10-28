@@ -14,6 +14,7 @@ export interface AppSettings {
   profile: Profile;
   /** 사용자별 설치 정의. core/dev/full은 이 프로필 안의 설치 범위다. */
   setupProfileId?: string;
+  maintainerMode?: boolean;
   /** 이 레포 마켓플레이스(jinmin)를 붙일 소스. 개발 PC는 레포 폴더, 새 PC는 GitHub(D15). */
   selfMarketplaceSource: "directory" | "github";
 }
@@ -149,7 +150,7 @@ export const CAPTURE_TARGET_IDS: readonly CaptureTargetId[] = [
 
 /** 공개 레포에 들어가면 안 되는 것을 찾은 자리. 하나라도 있으면 그 항목은 적용할 수 없다. */
 export interface ExposureFlag {
-  kind: "home-path" | "absolute-path" | "email" | "private-term";
+  kind: "home-path" | "absolute-path" | "email" | "private-term" | "credential";
   /** 레포 파일 기준 1부터 세는 줄 번호. */
   line: number;
   text: string;

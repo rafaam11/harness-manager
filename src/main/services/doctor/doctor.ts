@@ -35,7 +35,7 @@ import { getPath, normalizeNewlines, splitMarkdownSections } from "../capture/te
 
 /** doctor가 보는 위치와 바깥 세계. 테스트는 전부 바꿔 끼운다. */
 export interface DoctorContext {
-  repoRoot: string;
+  repoRoot: string | null;
   /** 앱 소스와 선택한 사용자 프로필을 구분한다. 테스트의 기존 fixture는 repoRoot를 쓴다. */
   templateRoot?: string;
   setupProfile?: { id: string; name: string; root: string };
@@ -142,7 +142,7 @@ export interface Manifests {
 }
 
 export async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
-  const file = (name: string) => readJson(path.join(ctx.templateRoot ?? ctx.repoRoot, "manifest", `${name}.json`));
+  const file = (name: string) => readJson(path.join(ctx.templateRoot ?? ctx.repoRoot!, "manifest", `${name}.json`));
   const [packages, tools, plugins, mcp, skills, overlay] = await Promise.all([
     file("packages"),
     file("tools"),
@@ -249,7 +249,7 @@ function managedKeyChecks(
 }
 
 export async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings: string[]; codexConfig: string[]; gitconfig: string[] }> {
-  const value = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "managed-keys.json"));
+  const value = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "managed-keys.json"));
   const strings = (key: string) => (isRecord(value) && Array.isArray(value[key]) ? (value[key] as unknown[]).filter((entry): entry is string => typeof entry === "string") : []);
   return { claudeSettings: strings("claudeSettings"), codexConfig: strings("codexConfig"), gitconfig: strings("gitconfig") };
 }
@@ -257,7 +257,7 @@ export async function managedKeys(ctx: DoctorContext): Promise<{ claudeSettings:
 async function checkClaude(ctx: DoctorContext, manifests: Manifests): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [await toolCheck(ctx, manifests.tools.find((tool) => tool.id === "claude"), "claude")];
 
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "CLAUDE.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "claude", "CLAUDE.md"));
   const current = await readText(path.join(ctx.claudeHome, "CLAUDE.md"));
   if (template !== null) {
     const normalize = (text: string) =>
@@ -277,7 +277,7 @@ async function checkClaude(ctx: DoctorContext, manifests: Manifests): Promise<Do
 
   const keys = (await managedKeys(ctx)).claudeSettings;
   const settings = await readJson(path.join(ctx.claudeHome, "settings.json"));
-  const settingsTemplate = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "claude", "settings.managed.json"));
+  const settingsTemplate = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "claude", "settings.managed.json"));
   const overlay = await readJson(path.join(ctx.profileDir, "claude-settings.local.json"));
   checks.push(
     ...managedKeyChecks(
@@ -295,7 +295,7 @@ async function checkCodex(ctx: DoctorContext, manifests: Manifests): Promise<Doc
   const checks: DoctorCheck[] = [await toolCheck(ctx, manifests.tools.find((tool) => tool.id === "codex"), "codex")];
 
   // 전역 AGENTS.md는 ~/.codex에 살고 Claude는 CLAUDE.md의 @import로 같은 파일을 읽는다.
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "agents", "AGENTS.md"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "agents", "AGENTS.md"));
   const current = await readText(path.join(ctx.codexHome, "AGENTS.md"));
   if (template !== null) {
     const squash = (text: string) => normalizeNewlines(text).replace(/\s+/g, " ").trim();
@@ -312,7 +312,7 @@ async function checkCodex(ctx: DoctorContext, manifests: Manifests): Promise<Doc
 
   const keys = (await managedKeys(ctx)).codexConfig;
   const config = await readTomlFile(path.join(ctx.codexHome, "config.toml"));
-  const templateText = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "codex", "config.managed.toml"));
+  const templateText = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "codex", "config.managed.toml"));
   let configTemplate: Record<string, unknown> | null = null;
   try {
     configTemplate = templateText ? (parseToml(templateText) as Record<string, unknown>) : null;
@@ -326,7 +326,7 @@ async function checkCodex(ctx: DoctorContext, manifests: Manifests): Promise<Doc
 
 function selfSourceState(ctx: DoctorContext, kind: string, location: string): { state: DoctorCheck["state"]; detail: string } {
   if (kind === "directory") {
-    return samePath(location, ctx.repoRoot)
+    return ctx.repoRoot && samePath(location, ctx.repoRoot)
       ? { state: "ok", detail: `이 레포 폴더(directory)` }
       : { state: "drift", detail: `다른 폴더를 가리킵니다: ${tildify(location, ctx.home)}` };
   }
@@ -553,7 +553,7 @@ async function checkCua(ctx: DoctorContext, manifests: Manifests): Promise<Docto
 
 async function checkDotfiles(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
-  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "powershell", "profile.ps1"));
+  const template = await readText(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "powershell", "profile.ps1"));
   if (template !== null) {
     const id = "dotfiles.powershell-profile";
     const target = powershellProfilePath(ctx.documentsDir);
@@ -575,7 +575,7 @@ async function checkDotfiles(ctx: DoctorContext): Promise<DoctorCheck[]> {
   }
 
   const keys = (await managedKeys(ctx)).gitconfig;
-  const templateValue = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot, "home", "git", "gitconfig.json"));
+  const templateValue = await readJson(path.join(ctx.templateRoot ?? ctx.repoRoot!, "home", "git", "gitconfig.json"));
   const overlayValue = await readJson(path.join(ctx.profileDir, "gitconfig.local.json"));
   const expected = { ...(isRecord(templateValue) ? templateValue : {}), ...(isRecord(overlayValue) ? overlayValue : {}) };
   const wanted = keys.filter((key) => typeof expected[key] === "string");
@@ -659,7 +659,7 @@ export function readVersionLine(executable: string, args: string[], env: NodeJS.
   });
 }
 
-export async function defaultDoctorContext(repoRoot: string, profile?: Profile): Promise<DoctorContext> {
+export async function defaultDoctorContext(repoRoot: string | null, profile?: Profile): Promise<DoctorContext> {
   const selected = await new SetupProfileStore(APP_STATE_DIR, repoRoot).active();
   const env = await refreshWindowsEnvironment(process.env);
   // 레지스트리에 없는 세션 전용 Node도 이관 보호 검사에서는 놓치지 않는다.
@@ -693,15 +693,5 @@ export async function defaultDoctorContext(repoRoot: string, profile?: Profile):
 }
 
 export async function runDoctor(repoRoot: string | null, profile?: Profile): Promise<DoctorReport> {
-  if (!repoRoot) {
-    return {
-      schemaVersion: 1,
-      generatedAt: new Date().toISOString(),
-      profile: profile ?? (await readAppSettings(APP_SETTINGS_FILE)).profile,
-      repoRoot: null,
-      repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
-      cards: [],
-    };
-  }
   return runDoctorWith(await defaultDoctorContext(repoRoot, profile));
 }

@@ -14,6 +14,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("requires a separate per-request opt-in for public PR contribution", async () => {
+  render(<RepairPanel targets={[{id:"claude.settings",title:"Claude 설정"}]} disabled={false} onBusyChange={vi.fn()} onResult={vi.fn()}/>);
+  const button=screen.getByRole("button",{name:"Codex에게 해결 요청"});await waitFor(()=>expect(button).not.toBeDisabled());
+  const checkbox=screen.getByRole("checkbox",{name:"이번 요청에서 HM 앱 개선에도 기여 (공개 PR)"});expect(checkbox).not.toBeChecked();fireEvent.click(checkbox);fireEvent.click(button);
+  await screen.findByRole("dialog");fireEvent.click(screen.getByRole("button",{name:"YOLO로 해결 요청"}));
+  await waitFor(()=>expect(call).toHaveBeenCalledWith("repair:run","claude.settings","codex","pr"));expect(checkbox).not.toBeChecked();
+});
+
 it("explains YOLO mode and sends only the selected ids", async () => {
   render(<RepairPanel targets={[{ id: "claude.settings", title: "Claude 설정" }]} disabled={false} onBusyChange={vi.fn()} onResult={vi.fn()} />);
   const codex = screen.getByRole("button", { name: "Codex에게 해결 요청" });
@@ -22,7 +30,7 @@ it("explains YOLO mode and sends only the selected ids", async () => {
   fireEvent.click(codex);
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "YOLO로 해결 요청" }));
-  await waitFor(() => expect(call).toHaveBeenCalledWith("repair:run", "claude.settings", "codex"));
+  await waitFor(() => expect(call).toHaveBeenCalledWith("repair:run", "claude.settings", "codex", "none"));
 });
 it("keeps other targets enabled, separates live logs, and cancels only one job", async () => {
   render(<RepairPanel targets={[{ id: "claude.settings", title: "Claude 설정" }, { id: "codex.config", title: "Codex 설정" }]} disabled={false} onBusyChange={vi.fn()} onResult={vi.fn()} />);

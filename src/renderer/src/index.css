@@ -1422,3 +1422,16 @@ select:focus-visible { outline: none; border-color: var(--primary); }
   border-top: 0;
   -webkit-app-region: no-drag;
 }
+
+.profiles-page { display: grid; gap: 16px; max-width: 1200px; margin: 0 auto; }
+.profiles-fields { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.profiles-entry { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.profiles-input { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 3fr); align-items: center; gap: 12px; }
+.profiles-page textarea, .capture-page textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px; font: var(--type-ui); }
+.profiles-page input:not([type="checkbox"]), .profiles-page textarea, .capture-page textarea {
+  border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); padding: 8px 10px; min-width: 0;
+}
+.profiles-field-row { display: flex; gap: 8px; align-items: start; }
+.profiles-field-row > :first-child { flex: 1; min-width: 0; }
+.profiles-entry > summary { cursor: pointer; padding: 6px 0; font: var(--type-ui-semibold); }
+.profiles-entry > .profiles-fields { margin: 8px 0; }

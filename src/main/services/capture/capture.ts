@@ -10,6 +10,7 @@ import {
 } from "@shared/manifest-types";
 import { AGENTS_SKILL_LOCK, APP_STATE_DIR, BACKUP_DIR, CLAUDE_HOME, CLAUDE_JSON, CODEX_HOME, HM_USER_HOME, PROFILE_DIR, REPO_LOCATION_FILE } from "../../config.js";
 import { SetupProfileStore } from "../setup-profiles.js";
+import { ensurePrivateTerms, profileFile, transferProblem } from "../profile-document.js";
 import { withLock } from "../../lib/lock.js";
 import type { CommandRunner } from "../install/exec.js";
 import { resolveDocumentsDir } from "../dotfiles.js";
@@ -156,20 +157,22 @@ async function readPrivateTerms(profileDir: string): Promise<string[] | null> {
   if (text === null) return null;
   try {
     const value = JSON.parse(text) as { terms?: unknown };
-    return Array.isArray(value.terms) ? value.terms.filter((term): term is string => typeof term === "string" && term.length > 0) : [];
+    if (!Array.isArray(value.terms) || !value.terms.every((term) => typeof term === "string")) throw new Error("invalid terms");
+    return value.terms.filter((term) => term.length > 0) as string[];
   } catch {
-    return [];
+    throw new CaptureRequestError("비공개 낱말 목록 형식이 올바르지 않습니다. 가져오기 화면에서 목록을 다시 저장하세요.", 422);
   }
 }
 
 export const MISSING_TERMS_WARNING =
-  "~/.harness-manager/profile/private-terms.json이 없어 회사명 같은 비공개 낱말을 가려낼 수 없습니다. 이 파일을 만들기 전에는 적용할 수 없습니다. 형식: {\"terms\": [\"회사명\", …]} (가릴 낱말이 없으면 빈 배열)";
+  "비공개 낱말 목록을 초기화하지 못했습니다. 프로필 폴더 쓰기 권한을 확인하세요.";
 
 export async function defaultCaptureContext(
-  repoRoot: string,
+  repoRoot: string | null,
 ): Promise<{ context: CaptureContext; warnings: string[]; termsMissing: boolean }> {
   const selected = await new SetupProfileStore(APP_STATE_DIR, repoRoot).active();
   if (selected.kind === "builtin") throw new CaptureRequestError("공통 기본 프로필은 읽기 전용입니다. 셋업 위저드에서 개인 프로필을 만든 뒤 가져오기를 실행하세요.", 409);
+  await withLock(() => ensurePrivateTerms(selected.localDir));
   const terms = await readPrivateTerms(selected.localDir);
   const warnings = terms === null ? [MISSING_TERMS_WARNING] : [];
   return {
@@ -206,7 +209,7 @@ function toItem(plan: TargetPlan, ctx: CaptureContext): CaptureItem {
       changed,
       diff: changed ? unifiedDiff(file.displayPath, file.before, file.after) : "",
       // 로컬 파일은 이 PC에만 남으므로 검사하지 않는다.
-      exposure: file.scope === "repo" ? scanExposure(file.after, { home: ctx.home, privateTerms: ctx.privateTerms }) : [],
+      exposure: [...(file.scope === "repo" ? scanExposure(file.after, { home: ctx.home, privateTerms: ctx.privateTerms }) : []), ...(transferProblem(file.after)?.includes("인증") ? [{ kind: "credential" as const, line: 1, text: "인증 정보가 포함될 수 있어 저장하지 않습니다" }] : [])],
     };
   });
   const anyChange = changes.some((change) => change.changed);
@@ -242,15 +245,6 @@ export async function planCaptureWith(ctx: CaptureContext, ids: readonly Capture
 }
 
 export async function planCapture(repoRoot: string | null): Promise<CapturePlan> {
-  if (!repoRoot) {
-    return {
-      repoRoot: null,
-      repoError: "harness-manager 레포 클론을 찾지 못했습니다.",
-      profileDir: PROFILE_DIR,
-      warnings: [],
-      items: [],
-    };
-  }
   const { context, warnings, termsMissing } = await defaultCaptureContext(repoRoot);
   const { items } = await planCaptureWith(context);
   // 비공개 낱말 목록이 없으면 회사 마켓플레이스 같은 것이 공개 레포로 샐 수 있다. 미리보기만 허용한다.
@@ -319,6 +313,8 @@ export async function applyCaptureWith(
       const plan = await planTarget(id, ctx);
       for (const file of plan.files) {
         if (file.before === file.after) continue;
+        const root = file.scope === "repo" ? ctx.repoRoot : ctx.profileDir;
+        await profileFile(root, path.relative(root, file.absPath).split(path.sep).join("/"));
         await writePlannedFile(file);
         written.push(file.displayPath);
       }
@@ -332,7 +328,6 @@ export async function applyCapture(
   ids: CaptureTargetId[],
   fingerprints: Partial<Record<CaptureTargetId, string>>,
 ): Promise<CaptureApplyResult> {
-  if (!repoRoot) throw new CaptureRequestError("harness-manager 레포 클론 위치를 모릅니다", 409);
   const { context, termsMissing } = await defaultCaptureContext(repoRoot);
   if (termsMissing) throw new CaptureRequestError(MISSING_TERMS_WARNING, 422);
   return applyCaptureWith(context, ids, fingerprints);

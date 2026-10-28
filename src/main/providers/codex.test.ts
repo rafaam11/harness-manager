@@ -24,6 +24,7 @@ beforeEach(async () => {
   previousHomeDrive = process.env.HOMEDRIVE ?? "";
   previousHomePath = process.env.HOMEPATH ?? "";
   homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-codex-"));
+  vi.stubEnv("HM_HOME", homeDir);
   process.env.HOME = homeDir;
   process.env.USERPROFILE = homeDir;
   process.env.HOMEDRIVE = "";
@@ -32,6 +33,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await fs.rm(homeDir, { recursive: true, force: true });
   if (previousHome) process.env.HOME = previousHome;
   else delete process.env.HOME;

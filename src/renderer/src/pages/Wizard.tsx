@@ -5,7 +5,6 @@ import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type I
 import type { AppSettings, Profile } from "@shared/manifest-types";
 import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
-import RepoConnect from "../components/RepoConnect";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
 import RepairPanel from "../components/RepairPanel";
@@ -130,7 +129,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
     !busy &&
     !running &&
     !repairing &&
-    (step !== 0 || Boolean(report?.repoRoot)) &&
+    (step !== 0 || Boolean(report?.setupProfile)) &&
     (step !== 5 || runResult !== null);
 
   return (
@@ -155,16 +154,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
               <li>사용자 설정 파일은 통째로 바꾸지 않고 관리하는 키·블록만 고칩니다. 고치는 파일은 먼저 백업합니다.</li>
               <li>비밀값(토큰·로그인)은 다루지 않습니다. 로그인은 7단계에서 안내합니다.</li>
             </ul>
-            {report?.repoRoot ? (
-              <div className="capture-repo">
-                <span className="muted">레포</span>
-                <span className="mono">{report.repoRoot}</span>
-              </div>
-            ) : report?.repoError ? (
-              <RepoConnect onConnected={() => void call("doctor:run").then(setReport)} />
-            ) : (
-              <p className="muted">레포 위치를 확인하는 중…</p>
-            )}
+            <p className="muted">Git이나 HM 소스 레포 없이 사용할 수 있습니다. 개인 프로필 편집·이동은 프로필 화면에서 관리하세요.</p>
           </>
         )}
 

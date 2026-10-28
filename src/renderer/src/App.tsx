@@ -4,6 +4,7 @@ import { call } from "./api/client";
 import { TitleBar } from "./components/TitleBar";
 import { Toaster, showToast } from "./components/toast";
 import { Banner } from "./components/ui";
+import ProfileSyncNotice from "./components/ProfileSyncNotice";
 import { PAGE_ORDER, PAGES, type PageKey } from "./pages/registry";
 import { providerLabel } from "./provider-ui";
 import { applyTheme, useResolvedTheme } from "./theme";
@@ -63,6 +64,7 @@ export default function App() {
 
   return (
     <div className="app-frame">
+      <ProfileSyncNotice />
       <TitleBar menus={menus} onAction={handleMenuAction} theme={theme} onToggleTheme={toggleTheme} onOpenWizard={() => setPage("wizard")} />
       <div className="layout">
         {/* 아이콘 열. 아이콘 아래 짧은 이름을 함께 둔다 — 아이콘만으로 뜻을 전하지 않는다. */}

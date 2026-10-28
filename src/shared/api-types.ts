@@ -6,7 +6,7 @@ import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-type
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
 import type { ProviderFilter, ProviderId, ProviderStatus } from "./provider-types";
 import type { RepairBatchSnapshot, RepairEvent, RepairProvider, RepairSnapshot } from "./repair-types";
-import type { SetupProfiles } from "./setup-profile-types";
+import type { SetupProfiles, ProfileDocument, ProfileEditor, ProfilePreview, ProfileSyncPreview, ProfileSyncStatus } from "./setup-profile-types";
 
 // --- 도메인 DTO ---------------------------------------------------------------
 
@@ -155,14 +155,32 @@ export interface ApiChannels {
 
   "repair:providers": () => RepairProvider[];
   "repair:status": () => RepairBatchSnapshot;
-  "repair:run": (stepId: string, provider: ProviderId) => RepairSnapshot;
+  "repair:run": (stepId: string, provider: ProviderId, contribution?: "none" | "pr" | "direct") => RepairSnapshot;
   "repair:cancel": (jobId: string) => void;
+  "repair:retry-source": (jobId: string) => RepairSnapshot;
 
   "settings:get": () => AppSettings;
   "profiles:list": () => SetupProfiles;
   "profiles:select": (id: string) => SetupProfiles;
   "profiles:create": (name: string, baseId: string) => SetupProfiles;
   "profiles:connect": (name: string) => SetupProfiles;
+  "profiles:editor": (id: string) => ProfileEditor;
+  "profiles:preview": (id: string, fingerprint: string, document: ProfileDocument) => ProfilePreview;
+  "profiles:apply": (id: string, token: string) => ProfileEditor;
+  "profiles:update": (id: string, action: "rename" | "archive" | "restore", name?: string) => SetupProfiles;
+  "profiles:export-plan": (id: string) => ProfilePreview;
+  "profiles:export": (id: string, token: string) => string | null;
+  "profiles:import-plan": () => ProfilePreview | null;
+  "profiles:import": (token: string) => SetupProfiles;
+  "profiles:terms": () => { id: string; terms: string[]; issue?: string };
+  "profiles:set-terms": (id: string, terms: string[]) => void;
+  "profiles:github-status": (id: string) => ProfileSyncStatus;
+  "profiles:github-tools": () => void;
+  "profiles:github-login": () => void;
+  "profiles:github-connect": (id: string, repository: string, create: boolean) => ProfileSyncStatus;
+  "profiles:sync-plan": (id: string, direction: "send" | "receive") => ProfileSyncPreview;
+  "profiles:sync": (id: string, token: string, choices: Record<string, "local" | "remote">) => ProfileSyncStatus;
+  "profiles:cancel": () => void;
   /** 바꿀 키만 보낸다. 모르는 키나 값은 400. */
   "settings:set": (patch: Partial<AppSettings>) => AppSettings;
 
@@ -213,11 +231,15 @@ export const API_CHANNELS = [
   "repair:status",
   "repair:run",
   "repair:cancel",
+  "repair:retry-source",
   "settings:get",
   "profiles:list",
   "profiles:select",
   "profiles:create",
   "profiles:connect",
+  "profiles:editor", "profiles:preview", "profiles:apply", "profiles:update",
+  "profiles:export-plan", "profiles:export", "profiles:import-plan", "profiles:import",
+  "profiles:terms", "profiles:set-terms", "profiles:github-status", "profiles:github-tools", "profiles:github-login", "profiles:github-connect", "profiles:sync-plan", "profiles:sync", "profiles:cancel",
   "settings:set",
   "external-api:catalog",
   "external-api:refresh",
@@ -245,6 +267,7 @@ export const INSTALL_EVENT_CHANNEL = "install:event";
 export const REPAIR_EVENT_CHANNEL = "repair:event";
 
 export interface ApiEvents {
+  "profiles:log": { stream: "stdout" | "stderr" | "info"; text: string };
   [UPDATER_EVENT_CHANNEL]: UpdaterStatus;
   [WINDOW_STATE_EVENT_CHANNEL]: WindowChromeState;
   [INSTALL_EVENT_CHANNEL]: InstallEvent;
@@ -253,7 +276,7 @@ export interface ApiEvents {
 
 export type ApiEvent = keyof ApiEvents;
 
-export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, INSTALL_EVENT_CHANNEL, REPAIR_EVENT_CHANNEL] as const satisfies readonly ApiEvent[];
+export const API_EVENTS = [UPDATER_EVENT_CHANNEL, WINDOW_STATE_EVENT_CHANNEL, INSTALL_EVENT_CHANNEL, REPAIR_EVENT_CHANNEL, "profiles:log"] as const satisfies readonly ApiEvent[];
 
 // --- preload가 노출하는 표면 -----------------------------------------------------
 

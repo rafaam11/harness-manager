@@ -21,7 +21,7 @@ export default function SetupProfilePicker({ disabled, onChanged }: { disabled: 
     {error && <Banner tone="err">{error}</Banner>}
     <Toolbar>
       <label>사용할 프로필 <select aria-label="사용할 프로필" disabled={disabled || busy || !state} value={state?.activeId ?? "default"} onChange={(event) => void update(() => call("profiles:select", event.target.value))}>
-        {state?.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+        {state?.profiles.filter((profile) => !profile.archived).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
       </select></label>
     </Toolbar>
     {active && <p className="muted">프로필 위치: {active.root}</p>}
@@ -31,6 +31,6 @@ export default function SetupProfilePicker({ disabled, onChanged }: { disabled: 
       <button className="btn ghost" disabled={disabled || busy || !name.trim() || !state} onClick={() => void update(() => call("profiles:create", name.trim(), state!.activeId))}>현재 프로필 복사</button>
       <button className="btn ghost" disabled={disabled || busy || !name.trim()} onClick={() => void update(() => call("profiles:connect", name.trim()))}>프로필 폴더 연결</button>
     </Toolbar>
-    <p className="muted">개인 프로필은 로컬 폴더에 보관합니다. 비공개 Git 저장소를 별도로 클론한 폴더도 연결할 수 있습니다. 토큰·로그인 파일은 포함하지 않습니다.</p>
+    <p className="muted">개인 프로필은 로컬에 보관합니다. 프로필 화면에서 파일로 이동하거나 비공개 GitHub 저장소에 동기화할 수 있습니다. 로그인 정보는 각 PC에서 따로 관리합니다.</p>
   </Panel>;
 }

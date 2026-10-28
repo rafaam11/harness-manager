@@ -176,7 +176,7 @@ describe("install 엔진", () => {
     state, detail: `runtime ${state}`, node: null, nodeVersion: null, npmVersion: null,
     nvm: null, nvmRoot: null, nvmLink: null, candidates: [], registrations: [], versions: [], environment: {}, pathChanged: false,
   });
-  const includeNode = () => write(path.join(ctx.repoRoot, "manifest", "packages.json"), {
+  const includeNode = () => write(path.join(ctx.repoRoot!, "manifest", "packages.json"), {
     schemaVersion: 1,
     packages: [{ id: "nvm", source: "winget", name: "CoreyButler.NVMforWindows", profiles: ["dev"], bin: "node" }],
   });
@@ -224,7 +224,7 @@ describe("install 엔진", () => {
     } };
     const result = await runInstallWith(ctx, ["tools.codex", "packages.winget.nvm"], () => undefined, new AbortController().signal);
     expect(specs.map((spec) => spec.command)).toEqual(["powershell.exe", "npm"]);
-    expect(specs[0]?.args).toContain(path.join(ctx.repoRoot, "scripts", "node-runtime.ps1"));
+    expect(specs[0]?.args).toContain(path.join(ctx.repoRoot!, "scripts", "node-runtime.ps1"));
     expect(specs[1]?.env?.Path).toBe("C:\\new-node");
     expect(result.results.every((item) => item.outcome === "done")).toBe(true);
     expect(result.notices).toHaveLength(1);
@@ -327,7 +327,7 @@ describe("install 엔진", () => {
   });
 
   it("마켓플레이스를 다시 붙이면 거기서 내려간 플러그인을 같은 step에서 다시 설치한다", async () => {
-    const pluginsPath = path.join(ctx.repoRoot, "manifest", "plugins.json");
+    const pluginsPath = path.join(ctx.repoRoot!, "manifest", "plugins.json");
     const manifest = readJson(pluginsPath);
     manifest.claude.enabled = ["hud@jinmin", "jinmin-skills@jinmin"];
     write(pluginsPath, manifest);
@@ -370,15 +370,15 @@ describe("stepDetail", () => {
 
 describe("dotfiles install", () => {
   beforeEach(() => {
-    write(path.join(ctx.repoRoot, "home", "managed-keys.json"), {
+    write(path.join(ctx.repoRoot!, "home", "managed-keys.json"), {
       schemaVersion: 1,
       claudeSettings: [],
       codexConfig: [],
       gitconfig: ["user.name", "user.email", "core.autocrlf"],
     });
-    write(path.join(ctx.repoRoot, "home", "git", "gitconfig.json"), { "user.name": "Tester", "core.autocrlf": "true" });
+    write(path.join(ctx.repoRoot!, "home", "git", "gitconfig.json"), { "user.name": "Tester", "core.autocrlf": "true" });
     write(path.join(ctx.profileDir, "gitconfig.local.json"), { "user.email": "tester@example.com" });
-    write(path.join(ctx.repoRoot, "home", "powershell", "profile.ps1"), "Set-Alias g git\n");
+    write(path.join(ctx.repoRoot!, "home", "powershell", "profile.ps1"), "Set-Alias g git\n");
   });
 
   it("git 관리 키를 git config로 맞추고, PowerShell 프로필에 BOM과 마커 블록으로 쓰며, 다시 돌리면 건너뛴다", async () => {

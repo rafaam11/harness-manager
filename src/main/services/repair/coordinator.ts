@@ -28,6 +28,8 @@ export class RepairCoordinator {
   private recorder = new RepairSession("history", this.history);
   private queue: Ticket[] = [];
   private active = new Map<string, string[]>();
+  private sessions = new Map<string, RepairSession>();
+  private retrying: string | null = null;
   readonly maxParallel = 3;
   constructor(private tasks: InstallSession, private emit: (event: RepairEvent) => void,
     private stateDir: string, private prepareSource?: PrepareRepairSource, private agent?: AgentRunner) {}
@@ -36,14 +38,20 @@ export class RepairCoordinator {
     this.recorder.remember(event);
     if (event.type === "run-start") this.event({ type: "reset" });
   }
-  reset(): void { this.history.clear(); this.event({ type: "reset" }); }
+  reset(): void { this.history.clear(); this.sessions.clear(); this.event({ type: "reset" }); }
+  async retrySource(id: string): Promise<RepairSnapshot> {
+    const session = this.sessions.get(id);
+    if (!session) throw new RequestError(404, "복구 작업 사본이 없습니다");
+    return this.tasks.run(async (signal) => { this.retrying = id; try { return await session.retrySource(signal, this.event); } finally { this.retrying = null; } });
+  }
   snapshot(): RepairBatchSnapshot { return { maxParallel: this.maxParallel, jobs: [...this.jobs.values()].map((job) => ({ ...job, lines: [...job.lines] })) }; }
   cancel(id: string): void {
     if (!this.jobs.has(id)) throw new RequestError(404, "복구 작업을 찾지 못했습니다");
+    if (this.retrying === id) { this.tasks.cancel(); return; }
     this.tasks.cancelRepair(id);
   }
   private event = (event: RepairEvent) => {
-    if (event.type === "reset") this.jobs.clear();
+    if (event.type === "reset") { this.jobs.clear(); this.sessions.clear(); }
     else if (event.type === "state") this.jobs.set(event.state.jobId, event.state);
     else {
       const job = this.jobs.get(event.jobId);
@@ -77,7 +85,8 @@ export class RepairCoordinator {
         if (signal.aborted) throw new Error("복구를 취소했습니다");
         const ctx = await context();
         if (signal.aborted) throw new Error("복구를 취소했습니다");
-        await new RepairSession(jobId, this.history).run(ctx, stepId, provider, signal, this.event, () => undefined, this.stateDir, this.agent, this.prepareSource);
+        const session = new RepairSession(jobId, this.history); this.sessions.set(jobId, session);
+        await session.run(ctx, stepId, provider, signal, this.event, () => undefined, this.stateDir, this.agent, ctx.contribution && ctx.contribution !== "none" ? this.prepareSource : undefined);
       } finally { this.active.delete(jobId); this.drain(); }
     }).catch((error: Error) => {
       const previous = this.jobs.get(jobId)!;

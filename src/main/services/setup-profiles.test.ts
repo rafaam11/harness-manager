@@ -13,7 +13,7 @@ let store: SetupProfileStore;
 beforeEach(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), "hm-profiles-"));
   store = new SetupProfileStore(path.join(root, "state"), path.join(root, "app"));
-  await fs.mkdir(store.repoRoot);
+  await fs.mkdir(store.repoRoot!);
 });
 afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
 
@@ -54,7 +54,7 @@ it("installs only the active profile and captures back into that profile without
   await applyCaptureWith(capture, ["claude-settings"], { "claude-settings": preview.items[0].fingerprint });
   expect(JSON.parse(await fs.readFile(modelFile(second.root), "utf8")).model).toBe("captured-model");
   expect(JSON.parse(await fs.readFile(modelFile(first.root), "utf8")).model).toBe("first-model");
-  expect(await fs.readdir(store.repoRoot)).toEqual([]);
+  expect(await fs.readdir(store.repoRoot!)).toEqual([]);
 });
 
 it("connects a separate profile clone and keeps local overlays outside its repository", async () => {

@@ -7,7 +7,7 @@ import { writeFileChecked } from "./capture/capture.js";
  * `~/.harness-manager/settings.json` — 위저드가 고른 값. doctor·install이 읽는다.
  * 모르는 키는 지우지 않는다(새 버전이 더한 키를 옛 버전이 저장하며 날리지 않게).
  */
-export const DEFAULT_SETTINGS: AppSettings = { profile: "full", selfMarketplaceSource: "directory" };
+export const DEFAULT_SETTINGS: AppSettings = { profile: "full", selfMarketplaceSource: "github" };
 
 export async function readAppSettings(file: string): Promise<AppSettings> {
   let raw: Record<string, unknown> = {};
@@ -19,8 +19,9 @@ export async function readAppSettings(file: string): Promise<AppSettings> {
   }
   return {
     profile: PROFILES.includes(raw.profile as Profile) ? (raw.profile as Profile) : DEFAULT_SETTINGS.profile,
-    selfMarketplaceSource: raw.selfMarketplaceSource === "github" ? "github" : "directory",
+    selfMarketplaceSource: raw.selfMarketplaceSource === "directory" ? "directory" : "github",
     ...(typeof raw.setupProfileId === "string" ? { setupProfileId: raw.setupProfileId } : {}),
+    ...(raw.maintainerMode === true ? { maintainerMode: true } : {}),
   };
 }
 

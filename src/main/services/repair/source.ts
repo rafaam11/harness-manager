@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type { RepairSnapshot } from "@shared/repair-types";
 import { processRunner, type CommandRunner, type LogSink } from "../install/exec.js";
 import { scanExposure } from "../capture/exposure.js";
@@ -48,11 +49,17 @@ export function createRepairSource(runner: CommandRunner = processRunner): Prepa
     const git = (args: string[], directory = cwd, quiet = false) => command("git", ["-c", `core.hooksPath=${hooks}`, ...args], directory, quiet ? () => undefined : log);
     let unavailable: string | undefined;
     let baseCommit = "";
+    let integrationHead: string | null = null;
+    const contributionBranch = `hm-repair/${randomUUID()}`;
     let privateTerms: string[] = [];
     try {
       if (isCloudSynced(workspace, await readCloudRoots(env, process.platform), [])) throw new Error("클라우드 동기화 폴더에는 자동 커밋하지 않습니다");
-      const remote = await git(["remote", "get-url", "origin"], ctx.repoRoot, true);
-      if (!/^(?:https:\/\/github\.com\/|git@github\.com:)[\w.-]+\/harness-manager(?:\.git)?$/.test(remote)) throw new Error("HM의 GitHub 원격 저장소를 확인하지 못했습니다");
+      if (ctx.contribution !== "direct" && ctx.contribution !== "pr") throw new Error("소스 기여에 동의하지 않았습니다");
+      const remote = "https://github.com/rafaam11/harness-manager.git";
+      if (ctx.contribution === "direct") {
+        const permissions = JSON.parse(await command("gh", ["api", "repos/rafaam11/harness-manager", "--jq", ".permissions"], workspace, () => undefined));
+        if (permissions.push !== true) throw new Error("HM dev에 쓰기 권한이 없어 직접 반영하지 않습니다");
+      }
       // 원격에서 직접 복제하므로 사용자의 미커밋 파일이나 아직 push하지 않은 커밋은 들어오지 않는다.
       await git(["clone", "--single-branch", "--branch", "dev", "--", remote, cwd], workspace);
       const pkg = JSON.parse(await fs.readFile(path.join(cwd, "package.json"), "utf8"));
@@ -73,14 +80,15 @@ export function createRepairSource(runner: CommandRunner = processRunner): Prepa
       instructions: unavailable
         ? "소스 저장소를 준비하지 못했습니다. PC의 지정 항목만 복구하고 소스 변경·커밋·push·배포는 수행하지 마세요."
         : "현재 폴더는 HM 소스의 작업 전용 사본입니다. 공통 설치 엔진의 버그이면 src/ 또는 scripts/에 원인을 수정하고 회귀 테스트를 추가하세요. 개인 취향·프로필·실제 홈 설정·로그·비밀값을 앱 소스에 넣지 마세요. 커밋과 push는 HM 호스트가 테스트 후 순서대로 자동 수행하므로 직접 git commit/push를 호출하지 마세요. 배포·태그 생성은 하지 마세요. 이 호스트 절차는 사용자가 명시적으로 요청했습니다.",
-      publish: async (): Promise<SourceResult> => {
+      publish: async (nextSignal, nextLog): Promise<SourceResult> => {
+        signal = nextSignal; log = nextLog;
         if (unavailable) return { state: "failed", detail: unavailable, workspace: cwd };
         const publish = async (): Promise<SourceResult> => {
           // AI가 직접 만든 커밋도 자동 반영 범위에 들어오지 않게 출발점을 확인한다.
           const branch = await git(["branch", "--show-current"], cwd, true);
           if (branch !== "dev") throw new Error("작업 브랜치가 바뀌어 자동 반영을 중단했습니다");
-          if (await git(["rev-parse", "HEAD"], cwd, true) !== baseCommit) throw new Error("호스트 밖에서 커밋이 변경되어 자동 반영을 중단했습니다");
-          const changed = await git(["-c", "core.quotePath=false", "diff", "--name-only", "HEAD"], cwd, true);
+          if (await git(["rev-parse", "HEAD"], cwd, true) !== (integrationHead ?? baseCommit)) throw new Error("호스트 밖에서 커밋이 변경되어 자동 반영을 중단했습니다");
+          const changed = await git(["-c", "core.quotePath=false", "diff", "--name-only", baseCommit], cwd, true);
           const untracked = await git(["-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard"], cwd, true);
           const files = [...new Set((changed + "\n" + untracked).split(/\r?\n/).filter(Boolean))];
           if (!files.length) return { state: "unchanged", detail: "공통 앱 소스 변경 없음", workspace: cwd };
@@ -110,12 +118,27 @@ export function createRepairSource(runner: CommandRunner = processRunner): Prepa
           const afterFiles = [...new Set(((await git(["-c", "core.quotePath=false", "diff", "--name-only", "HEAD"], cwd, true)) + "\n" + (await git(["-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard"], cwd, true))).split(/\r?\n/).filter(Boolean))];
           if (afterFiles.some((file) => !files.includes(file))) throw new Error("검증 과정에서 다른 파일이 변경되었습니다. 작업 사본을 확인하세요.");
           await git(["add", "--", ...files]);
-          await git(["commit", "-m", "fix: repair setup failure detected by harness-manager"]);
+          const user = JSON.parse(await command("gh", ["api", "user"], cwd, () => undefined));
+          if (!/^[\w-]+$/.test(user.login) || !Number.isSafeInteger(user.id)) throw new Error("GitHub 계정을 확인하지 못했습니다");
+          if (await git(["diff", "--cached", "--name-only"], cwd, true)) await git(["-c", `user.name=${user.login}`, "-c", `user.email=${user.id}+${user.login}@users.noreply.github.com`, "commit", "-m", "fix: repair setup failure detected by harness-manager"]);
+          integrationHead = await git(["rev-parse", "HEAD"], cwd, true);
           await git(["fetch", "origin", "dev"]);
           const behind = await git(["rev-list", "--count", "HEAD..origin/dev"], cwd, true);
-          if (behind !== "0") { await git(["merge", "--no-edit", "origin/dev"]); await validate(); }
+          if (behind !== "0") { await git(["-c", `user.name=${user.login}`, "-c", `user.email=${user.id}+${user.login}@users.noreply.github.com`, "merge", "--no-edit", "origin/dev"]); integrationHead = await git(["rev-parse", "HEAD"], cwd, true); await validate(); }
           if (await git(["status", "--porcelain"], cwd, true)) throw new Error("검증 이후 작업 사본에 미커밋 변경이 있어 푸시하지 않았습니다");
           // push 거절·충돌 시에는 이 사본을 남긴다. force/reset/stash는 사용하지 않는다.
+          if (ctx.contribution === "pr") {
+            await command("gh", ["repo", "fork", "rafaam11/harness-manager", "--clone=false", "--remote=false"], cwd);
+            const branch = contributionBranch;
+            await git(["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential", "push", `https://github.com/${user.login}/harness-manager.git`, `HEAD:refs/heads/${branch}`]);
+            const bodyFile = path.join(workspace, "pr-body.md");
+            await fs.writeFile(bodyFile, "설치 복구 중 발견한 공통 앱 오류를 수정합니다.\n\n검증: npm test, npm run typecheck, npm run build.\n개인 프로필과 설치 로그는 포함하지 않았습니다.\n", "utf8");
+            const existing = await command("gh", ["pr", "list", "--repo", "rafaam11/harness-manager", "--head", `${user.login}:${branch}`, "--json", "url", "--jq", ".[0].url // empty"], cwd, () => undefined);
+            const url = existing || await command("gh", ["pr", "create", "--repo", "rafaam11/harness-manager", "--base", "dev", "--head", `${user.login}:${branch}`, "--title", "fix: repair setup failure detected by harness-manager", "--body-file", bodyFile], cwd);
+            return { state: "published", detail: "테스트를 통과한 개선안을 fork에 push하고 PR을 만들었습니다", workspace: cwd, commit: await git(["rev-parse", "HEAD"], cwd, true), url };
+          }
+          const permission = JSON.parse(await command("gh", ["api", "repos/rafaam11/harness-manager", "--jq", ".permissions"], cwd, () => undefined));
+          if (permission.push !== true) throw new Error("원격 쓰기 권한이 변경되었습니다");
           await git(["push", "origin", "HEAD:refs/heads/dev"]);
           const commit = await git(["rev-parse", "HEAD"], cwd, true);
           return { state: "published", detail: "테스트를 통과한 변경을 dev에 커밋·푸시했습니다", workspace: cwd, commit };
