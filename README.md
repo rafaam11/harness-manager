@@ -161,7 +161,9 @@ step은 doctor 검사에서 만든다. id 체계가 같아서 실행 뒤 같은 
 | `.claude-plugin/marketplace.json` | 마켓플레이스 `jinmin`. Claude와 Codex가 함께 읽는다 |
 | `scripts/bootstrap.ps1` | 새 PC의 첫 진입점 |
 
-마켓플레이스 소스는 PC마다 고른다. 개발 PC는 레포 폴더를 가리키는 directory 소스(고친 즉시 `/reload-plugins`로 반영), 새 PC는 GitHub 소스 `rafaam11/harness-manager`다. hook mod는 Codex에서 돌지 않으므로 Codex에는 스킬 플러그인만 켠다.
+마켓플레이스 소스는 PC마다 고른다. 개발 PC는 레포 폴더를 가리키는 directory 소스(고친 즉시 `/reload-plugins`로 반영), 새 PC는 GitHub 소스 `rafaam11/harness-manager`다. Claude 전용 hook module은 Codex에서 실행되지 않는다. Codex용 선택 패키지 [`jinmin-codex`](mods/jinmin-codex/README.md)는 상태 조회·외부 CLI 호출 종료 표시·선택형 위험 명령 차단을 별도 lifecycle hook으로 제공한다. 설치 후 hook 신뢰가 필요하며, 기본 공통 프로필에는 자동 설치하지 않는다.
+
+카탈로그의 Codex 탭은 CLI가 보고하는 설치 플러그인과 활성 상태를 표시한다. **Codex 스킬 인식 진단**은 새 프롬프트 입력 미리보기의 스킬 목록을 조회한다. 표시된 기준 폴더와 이미 열린 세션의 결과는 다를 수 있다. 원본에 있는 스킬이 보이지 않으면 마켓플레이스 소스를 확인하고 `codex plugin add <플러그인@마켓플레이스>`로 캐시를 갱신한 뒤 새 세션에서 확인한다. Git 마켓플레이스는 먼저 `codex plugin marketplace upgrade <이름>`으로 원본 스냅샷을 갱신한다.
 
 앱 레포는 public이다. 사용자별 정의는 별도의 로컬 또는 비공개 Git 프로필 폴더에 둔다. PC 전용 오버레이(`AGENTS.local.md`, `*.local.json`, `manifest.local.json`)와 비밀값은 공개 HM 소스에 넣지 않는다. 비공개 저장소 생성·인증·동기화는 사용자가 관리하며 토큰·로그인 파일은 프로필로 복사하지 않는다.
 

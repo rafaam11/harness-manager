@@ -6,6 +6,11 @@
   },
   "plugins": [
     {
+      "name": "jinmin-codex",
+      "source": "./mods/jinmin-codex",
+      "description": "Codex 전용: 상태 조회, 외부 CLI 표시, 선택형 위험 명령 차단 (hook 신뢰 필요)"
+    },
+    {
       "name": "mcw-companion",
       "source": "./mods/mcw-companion",
       "description": "multi-cli-work 세션 정보 /mcw, 긴 턴·한도 90% 토스트"

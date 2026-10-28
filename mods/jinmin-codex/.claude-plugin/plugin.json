@@ -1,0 +1,6 @@
+{
+  "name": "jinmin-codex",
+  "version": "0.1.0",
+  "description": "Codex 전용 lifecycle hook과 상태 조회 스킬. Claude에서는 상태 조회 스킬만 제공한다.",
+  "author": { "name": "JinminKim" }
+}

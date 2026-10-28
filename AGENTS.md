@@ -61,7 +61,7 @@
   - `claude plugin validate`는 마켓플레이스와 mod 5개가 모두 통과해야 한다.
   - `claude plugin test`는 112개가 모두 통과해야 한다(jinmin-hud 47, guard 7, codex-watch 3, mcw-companion 2, mcw-chips 53).
   - 이전한 뒤에도 같은 숫자가 나와야 한다.
-- Codex도 같은 마켓플레이스를 읽는다(`codex plugin marketplace add <레포>`). hook mod는 Codex에 설치돼도 실행되지 않으므로 Codex에는 `plugins/*`만 enable한다(스펙 D20).
+- Codex도 같은 마켓플레이스를 읽는다(`codex plugin marketplace add <레포>`). Claude 전용 `hooks.json`의 `modules`는 Codex에서 실행되지 않는다. Codex 대응은 별도 `.codex-plugin/plugin.json`과 lifecycle hook으로 만든다. `mods/jinmin-codex`는 선택 설치이며 hook 신뢰가 필요하다. 기본 공통 프로필에는 자동 추가하지 않는다(스펙 D20).
 - `mods/`·`plugins/`는 앱 빌드와 무관하다. 앱의 tsconfig·vitest는 `src/`만 보고, electron-builder는 `out/**`만 담는다. mod 테스트는 `claude plugin test mods/<mod>`로 돌린다.
 
 ### 마일스톤

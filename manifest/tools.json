@@ -20,7 +20,7 @@
       "name": "cua-driver",
       "profiles": ["dev", "full"],
       "version": "0.37.0",
-      "install": { "kind": "manual", "ref": "공식 설치 명령은 M6에서 확정한다(스펙 Q7)" },
+      "install": { "kind": "powershell-script", "ref": "https://cua.ai/driver/install.ps1" },
       "verify": { "command": "cua-driver", "args": ["doctor"] },
       "notes": "설치 위치 ~/.cua-driver/packages/current. 텔레메트리는 끈다"
     }

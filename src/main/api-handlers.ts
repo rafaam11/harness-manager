@@ -1,9 +1,10 @@
+import { getVisibleCodexSkills } from "./services/codex-skills.js";
 import type { ApiChannel, ApiReturn, CleanupExecuteResult, ManifestEntry } from "@shared/api-types";
 import { CAPTURE_TARGET_IDS, type CaptureTargetId } from "@shared/manifest-types";
 import { assertCleanupCategory } from "./lib/path-scope.js";
 import { archiveItems, restoreItem, listManifests } from "./lib/archive.js";
 import { readCatalogContent } from "./services/catalog.js";
-import { getPlugins } from "./services/plugins.js";
+import { getAllPlugins } from "./services/plugins.js";
 import { scanCandidates } from "./services/scan.js";
 import { applyCapture, cloneRepo, defaultCloneTarget, planCapture, rememberRepoRoot, resolveRepoRoot } from "./services/capture/capture.js";
 import { processRunner } from "./services/install/exec.js";
@@ -129,7 +130,8 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
       ).flat(),
     // 경로는 readCatalogContent 안에서 guardPath(allowlist)를 통과해야 한다.
     "catalog:content": (filePath) => readCatalogContent(nonEmptyString(filePath, "filePath")),
-    "plugins:list": () => getPlugins(),
+    "catalog:codex-visible-skills": () => getVisibleCodexSkills(),
+    "plugins:list": () => getAllPlugins(),
     "mcp:list": async (filter) =>
       (
         await Promise.all(

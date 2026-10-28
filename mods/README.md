@@ -13,6 +13,8 @@ Claude Code mods(hooks-module 플러그인) 실험을 모아 두는 곳. 마켓�
 
 ## mod 목록
 
+Codex 대응 패키지는 [`jinmin-codex`](jinmin-codex/README.md)를 본다. Claude hook module과 별도의 Codex lifecycle hook을 사용하며, 선택 설치·hook 신뢰가 필요하다. 테스트는 `node --test mods/jinmin-codex/scripts/mod.test.mjs`, 격리된 실제 CLI 검증은 `node scripts/probe-codex-mod.mjs`다.
+
 | mod | 하는 일 | hooks | calls / env | 관찰 전용 |
 |---|---|---|---|---|
 | [jinmin-hud](jinmin-hud) | claude-hud 대체 상황판: 입력창 아래(옵션으로 위) 테두리 카드 — 모델·effort·권한 모드·프로젝트·세션 시간 / 컨텍스트 막대(자동 압축 지점 ┊)·토큰·자동 압축까지 남은 양·압축 횟수 / 5시간·7일 한도 막대(시간 위치 │)·속도 편차·초기화까지 / git 브랜치·워크트리·저장소·올릴·받을 커밋·변경 상태·수정·커밋 시각·PR(CI·리뷰). `/hud` 사이드 패널 | session.start, command.run(hud·rename), classic.PostToolUse·UserPromptSubmit, turn.start, tool.call, agent.spawn, turn.complete, session.compact, session.measure, session.end, ui.render(PromptHint·AbovePrompt·Pane) | session.model/root/id/turns/usage/version, process.run(`git status`·`log`·`rev-parse`·`remote` 3초, `gh pr view` 8초·3분 간격), fs.read/exists/list/stat, tool.list, settings.read, agent.list, clock, state, ui.open/close / env 읽기 `MULTI_CLI_WORK_{SESSION_ID,PROJECT_BRIEF}`·`USERPROFILE`·`HOME` · 네트워크는 gh만 | ✔ |

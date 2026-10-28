@@ -29,11 +29,11 @@ describe("catalog provider tabs", () => {
     ]);
   });
 
-  it("treats current plugin catalog as Claude-only so Codex tab is not polluted", () => {
-    const plugins = [{ id: "claude-plugin" }];
+  it("separates Claude and Codex plugins", () => {
+    const plugins = [{ id: "claude-plugin", provider: "claude" as const }, { id: "codex-plugin", provider: "codex" as const }];
 
     expect(filterCatalogPluginsByProvider(plugins, "all")).toEqual(plugins);
-    expect(filterCatalogPluginsByProvider(plugins, "claude")).toEqual(plugins);
-    expect(filterCatalogPluginsByProvider(plugins, "codex")).toEqual([]);
+    expect(filterCatalogPluginsByProvider(plugins, "claude")).toEqual([plugins[0]]);
+    expect(filterCatalogPluginsByProvider(plugins, "codex")).toEqual([plugins[1]]);
   });
 });

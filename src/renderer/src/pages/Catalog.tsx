@@ -50,16 +50,20 @@ export function filterCatalogItemsByProvider<T extends { provider?: ProviderId }
   return provider === "all" ? rows : rows.filter((row) => row.provider === provider);
 }
 
-// 현재 plugin catalog는 Claude Code의 ~/.claude/plugins만 읽는다. Codex 탭에서는 숨겨 오염을 막는다.
-export function filterCatalogPluginsByProvider<T>(rows: T[], provider: ProviderFilter): T[] {
-  return provider === "codex" ? [] : rows;
+// 이전 Claude 목록은 provider가 없어 Claude로 간주한다.
+export function filterCatalogPluginsByProvider<T extends { provider?: ProviderId }>(rows: T[], provider: ProviderFilter): T[] {
+  return provider === "all" ? rows : rows.filter((row) => (row.provider ?? "claude") === provider);
 }
+const pluginKey = (p: PluginInfo) => `plugin:${p.provider ?? "claude"}:${p.id}`;
 
 export default function Catalog() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [mcps, setMcps] = useState<McpServer[]>([]);
   const [error, setError] = useState("");
+  const [visibleSkills, setVisibleSkills] = useState<{ cwd: string; skills: string[] } | null>(null);
+  const [checkingSkills, setCheckingSkills] = useState(false);
+  const [pluginWarnings, setPluginWarnings] = useState<string[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [content, setContent] = useState<Record<string, CatalogContent>>({});
   const [query, setQuery] = useState(() => localStorage.getItem("hm-cat-q") ?? "");
@@ -75,7 +79,7 @@ export default function Catalog() {
     setError("");
     call("catalog:list", "all").then(setItems).catch((e) => setError(e.message));
     call("plugins:list")
-      .then((d) => setPlugins(d.plugins))
+      .then((d) => { setPlugins(d.plugins); setPluginWarnings(d.warnings ?? []); })
       .catch((e) => setError(e.message));
     call("mcp:list", "all").then(setMcps).catch((e) => setError(e.message));
   }, []);
@@ -203,6 +207,16 @@ export default function Catalog() {
         meta={`${catalogProviderFilter === "all" ? "모든 provider" : providerGroupLabel(catalogProviderFilter)} · 스킬·에이전트·명령·지침·메모리·MCP·플러그인`}
       />
       {error && <Banner tone="err">{error}</Banner>}
+      {pluginWarnings.map((warning) => <Banner tone="warn" key={warning}>{warning}</Banner>)}
+      {catalogProviderFilter !== "claude" && <div className="toolbar">
+        <button className="btn ghost" disabled={checkingSkills} onClick={() => {
+          setCheckingSkills(true);
+          setError("");
+          setVisibleSkills(null);
+          void call("catalog:codex-visible-skills").then(setVisibleSkills).catch((caught: Error) => setError(caught.message)).finally(() => setCheckingSkills(false));
+        }}>{checkingSkills ? "Codex 스킬 확인 중…" : "Codex 스킬 인식 진단"}</button>
+        {visibleSkills && <details><summary>인식된 스킬 {visibleSkills.skills.length}개</summary><p className="muted">Codex 프롬프트 입력 미리보기 기준 · 폴더: {visibleSkills.cwd}. 다른 프로젝트나 이미 열린 세션의 결과는 다를 수 있습니다.</p><p>{visibleSkills.skills.join(" · ") || "인식된 스킬 없음"}</p></details>}
+      </div>}
 
       <Tabs<ProviderFilter>
         label="provider"
@@ -287,18 +301,19 @@ export default function Catalog() {
             {showGroup("plugin") && pluginRows.length > 0 && (
               <div>
                 <div className="section-label">
-                  {GROUP_LABEL.plugin}{catalogProviderFilter === "all" ? " · Claude Code" : ""}{" "}
+                  {GROUP_LABEL.plugin}{" "}
                   <span className="count">{pluginRows.length}</span>
                 </div>
                 {pluginRows.map((p) => {
-                  const key = `plugin:${p.id}`;
+                  const key = pluginKey(p);
                   return (
                     <button
-                      key={p.id}
+                      key={key}
                       className={`cat-master-item${selectedKey === key ? " active" : ""}`}
                       onClick={() => selectItem(key)}
                     >
                       <div className="cat-mi-head">
+                        <span className={`provider-badge ${providerToneClass(p.provider ?? "claude")}`}>{providerLabel(p.provider ?? "claude")}</span>
                         <span className="bdg bdg-plugin">PLUGIN</span>
                         <span className="cat-mi-name">{p.id}</span>
                         {p.enabledInSettings === true && <StatusTag tone="ok">켜짐</StatusTag>}
@@ -344,7 +359,7 @@ function renderDetail(
     const m = mcps.find((x) => mcpKey(x) === selectedKey);
     if (m) return <McpDetail m={m} />;
   } else if (selectedKey.startsWith("plugin:")) {
-    const p = plugins.find((x) => `plugin:${x.id}` === selectedKey);
+    const p = plugins.find((x) => pluginKey(x) === selectedKey);
     if (p) return <PluginDetail p={p} />;
   }
   return <EmptyState>항목을 찾을 수 없습니다.</EmptyState>;
@@ -490,6 +505,11 @@ function PluginDetail({ p }: { p: PluginInfo }) {
         <span className="bdg bdg-plugin">PLUGIN</span>
         <span className="cat-detail-name">{p.id}</span>
       </div>
+      {p.provider === "codex" && <>
+        <p className="muted">Codex CLI의 설치 목록입니다. 활성 상태는 현재 세션의 스킬 인식이나 hook 신뢰를 보장하지 않습니다. 변경 후 새 세션에서 확인하세요.</p>
+        <p className="muted">원본을 바꿨는데 스킬이 보이지 않으면 마켓플레이스 소스를 확인하세요. Git 소스는 먼저 마켓플레이스를 갱신한 뒤 아래 명령으로 설치 캐시를 갱신하세요.</p>
+        <div className="install-action mono">codex plugin add {p.id}</div>
+      </>}
       <div className="section-label">상태</div>
       <div className="fm-row">
         <span className="fm-k">설정 활성</span>

@@ -172,6 +172,17 @@ const ALL = [
 ];
 
 describe("install 엔진", () => {
+  it("plans the official cua-driver installer without executing it", async () => {
+    const file = path.join(ctx.repoRoot!, "manifest", "tools.json");
+    const tools = JSON.parse(fs.readFileSync(file, "utf8"));
+    tools.tools = tools.tools.filter((tool: { id: string }) => tool.id !== "cua-driver");
+    tools.tools.push({ id: "cua-driver", name: "cua-driver", profiles: ["dev"], install: { kind: "powershell-script", ref: "https://cua.ai/driver/install.ps1" }, verify: { command: "cua-driver", args: ["doctor"] } });
+    write(file, tools);
+    const step = (await planInstallWith(ctx)).steps.find((entry) => entry.id === "tools.cua-driver");
+    expect(step?.manual).toBe(false);
+    expect(step?.actions[0]?.summary).toContain("https://cua.ai/driver/install.ps1");
+    expect(step?.actions[0]?.kind).toBe("command");
+  });
   const nodeState = (state: NodeRuntimeState["state"]): NodeRuntimeState => ({
     state, detail: `runtime ${state}`, node: null, nodeVersion: null, npmVersion: null,
     nvm: null, nvmRoot: null, nvmLink: null, candidates: [], registrations: [], versions: [], environment: {}, pathChanged: false,

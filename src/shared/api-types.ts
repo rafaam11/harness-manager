@@ -43,6 +43,7 @@ export interface McpServer {
 }
 
 export interface PluginInfo {
+  provider?: ProviderId;
   id: string;
   enabledInSettings: boolean | null;
   installs: {
@@ -57,6 +58,7 @@ export interface PluginInfo {
 
 export interface PluginsSnapshot {
   plugins: PluginInfo[];
+  warnings?: string[];
   blocklist: { plugin: string; reason: string }[];
 }
 
@@ -123,6 +125,7 @@ export interface ApiChannels {
 
   "catalog:list": (filter: ProviderFilter) => CatalogItem[];
   "catalog:content": (filePath: string) => CatalogContent;
+  "catalog:codex-visible-skills": () => { cwd: string; skills: string[] };
   "plugins:list": () => PluginsSnapshot;
   "mcp:list": (filter: ProviderFilter) => McpServer[];
 
@@ -211,6 +214,7 @@ export const API_CHANNELS = [
   "provider:status",
   "catalog:list",
   "catalog:content",
+  "catalog:codex-visible-skills",
   "plugins:list",
   "mcp:list",
   "cleanup:scan",

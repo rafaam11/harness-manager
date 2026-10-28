@@ -42,7 +42,7 @@
 | D15 | **마켓플레이스 소스는 PC별로 고른다.** 개발 PC는 `directory`(레포 폴더), 새 PC는 GitHub(`rafaam11/harness-manager`)를 쓴다. `manifest/plugins.json`과 위저드에서 선택한다 |
 | D18 | **Electron 43.2.0 + electron-builder 26 적용**(Q9 해결, M2). `sandbox:true`, 커스텀 타이틀바, mcw `installer.nsh`(WMI 정지 PC의 NSIS 무한 대기 회피) |
 | D19 | **설정 백업은 `~/.harness-manager/backups` 한 곳**(M2). v2의 `~/.claude/backups/harness-manager`는 정리 화면의 `leftovers` 후보로 다룬다(D24) |
-| D20 | **Codex는 같은 마켓플레이스를 공유하되 `plugins/*`만 enable한다**(M3, 옛 Q12). codex-cli 0.162.1 실측: `codex plugin marketplace add <레포>`가 `.claude-plugin/marketplace.json`을 그대로 읽어 6개를 모두 보여 주고, `jinmin-skills`의 스킬은 `jinmin-skills:<이름>`으로 모델 프롬프트에 들어간다. hook mod도 설치는 되지만(캐시에 복사) Codex는 `hooks.json`의 `modules`를 실행하지 않아 아무 효과가 없다. 오류는 없다. 그래서 `plugins.json`은 provider별 enable 목록을 둔다 |
+| D20 | **Codex는 같은 마켓플레이스를 공유하며 provider별 enable 목록을 둔다.** Claude의 `hooks.json.modules`는 실행하지 않는다. Codex 전용 `.codex-plugin/plugin.json`과 lifecycle hook으로 대응한 `mods/jinmin-codex`는 선택 설치한다. 0.162.1 격리 CLI와 로컬 고정 응답 모델에서 스킬 인식·실제 hook 실행·차단·종료 상태 저장을 확인했다. 설치만으로 hook 신뢰를 대신하지 않으며 기본 공통 프로필에는 자동 추가하지 않는다 |
 | D21 | **레포 일괄 최신화(repo-sync)는 HM 엔진·CLI와 mcw 트리거로 나눈다**(M3.5). 업무 프로젝트→레포 매핑은 mcw만 가지므로 HM은 경로 목록만 받는다. 버튼과 세션 시작 트리거는 mcw가 맡고, 자동 실행은 mcw가 띄운 세션만 대상으로 한다. 세션 브리프에는 최대 3초를 기다린 요약을 넣는다. 명령은 `fetch --prune` + `merge --ff-only @{u}`, 기본값은 쿨다운 10분·동시 4개다. untracked만 있으면 진행한다. HM이 없는 PC는 mcw 대체 구현이 같은 계약을 따른다. 계약은 `docs/contracts/repo-sync.md` |
 | D22 | **capture 정책**(M4, 옛 Q10). 공개·개인을 나눠 개인 값은 `~/.harness-manager/profile/`로 보낸다. 비공개 낱말은 로컬 `profile/private-terms.json`에 두고, 이 파일이 없으면 적용을 막는다. 공개 파일에 홈 경로·절대경로·이메일·비공개 낱말이 남으면 노출 경고로 막는다. 관리 키는 `home/managed-keys.json`에 둔다. plugins·mcp·skills는 더하기만 하고 MCP env 값은 자리표시로 적는다. AGENTS.md는 마커 블록(`<!-- >>> harness-manager >>> -->`)이 있으면 그 안이, 없으면 레포 템플릿에 제목이 있는 섹션만 공개다. PS 프로필·gitconfig·WT capture는 마커 merge가 생기는 M6로 미룬다 |
 | D23 | **install은 doctor 검사에서 step을 만든다**(M6). 실행 전후로 같은 검사를 돌려 멱등과 결과 판정을 한다. 실행기는 셸 없이 돌리고 `.cmd` 심만 cmd.exe에 엄격히 인용해 넘긴다. self 마켓플레이스 소스가 다르면 remove → add 뒤 빠진 플러그인을 같은 step에서 다시 설치한다(M11의 1–3단계를 이 step이 한다). 소스는 `settings.json`의 `selfMarketplaceSource`(directory/github). PS 프로필·gitconfig·WT는 템플릿 capture가 먼저 필요해 M6 후속으로 남긴다 |
@@ -55,7 +55,7 @@
 
 ### 미결 (해당 마일스톤에서 결정)
 - Q4 같은 스킬의 사본 두 개(`~/.claude/skills` vs `~/.agents/skills`)가 다를 때 어느 쪽이 최신인지 확인(M9)
-- Q7 cua-driver의 공식 설치 명령, 릴리스 URL, 텔레메트리를 끄는 키(M6에서 `--help`와 문서로 확인)
+- Q7 cua-driver의 릴리스 URL·텔레메트리를 끄는 키는 추가 확인한다. 설치 명령은 사용자 확인으로 `irm https://cua.ai/driver/install.ps1 | iex`로 확정했다.
 - Q8 대화형 로그인: node-pty를 쓸지 외부 터미널을 쓸지. 외부 터미널 쪽이 단순하다
 - Q11 Linux 지원 범위: 설치 엔진은 Windows를 먼저 지원한다. Linux는 doctor와 설정만 지원할지 정한다
 
@@ -184,7 +184,7 @@ interface Step {
 - PC마다 다른 값(예: 특정 도구 경로가 들어간 permission)은 로컬 오버레이로 분리한다.
 
 ### 5-5. cua-driver
-- **설치**: manifest에 버전을 고정한다(현재 0.37.0, Windows x64). 설치 위치는 `~/.cua-driver/packages/current`이고, 공식 설치 명령은 Q7에서 확인한다.
+- **설치**: `irm https://cua.ai/driver/install.ps1 | iex`를 manifest의 powershell-script 설치 경로로 실행한다. 설치 위치는 `~/.cua-driver/packages/current`다. 현재 manifest의 버전 표시는 설치 스크립트에 고정 버전을 전달하지 않으므로 버전 pin을 보증하지 않는다.
 - **검증**: `cua-driver doctor`의 모든 항목이 정상이어야 한다.
 - **텔레메트리**: 기본으로 켜져 있으므로 끈다. 끄는 키는 Q7에서 확인한다.
 - **등록**

@@ -1,0 +1,7 @@
+{
+  "name": "jinmin-codex",
+  "version": "0.1.0",
+  "description": "Codex 상태 조회, 외부 CLI 작업 표시와 선택형 위험 명령 차단",
+  "skills": "./skills/",
+  "hooks": "./hooks/codex.json"
+}
