@@ -60,7 +60,7 @@ function inventory({ duplicate = false, alias = false, mixed = false, version = 
     }
     function Read-HmRuntimeVersion([string]$File) { if ($File -like '*nvm.exe') { return '1.2.2' }; if ($File -like '*npm.cmd') { return '11.0.0' }; return '${version}' }
     function Get-HmNodeRealPath([string]$File) { ${alias ? `return '${quote(path.join(a, "node.exe"))}'` : "return $File"} }
-    Get-HmNodeState | ConvertTo-Json -Depth 6 -Compress
+    Get-HmNodeState -DefaultNvmLink '${quote(path.join(dir, 'default-link'))}' | ConvertTo-Json -Depth 6 -Compress
   `);
 }
 

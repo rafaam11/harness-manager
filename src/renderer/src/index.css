@@ -1435,3 +1435,25 @@ select:focus-visible { outline: none; border-color: var(--primary); }
 .profiles-field-row > :first-child { flex: 1; min-width: 0; }
 .profiles-entry > summary { cursor: pointer; padding: 6px 0; font: var(--type-ui-semibold); }
 .profiles-entry > .profiles-fields { margin: 8px 0; }
+
+
+.doctor-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.doctor-metric { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
+.doctor-metric > svg { color: var(--primary); flex: 0 0 auto; }
+.doctor-metric > span { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font: var(--type-secondary); }
+.doctor-metric strong { color: var(--text); font: var(--type-ui-semibold); }
+.doctor-card { border-radius: 8px; min-height: 150px; padding: 16px; }
+.doctor-card-head { flex-wrap: wrap; }
+.doctor-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; color: var(--primary); background: var(--surface-accent); margin-right: auto; }
+.doctor-icon img { width: 30px; height: 30px; object-fit: contain; }
+.doctor-openai-icon { filter: invert(1); }
+:root[data-theme="light"] .doctor-openai-icon { filter: none; }
+.install-result-overview { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.install-result-count { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-raised); }
+.install-result-count svg { color: var(--primary); }
+.install-failures { padding: 16px; margin-bottom: 16px; border: 1px solid var(--danger-line); border-radius: 8px; background: var(--err-surface); }
+.install-failures h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--type-ui-semibold); }
+.install-failure { padding: 10px 0; border-top: 1px solid var(--line); }
+.install-failure p { margin: 6px 0; color: var(--muted); overflow-wrap: anywhere; }
+.install-failures button { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 700px) { .doctor-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

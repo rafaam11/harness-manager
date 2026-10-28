@@ -1,3 +1,5 @@
+import { CheckCircle2, AlertTriangle, CircleAlert, Info } from "lucide-react";
+import { DoctorIcon } from "../components/DoctorIcon";
 import { useEffect, useState } from "react";
 import {
   DOCTOR_CARD_LABELS,
@@ -87,10 +89,17 @@ export default function Dashboard() {
       )}
 
       {report && tab === "overview" && (
+        <>
+        <div className="doctor-overview" aria-label="환경 상태 요약">
+          {([ ["ok", "정상", CheckCircle2], ["warn", "주의", AlertTriangle], ["fail", "누락", CircleAlert], ["info", "정보", Info] ] as const).map(([state, label, Icon]) => (
+            <div className="doctor-metric" key={state}><Icon size={24} aria-hidden="true" /><span><strong>{report.cards.filter((item) => item.state === state).length}</strong><span>{label}</span></span></div>
+          ))}
+        </div>
         <div className="doctor-grid">
           {report.cards.map((entry) => (
             <section className={`doctor-card ${entry.state}`} key={entry.section}>
               <header className="doctor-card-head">
+                <DoctorIcon section={entry.section} />
                 <StateDot state={entry.state} />
                 <span className="doctor-card-title">{entry.label}</span>
                 <StatusTag tone={entry.state === "fail" ? "err" : entry.state === "info" ? "muted" : entry.state}>
@@ -104,6 +113,7 @@ export default function Dashboard() {
             </section>
           ))}
         </div>
+        </>
       )}
 
       {card && (

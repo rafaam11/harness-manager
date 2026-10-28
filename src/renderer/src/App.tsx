@@ -81,7 +81,7 @@ export default function App() {
                 title={entry.label}
                 onClick={() => setPage(key)}
               >
-                <Icon size={18} aria-hidden="true" />
+                <Icon size={22} aria-hidden="true" />
                 <span>{entry.short}</span>
               </button>
             );

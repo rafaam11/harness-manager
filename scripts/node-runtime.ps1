@@ -67,6 +67,7 @@ function Get-HmNodeRealPath([string]$File) {
 }
 
 function Get-HmNodeState {
+    param([string]$DefaultNvmLink = 'C:\nvm4w\nodejs')
     $oldPath = $env:Path
     $originalPath = $env:HM_NODE_ORIGINAL_PATH
     Update-HmRuntimeEnvironment
@@ -115,7 +116,7 @@ function Get-HmNodeState {
         $linkItem = Get-Item -LiteralPath $nvmLink -Force
         if (-not ($linkItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $problems += 'NVM 링크 위치에 실폴더가 있습니다. 자동으로 바꾸지 않습니다' }
     }
-    if (-not $nvm -and (Test-Path -LiteralPath 'C:\nvm4w\nodejs')) { $problems += 'NVM 기본 링크 위치가 이미 사용 중입니다' }
+    if (-not $nvm -and (Test-Path -LiteralPath $DefaultNvmLink)) { $problems += 'NVM 기본 링크 위치가 이미 사용 중입니다' }
     $dirs = @(("$oldPath;$originalPath;$env:Path" -split ';') + @(
         (Join-Path $env:ProgramFiles 'nodejs'), (Join-Path $env:LOCALAPPDATA 'Programs\nodejs'), $nvmLink
     ) + @($msi | ForEach-Object { $_.location }) | Where-Object { $_ } | ForEach-Object { [Environment]::ExpandEnvironmentVariables($_.Replace('"', '').Trim()) } | Select-Object -Unique)

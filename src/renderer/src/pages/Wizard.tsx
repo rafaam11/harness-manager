@@ -1,3 +1,4 @@
+import { DoctorIcon } from "../components/DoctorIcon";
 import { useEffect, useRef, useState } from "react";
 import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
 import { DOCTOR_CARD_LABELS, DOCTOR_SECTION_LABELS, type DoctorReport, type DoctorSection } from "@shared/doctor-types";
@@ -32,6 +33,7 @@ function Cards({ report }: { report: DoctorReport }) {
       {report.cards.map((card) => (
         <section className={`doctor-card ${card.state}`} key={card.section}>
           <header className="doctor-card-head">
+            <DoctorIcon section={card.section} />
             <StateDot state={card.state} />
             <span className="doctor-card-title">{card.label}</span>
             <StatusTag tone={card.state === "fail" ? "err" : card.state === "info" ? "muted" : card.state}>

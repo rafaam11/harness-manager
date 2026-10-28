@@ -1,3 +1,4 @@
+import { Database, Sparkles, Map, Blocks } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "@shared/external-api/types";
 import { Banner, StatusTag, Tabs, ToolbarSpacer } from "../../components/ui";
@@ -11,11 +12,11 @@ import SourcesExplorer from "./SourcesExplorer";
 
 type Tab = "sources" | "skills" | "blueprints" | "technologies";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "sources", label: "정보원" },
-  { id: "skills", label: "k-skill" },
-  { id: "blueprints", label: "청사진" },
-  { id: "technologies", label: "기술" },
+const TABS: { id: Tab; label: string; icon: typeof Database }[] = [
+  { id: "sources", label: "정보원", icon: Database },
+  { id: "skills", label: "k-skill", icon: Sparkles },
+  { id: "blueprints", label: "청사진", icon: Map },
+  { id: "technologies", label: "기술", icon: Blocks },
 ];
 
 /**
@@ -97,7 +98,7 @@ export default function ExternalApi() {
         </Banner>
       )}
 
-      <Tabs<Tab> label="외부 API 목록" value={tab} onChange={setTab} items={TABS} />
+      <Tabs<Tab> label="외부 API 목록" value={tab} onChange={setTab} items={TABS.map(({ id, label, icon: Icon }) => ({ id, label: <><Icon size={17} aria-hidden="true" /> {label}</> }))} />
 
       {tab === "sources" && <SourcesExplorer catalog={catalog} onOpen={open} onCompare={setCompareIds} />}
       {tab === "skills" && <RegistryTable kind="skill" catalog={catalog} onOpen={open} />}

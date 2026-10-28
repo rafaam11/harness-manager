@@ -8,6 +8,7 @@ import {
   Import,
   LayoutDashboard,
   Wand2,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import Capture from "./Capture";
@@ -45,7 +46,7 @@ export const PAGES = {
   install: { label: "설치", short: "설치", icon: Download, writesUserFiles: true, render: () => <Install /> },
   catalog: { label: "카탈로그", short: "카탈로그", icon: BookOpen, wide: true, render: () => <Catalog /> },
   cleanup: { label: "정리", short: "정리", icon: Archive, writesUserFiles: true, render: () => <Cleanup /> },
-  profiles: { label: "사용자 프로필", short: "프로필", icon: BookOpen, render: (context) => <Profiles {...context} /> },
+  profiles: { label: "사용자 프로필", short: "프로필", icon: UserRound, render: (context) => <Profiles {...context} /> },
   capture: { label: "가져오기", short: "가져오기", icon: Import, render: () => <Capture /> },
   "external-api": { label: "외부 API", short: "외부 API", icon: Globe, wide: true, render: () => <ExternalApi /> },
   // 사이드바에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.

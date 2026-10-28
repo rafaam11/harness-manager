@@ -1,3 +1,4 @@
+import { AlertCircle, CheckCircle2, SkipForward, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
 import { DOCTOR_CHECK_LABELS, DOCTOR_SECTION_LABELS, type DoctorCardState } from "@shared/doctor-types";
@@ -27,6 +28,7 @@ export default function Install() {
   const [error, setError] = useState<string | null>(null);
   const total = useRef(0);
   const nextLineId = useRef(0);
+  const repairRef = useRef<HTMLDivElement>(null);
   const { confirm, dialog } = useConfirmDialog();
 
   const load = async () => {
@@ -58,6 +60,12 @@ export default function Install() {
   // 직접 해야 하는 step도 이미 맞으면(예: 손으로 설치해 둔 cua-driver) 할 일이 아니다.
   const pending = plan?.steps.filter((step) => step.actionable || (step.manual && ["missing", "drift", "error"].includes(step.state))) ?? [];
   const healthy = (plan?.steps.length ?? 0) - pending.length;
+  const currentResults = summary?.results.map((entry) => results[entry.id] ?? entry) ?? [];
+  const failedResults = currentResults.filter((entry) => entry.outcome === "failed");
+  const repairTargets = [...new Map([
+    ...pending.filter((step) => results[step.id]?.outcome === "failed" || step.state === "error").map((step) => ({ id: step.id, title: step.title })),
+    ...failedResults.map((entry) => ({ id: entry.id, title: plan?.steps.find((step) => step.id === entry.id)?.title ?? entry.id })),
+  ].map((target) => [target.id, target])).values()];
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -138,6 +146,24 @@ export default function Install() {
         </div>
       )}
       {summary && (
+        <div className="install-result-overview" role="status">
+          <div className="install-result-count"><CheckCircle2 size={23} aria-hidden="true" /><strong>{currentResults.filter((entry) => entry.outcome === "done").length}</strong> 완료</div>
+          <div className="install-result-count"><SkipForward size={23} aria-hidden="true" /><strong>{currentResults.filter((entry) => entry.outcome === "skipped").length}</strong> 건너뜀</div>
+          <div className="install-result-count"><AlertCircle size={23} aria-hidden="true" /><strong>{failedResults.length}</strong> 실패</div>
+        </div>
+      )}
+      {failedResults.length > 0 && (
+        <section className="install-failures" aria-label="설치 실패 항목">
+          <h3><AlertCircle size={20} aria-hidden="true" /> 확인이 필요한 항목 {failedResults.length}개</h3>
+          {failedResults.map((entry) => <div className="install-failure" key={entry.id}>
+            <strong>{plan?.steps.find((step) => step.id === entry.id)?.title ?? entry.id}</strong>
+            <p>{entry.detail}</p>
+            <p>오류를 확인하고 필요한 경우 AI 복구를 요청하세요.</p>
+          </div>)}
+          <button className="btn ghost" onClick={() => repairRef.current?.scrollIntoView({ block: "start" })}><Sparkles size={17} aria-hidden="true" /> AI 복구 옵션 보기</button>
+        </section>
+      )}
+      {summary && (
         <div className="install-summary">
           {summary.verify.map((card) => (
             <span key={card.section} className="install-summary-card">
@@ -206,12 +232,14 @@ export default function Install() {
       })}
 
       <LogTerminal lines={lines} onClear={running ? undefined : () => setLines([])} />
+      <div ref={repairRef}>
       <RepairPanel
-        targets={pending.filter((step) => results[step.id]?.outcome === "failed" || step.state === "error").map((step) => ({ id: step.id, title: step.title }))}
+        targets={repairTargets}
         disabled={running}
         onBusyChange={setRepairing}
         onResult={(result) => { setResults((prev) => ({ ...prev, [result.id]: result })); void load(); }}
       />
+      </div>
     </div>
   );
 }
