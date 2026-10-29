@@ -317,6 +317,25 @@ async function powershellProfileChange(ctx: InstallContext): Promise<FileChange>
   return { absPath, before, after: `\uFEFF${upsertMarkerBlock(body, template, HASH_MARKERS)}` };
 }
 
+/** 동기화도 설치와 같은 관리 키·마커 규칙으로 PC 변경을 계산한다. */
+export async function previewManagedProfileFiles(ctx: InstallContext, changed: string[]) {
+  const specs: [string[], (ctx: InstallContext) => Promise<FileChange>][] = [
+    [["home/claude/CLAUDE.md"], claudeMdChange],
+    [["home/agents/AGENTS.md", "AGENTS.local.md"], agentsMdChange],
+    [["home/claude/settings.managed.json", "claude-settings.local.json", "home/managed-keys.json"], claudeSettingsChange],
+    [["home/codex/config.managed.toml", "codex-config.local.json", "home/managed-keys.json"], codexConfigChange],
+    [["home/powershell/profile.ps1", "powershell.local.ps1"], powershellProfileChange],
+  ];
+  const result: FileChange[] = [];
+  for (const [keys, compute] of specs) if (keys.some(key => changed.includes(key))) {
+    // 원격에서 템플릿을 없앤 경우 기존 PC 설정을 통째로 지우지 않는다.
+    const template = keys.find(key => key.startsWith("home/") && key !== "home/managed-keys.json");
+    if (template && !await readText(path.join(ctx.templateRoot!, template))) continue;
+    const file = await compute(ctx); if (file.before !== file.after) result.push(file);
+  }
+  return result;
+}
+
 /** git 전역 설정의 관리 키를 `git config`로 맞춘다. 레포 값 위에 로컬 오버레이(이메일 등)를 얹는다. */
 function gitconfigStep(rank: number): StepDef {
   const desired = async (ctx: InstallContext): Promise<CommandSpec[]> => {

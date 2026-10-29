@@ -25,6 +25,98 @@ beforeEach(async () => {
 afterEach(async () => { vi.restoreAllMocks(); await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 async function save(value = component()) { await service.apply((await service.save(value)).token); }
 async function migrate() { await service.apply((await service.migrate(true)).token); }
+it("reviews and applies a first edit without separate profile creation or migration", async () => {
+  await store.select("default");
+  const base = await store.active();
+  ctx = { ...ctx, templateRoot: base.root, profileDir: base.localDir, setupProfile: base };
+  service.deps.context = async () => { const active = await store.active(); return { ...ctx, templateRoot: active.root, profileDir: active.localDir, setupProfile: active }; };
+  const plan = await service.prepare(component());
+  expect((await store.active()).id).toBe("default");
+  await expect(fs.stat(path.join(ctx.codexHome, "skills/review/SKILL.md"))).rejects.toMatchObject({ code: "ENOENT" });
+  expect(plan.scope).toBe("settings-and-pc");
+  await service.apply(plan.token);
+  const active = await store.active(); expect(active.id).not.toBe("default");
+  expect(parseDefinition(await fs.readFile(path.join(active.root, "home/components.v2.json"), "utf8")).components[0]?.id).toBe("review");
+  for (const home of [ctx.claudeHome, ctx.codexHome]) expect(await fs.readFile(path.join(home, "skills/review/SKILL.md"), "utf8")).toBe(component().files["SKILL.md"]);
+  const record = (await service.historyList())[0]!;
+  expect(record.files.some(f => f.path.endsWith("components.v2.json"))).toBe(true);
+  await service.apply((await service.restorePreview(record.id)).token);
+  expect((await store.active()).id).toBe("default");
+  await expect(fs.stat(path.join(ctx.codexHome, "skills/review/SKILL.md"))).rejects.toMatchObject({ code: "ENOENT" });
+});
+it("rolls back the first setup and keeps the original selection if a PC write fails", async () => {
+  await store.select("default");
+  service.deps.context = async () => { const active = await store.active(); return { ...ctx, templateRoot: active.root, profileDir: active.localDir, setupProfile: active }; };
+  const plan = await service.prepare(component());
+  const target = path.join(ctx.codexHome, "skills/review/SKILL.md");
+  const rename = fs.rename;
+  vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
+    if (to === target) throw new Error("simulated PC write failure");
+    return rename(from, to);
+  });
+  await expect(service.apply(plan.token)).rejects.toThrow("simulated PC write failure");
+  expect((await store.active()).id).toBe("default");
+  for (const home of [ctx.claudeHome, ctx.codexHome]) await expect(fs.stat(path.join(home, "skills/review/SKILL.md"))).rejects.toMatchObject({ code: "ENOENT" });
+  expect((await store.list()).profiles.filter(p => p.name === "내 설정")).toHaveLength(0);
+});
+it("updates and restores the baseline and both CLI files as one change", async () => {
+  await migrate();
+  await service.apply((await service.prepare(component())).token);
+  const updated = component({ files: { "SKILL.md": "Updated" } });
+  await service.apply((await service.prepare(updated)).token);
+  expect((await service.snapshot()).components.find(i => i.definitionId === "review")?.observations.map(o => o.comparison)).toEqual(["match", "match"]);
+  const record = (await service.historyList())[0]!;
+  await service.apply((await service.restorePreview(record.id)).token);
+  expect((await service.definition("review"))?.files["SKILL.md"]).toBe(component().files["SKILL.md"]);
+  expect(await fs.readFile(path.join(ctx.codexHome, "skills/review/SKILL.md"), "utf8")).toBe(component().files["SKILL.md"]);
+  await service.tick(); expect(service.automationStatus().detail).toContain("복원 후");
+});
+it("preserves the previous automatic policy when editing an existing setup", async () => {
+  await service.apply((await service.prepare(component())).token);
+  expect((await service.snapshot()).automatic).toBe(false);
+  await service.apply((await service.migrate(true)).token);
+  await service.apply((await service.prepare(component({ description: "Updated" }))).token);
+  expect((await service.snapshot()).automatic).toBe(true);
+});
+it("keeps the old baseline and both providers intact when a reviewed target changes", async () => {
+  await service.apply((await service.prepare(component())).token);
+  const plan = await service.prepare(component({ files: { "SKILL.md": "Reviewed" } }));
+  const target = path.join(ctx.codexHome, "skills/review/SKILL.md");
+  await fs.writeFile(target, "User edit after preview");
+  await expect(service.apply(plan.token)).rejects.toMatchObject({ statusCode: 409 });
+  expect((await service.definition("review"))?.files["SKILL.md"]).toBe(component().files["SKILL.md"]);
+  expect(await fs.readFile(path.join(ctx.claudeHome, "skills/review/SKILL.md"), "utf8")).toBe(component().files["SKILL.md"]);
+  expect(await fs.readFile(target, "utf8")).toBe("User edit after preview");
+});
+it("records failed external installs and leaves the received baseline uncommitted", async () => {
+  const profile = await store.active();
+  const before = await readDocument(profile), document = structuredClone(before);
+  const tools = JSON.parse(document.files["manifest/tools.json"]!); tools.tools = [tools.tools[0]]; tools.tools[0].name = "Claude Code changed";
+  document.files["manifest/tools.json"] = JSON.stringify(tools);
+  ctx.runner = { run: async () => ({ code: 1, notFound: false, timedOut: false }) };
+  const packet = { profile, before, document, metadata: { path: path.join(store.stateDir, "profiles", profile.id, "github.json"), before: null, after: "{}\n" }, verify: async () => undefined, checkLocal: async () => undefined };
+  const preview = await service.receivePreview(new AbortController().signal, packet);
+  expect(preview.commands.length).toBeGreaterThan(0);
+  await expect(service.apply(preview.token)).rejects.toThrow("저장은 보류");
+  expect((await readDocument(profile)).files["manifest/tools.json"]).toBe(before.files["manifest/tools.json"]);
+  const record = (await service.historyList())[0]!;
+  expect(record.status).toBe("failed"); expect(record.detail).toContain("tools.claude");
+});
+it("does not resurrect retired instructions when the shared template changes in the same receive", async () => {
+  await service.apply((await service.prepare(component({ kind: "instruction", files: { "instructions.md": "Retired component policy" } }))).token);
+  for (const file of [path.join(ctx.claudeHome, "CLAUDE.md"), path.join(ctx.codexHome, "AGENTS.md")]) await fs.writeFile(file, "# Private\nKeep this text.\n" + await fs.readFile(file, "utf8"));
+  const profile = await store.active(), before = await readDocument(profile), document = structuredClone(before);
+  document.files["home/components.v2.json"] = JSON.stringify({ schemaVersion: 2, automatic: false, components: [] });
+  document.files["home/claude/CLAUDE.md"] = "# Shared\nNew shared template.";
+  document.files["home/agents/AGENTS.md"] = "# Shared\nNew shared template.";
+  const packet = { profile, before, document, metadata: { path: path.join(store.stateDir, "profiles", profile.id, "github.json"), before: null, after: "{}\n" }, verify: async () => undefined, checkLocal: async () => undefined };
+  const preview = await service.receivePreview(new AbortController().signal, packet);
+  await service.apply(preview.token);
+  for (const file of [path.join(ctx.claudeHome, "CLAUDE.md"), path.join(ctx.codexHome, "AGENTS.md")]) {
+    const text = await fs.readFile(file, "utf8");
+    expect(text).toContain("Keep this text."); expect(text).toContain("New shared template."); expect(text).not.toContain("Retired component policy");
+  }
+});
 it("resolves profile context outside the mutation lock like the real app", async () => {
   service.deps.context = () => withLock(async () => ctx);
   await migrate(); await save(); await service.apply((await service.preview(["definition:review"])).token);

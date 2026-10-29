@@ -247,7 +247,7 @@ export class ProfileSync {
     );
   }
   async status(id: string, signal: AbortSignal): Promise<ProfileSyncStatus> {
-    await this.store.get(id);
+    const profile = await this.store.get(id);
     const link = await this.link(id);
     try {
       await this.run("git", ["--version"], signal);
@@ -277,12 +277,15 @@ export class ProfileSync {
             signal,
           )
         : null;
+      const local = flatten(bundleProfile(profile.name, await readDocument(profile)).bundle);
+      const baseline = flatten(link.base);
       return {
         connected: true,
         available: true,
         account,
         repository: link.repository,
         changed: head !== link.head,
+        outgoing: [...new Set([...Object.keys(local), ...Object.keys(baseline)])].some(key => local[key] !== baseline[key]),
         detail:
           head !== link.head
             ? "원격 변경이 있습니다. 받기 미리보기를 확인하세요."
@@ -303,9 +306,8 @@ export class ProfileSync {
     create: boolean,
     signal: AbortSignal,
   ): Promise<ProfileSyncStatus> {
-    const profile = await this.store.get(id);
+    let profile = await this.store.get(id);
     if (
-      profile.kind === "builtin" ||
       profile.kind === "legacy" ||
       profile.archived
     )
@@ -326,6 +328,11 @@ export class ProfileSync {
         signal,
       );
     await this.info(repository, signal);
+    if (profile.kind === "builtin") {
+      const prepared = await this.store.create("내 설정", profile.id);
+      id = prepared.activeId;
+      profile = await this.store.get(id);
+    }
     await withLock(() =>
       writeProfileFile(
         this.folder(id),
@@ -592,5 +599,29 @@ export class ProfileSync {
     }
     this.plans.delete(token);
     return this.status(id, signal);
+  }
+  /** 전송은 이 서비스가 맡고, 수신 파일과 PC 적용은 작업대의 같은 저널로 넘긴다. */
+  async prepareReceive(id: string, signal: AbortSignal) {
+    const preview = await this.preview(id, "receive", signal);
+    const plan = this.plans.get(preview.token)!;
+    this.plans.delete(preview.token);
+    if (preview.conflicts.length) throw new RequestError(409, `같은 파일이 양쪽에서 바뀌었습니다: ${preview.conflicts.join(", ")}. 앱 설정의 고급 프로필에서 충돌을 해결한 뒤 다시 받으세요.`);
+    const profile = await this.store.get(id);
+    const merged = parseBundle(stringify(plan.merged));
+    const personal = { ...plan.document.personal, ...merged.personal };
+    for (const key of plan.document.portable) if (!(key in merged.personal)) personal[key] = key.endsWith(".json") ? "{}\n" : "";
+    const document = { ...plan.document, files: merged.files, personal, portable: Object.keys(merged.personal) };
+    const checkLocal = async () => {
+      if (documentFingerprint(await readDocument(profile)) !== plan.fingerprint || stringify(await this.link(id)) !== stringify(plan.link)) throw new RequestError(409, "내 설정이나 연결이 변경되었습니다. 다시 검토하세요.");
+    };
+    return { profile, before: plan.document, document,
+      metadata: { path: path.join(this.folder(id), "github.json"), before: await readProfileFile(this.folder(id), "github.json"), after: stringify({ ...plan.link, head: plan.remote.head, base: plan.remote.bundle }) },
+      checkLocal,
+      verify: async (signal: AbortSignal) => {
+        await checkLocal(); await this.info(plan.link.repository, signal);
+        const refs = await this.git(["ls-remote", "origin", `refs/heads/${plan.remote.branch}`], plan.remote.cwd, signal);
+        if ((refs.split(/\s+/)[0] || null) !== plan.remote.head) throw new RequestError(409, "다른 PC의 설정이 바뀌었습니다. 다시 검토하세요.");
+      },
+    };
   }
 }

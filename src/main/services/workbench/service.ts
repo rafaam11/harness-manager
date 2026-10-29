@@ -13,10 +13,10 @@ import { detectProcess } from "../../lib/process-detect.js";
 import { getProviders } from "../../providers/registry.js";
 import type { ProviderAdapter } from "../../providers/types.js";
 import { getAllPlugins } from "../plugins.js";
-import { defaultInstallContext, planInstallWith, runInstallWith, type InstallContext } from "../install/engine.js";
+import { defaultInstallContext, planInstallWith, previewManagedProfileFiles, runInstallWith, type InstallContext } from "../install/engine.js";
 import { SetupProfileStore } from "../setup-profiles.js";
 import { ProfileSync } from "../profile-sync.js";
-import { profileFile, readProfileFile, stringify, transferProblem } from "../profile-document.js";
+import { profileFile, readProfileFile, stringify, transferProblem, writeDocument } from "../profile-document.js";
 import { unifiedDiff } from "../capture/text.js";
 import { upsertMarkerBlock } from "../install/merge.js";
 import { DEFINITION_FILE, ordinaryFiles, parseDefinition, validateComponent } from "./definition.js";
@@ -24,9 +24,10 @@ import { ChangeHistory, readText, type FileChange } from "./history.js";
 import { writeFileChecked } from "../capture/capture.js";
 import { probeMcp, type McpProbeResult } from "./mcp-probe.js";
 import { powershellProfilePath } from "../dotfiles.js";
+import { PROFILE_FILES, PERSONAL_FILES, type SetupProfile } from "@shared/setup-profile-types";
 import { discoverSkills, fetchSkill } from "./github.js";
 
-interface Pending { profileId: string; definition: string | null; files: FileChange[]; stepIds: string[]; title: string; automatic: boolean; restore?: string; installDigest?: string; probe?: { id: string; fingerprint: string } }
+interface Pending { profileId: string; definition: string | null; files: FileChange[]; stepIds: string[]; title: string; automatic: boolean; restore?: string; installDigest?: string; candidate?: ComponentDefinition[]; destination?: SetupProfile; verify?(signal: AbortSignal): Promise<void>; checkLocal?(): Promise<void>; stagedContext?: InstallContext; probe?: { id: string; fingerprint: string } }
 export interface WorkbenchDependencies {
   stateDir: string; context(): Promise<InstallContext>; providers: ProviderAdapter[]; plugins(): Promise<PluginsSnapshot>;
   receiveRemote?(profileId: string, signal: AbortSignal): Promise<string>;
@@ -60,17 +61,28 @@ export class WorkbenchService {
     }
     return result;
   }
-  private async history(archivedDefinitions: ComponentDefinition[] = []) {
-    const c = await this.context();
+  private async history(archivedDefinitions: ComponentDefinition[] = [], destination?: SetupProfile) {
+    const original = await this.context();
+    const c = destination ? { ...original, root: destination.root, profile: destination, definition: await readProfileFile(destination.root, DEFINITION_FILE) } : original;
     const definition = parseDefinition(c.definition);
     const allowed = new Set([await profileFile(c.root, DEFINITION_FILE), this.lockFile(c.profile.id)]);
+    const localDir = "localDir" in c.profile && typeof c.profile.localDir === "string" ? c.profile.localDir : c.ctx.profileDir;
+    for (const file of PROFILE_FILES) allowed.add(await profileFile(c.root, file));
+    if (localDir) for (const file of [...PERSONAL_FILES, "private-terms.json", "portability.json"]) allowed.add(await profileFile(localDir, file));
+    for (const file of ["setup-profiles.json", "settings.json"]) allowed.add(await profileFile(this.deps.stateDir, file));
+    const syncMetadata = await profileFile(this.deps.stateDir, `profiles/${c.profile.id}/github.json`);
+    allowed.add(syncMetadata);
     allowed.add(powershellProfilePath(c.ctx.documentsDir));
     for (const [root, name] of [[c.ctx.claudeHome, "CLAUDE.md"], [c.ctx.claudeHome, "settings.json"], [c.ctx.codexHome, "AGENTS.md"], [c.ctx.codexHome, "config.toml"]]) allowed.add(await profileFile(root!, name!));
     for (const item of [...definition.components, ...archivedDefinitions]) for (const file of await this.targetFiles(c.ctx, { ...item, targets: ["claude", "codex"] })) allowed.add(file);
-    // 정의 저장과 PC 적용은 별개다. 복원 경로도 현재 정의에서 정확히 파생한다.
+    // 복원 경로는 현재 설정과 검증된 후보에서 파일 단위로 파생한다.
     return new ChangeHistory(path.join(this.deps.stateDir, "workbench", "history"), async file => {
       if (!allowed.has(file)) throw new RequestError(403, "현재 프로필에서 허용하지 않는 복원 경로입니다");
       if (file === path.join(c.root, DEFINITION_FILE)) await profileFile(c.root, DEFINITION_FILE);
+      else if (file.startsWith(c.root + path.sep)) await profileFile(c.root, path.relative(c.root, file).split(path.sep).join("/"));
+      else if (localDir && file.startsWith(localDir + path.sep)) await profileFile(localDir, path.relative(localDir, file).split(path.sep).join("/"));
+      else if (["setup-profiles.json", "settings.json"].some(name => file === path.join(this.deps.stateDir, name))) await profileFile(this.deps.stateDir, path.basename(file));
+      else if (file === syncMetadata) await profileFile(this.deps.stateDir, `profiles/${c.profile.id}/github.json`);
       else if (file === powershellProfilePath(c.ctx.documentsDir)) await profileFile(c.ctx.documentsDir, "WindowsPowerShell/Microsoft.PowerShell_profile.ps1");
       else if (file === this.lockFile(c.profile.id)) await profileFile(this.deps.stateDir, `workbench/${path.basename(file)}`);
       else for (const root of [c.ctx.claudeHome, c.ctx.codexHome]) if (file.startsWith(root + path.sep)) await profileFile(root, path.relative(root, file).split(path.sep).join("/"));
@@ -88,10 +100,10 @@ export class WorkbenchService {
         const present = await Promise.all(targets.map(readText));
         const enabled = item.targets.includes(provider);
         const matches = enabled && present.every((text, i) => item.kind === "instruction" ? text?.includes(Object.values(item.files)[i]!.trim()) : text === Object.values(item.files)[i]);
-        observations.push({ provider, installed: present.every(p => p !== null), enabled, recognition: "unverified" as const, execution: "unverified" as const, compatibility: "native" as const, checkedAt: at, detail: !enabled ? "프로필 적용 대상 밖" : matches ? "프로필과 일치 · 세션 인식은 별도 검사" : "설정 차이 또는 설치 필요" });
+        observations.push({ provider, installed: present.every(p => p !== null), enabled, comparison: !enabled ? "outside" as const : matches ? "match" as const : present.some(p => p === null) ? "missing" as const : "different" as const, recognition: "unverified" as const, execution: "unverified" as const, compatibility: "native" as const, checkedAt: at, detail: !enabled ? "적용 대상 아님" : matches ? "내 설정과 일치 · 세션 인식은 별도 검사" : "설정 차이 또는 설치 필요" });
         if (enabled) for (const target of targets) paths.add(target);
       }
-      items.push({ id: `definition:${item.id}`, definitionId: item.id, name: item.name, description: item.description, kind: item.kind, source: item.source.kind === "github" ? `${item.source.repository}@${item.source.revision?.slice(0, 8)}` : "현재 프로필", managed: true, observations, stepIds: [], issue: observations.some(o => o.enabled && o.detail.startsWith("설정 차이")) ? "프로필과 다른 파일 또는 설치 필요" : undefined });
+      items.push({ id: `definition:${item.id}`, definitionId: item.id, name: item.name, description: item.description, kind: item.kind, source: item.source.kind === "github" ? `${item.source.repository}@${item.source.revision?.slice(0, 8)}` : "내 설정", managed: true, observations, stepIds: [], issue: observations.some(o => o.enabled && o.comparison !== "match") ? "내 설정과 다름" : undefined });
     }
     for (const provider of this.deps.providers) {
       try {
@@ -124,7 +136,7 @@ export class WorkbenchService {
       if (existing) { existing.managed = true; existing.stepIds.push(step.id); if (!["ok", "info", "skipped"].includes(step.state)) existing.issue = step.detail; continue; }
       const kind: ComponentKind = step.section === "mcp" ? "mcp" : step.section === "plugins" ? "plugin" : step.section === "skills" ? "skill" : /claude-md|agents-md/.test(step.id) ? "instruction" : "environment";
       const provider: ProviderId | null = /(^claude\.|\.claude\.|\.claude$)/.test(step.id) ? "claude" : /(^codex\.|\.codex\.|\.codex$)/.test(step.id) ? "codex" : null;
-      items.push({ id: `step:${step.id}`, name: step.title, description: step.detail, kind, source: "프로필 설치 정의", managed: true, stepIds: [step.id], issue: ["ok", "info", "skipped"].includes(step.state) ? undefined : step.detail, observations: provider ? [{ provider, installed: step.state === "missing" ? false : step.state === "ok" ? true : null, enabled: null, recognition: "unverified", execution: "unverified", compatibility: "unverified", detail: step.detail, checkedAt: at }] : [] });
+      items.push({ id: `step:${step.id}`, name: step.title, description: step.detail, kind, source: "내 설정의 설치 항목", managed: true, stepIds: [step.id], issue: ["ok", "info", "skipped"].includes(step.state) ? undefined : step.detail, observations: (provider ? [provider] : ["claude", "codex"] as const).map(target => ({ provider: target, installed: step.state === "missing" ? false : step.state === "ok" ? true : null, enabled: step.state === "skipped" ? false : null, comparison: step.state === "skipped" ? "outside" : "unknown", recognition: "unverified", execution: "unverified", compatibility: "unverified", detail: step.detail, checkedAt: at })) });
     }
     return { profile: { id: c.profile.id, name: c.profile.name, kind: c.profile.id === "default" ? "builtin" : "local" }, migrated: c.definition !== null, automatic: definition.automatic, components: items, warnings, checkedAt: at };
   }
@@ -139,14 +151,138 @@ export class WorkbenchService {
   }
   async versionLock() { return this.lock((await this.context()).profile.id); }
   private remember(pending: Pending, notes: string[] = [], commands: string[] = []): WorkbenchPlan {
-    if (this.plans.size >= 20) this.plans.delete(this.plans.keys().next().value!);
+    if (this.plans.size >= 20) void this.discard(this.plans.keys().next().value!);
     const token = randomUUID(); this.plans.set(token, pending);
     return { token, title: pending.title, files: pending.files.map(f => ({ path: f.path, diff: unifiedDiff(f.path, f.before ?? "", f.after ?? "") })), commands, notes, automatic: pending.automatic };
+  }
+  private async cleanupPreview(pending: Pending) {
+    if (!pending.stagedContext?.templateRoot) return;
+    const stage = path.dirname(pending.stagedContext.templateRoot);
+    const parent = path.resolve(this.deps.stateDir, "workbench", "previews");
+    // 앱이 만든 임시 사본만 지운다. 연결된 사용자 폴더는 이 경로를 통과할 수 없다.
+    if (path.dirname(stage) !== parent || !/^[a-f0-9-]{36}$/.test(path.basename(stage))) return;
+    await profileFile(this.deps.stateDir, `workbench/previews/${path.basename(stage)}`);
+    await fs.rm(stage, { recursive: true, force: true, maxRetries: 3 });
+  }
+  async discard(token: string) {
+    const pending = this.plans.get(token); this.plans.delete(token);
+    if (pending) await this.cleanupPreview(pending).catch(() => undefined);
   }
   async migrate(automatic: boolean): Promise<WorkbenchPlan> {
     const c = await this.context(); if (c.profile.id === "default") throw new RequestError(422, "공통 기본에서 개인 프로필 사본을 먼저 만드세요");
     const definition = parseDefinition(c.definition); definition.automatic = automatic;
-    return this.remember({ profileId: c.profile.id, definition: c.definition, files: [{ path: await profileFile(c.root, DEFINITION_FILE), before: c.definition, after: stringify(definition) }], stepIds: [], title: c.definition ? "자동 적용 정책 변경" : "v4 프로필로 전환", automatic: false }, ["기존 설정과 설치 정의를 보존합니다. 일반 문서만 자동 적용하며 권한·hook·MCP·플러그인은 검토를 기다립니다."]);
+    return { ...this.remember({ profileId: c.profile.id, definition: c.definition, files: [{ path: await profileFile(c.root, DEFINITION_FILE), before: c.definition, after: stringify(definition) }], stepIds: [], title: "문서 자동 적용 정책 변경", automatic: false }, ["일반 문서만 자동 적용하며 권한·hook·MCP·플러그인은 검토를 기다립니다."]), scope: "settings" };
+  }
+  /** 기준 파일과 PC 파일을 한 저널에 넣어 저장/적용 사이의 중간 상태를 없앤다. */
+  async prepare(value: unknown): Promise<WorkbenchPlan> {
+    const item = validateComponent(value);
+    const issue = transferProblem(JSON.stringify(item)); if (issue) throw new RequestError(422, issue);
+    const c = await this.context();
+    const copy = c.profile.id === "default" ? await new SetupProfileStore(this.deps.stateDir, c.ctx.repoRoot).preparePersonalCopy() : null;
+    const destination = copy?.profile;
+    const root = destination?.root ?? c.root;
+    const profileId = destination?.id ?? c.profile.id;
+    const definition = parseDefinition(c.definition);
+    const previous = definition.components.find(i => i.id === item.id);
+    if (previous && previous.kind !== item.kind) throw new RequestError(422, "기존 항목의 종류는 변경할 수 없습니다");
+    definition.components = [...definition.components.filter(i => i.id !== item.id), item];
+    if (!c.definition) definition.automatic = c.profile.id === "default";
+    parseDefinition(stringify(definition));
+    const files = await this.componentChanges(c.ctx, previous ? [previous] : [], [item]);
+    const definitionPath = await profileFile(root, DEFINITION_FILE);
+    const bootstrap = (copy?.files ?? []).filter(f => f.path !== definitionPath);
+    const lock = await this.lock(profileId);
+    const appliedHashes: Record<string, string> = {};
+    for (const file of await this.targetFiles(c.ctx, item)) {
+      const text = files.find(f => f.path === file)?.after ?? await readText(file);
+      if (text !== null) appliedHashes[file] = sha256(text);
+    }
+    const entries = [...lock.entries.filter(e => e.id !== item.id), { id: item.id, source: item.source, digest: sha256(stringify(item.files)), appliedHashes }];
+    const plan = this.remember({ profileId: c.profile.id, definition: c.definition, destination, candidate: [item, ...(previous ? [previous] : [])], stepIds: [], automatic: false, title: `${item.name} 변경`, files: [
+      ...bootstrap,
+      { path: definitionPath, before: destination ? null : c.definition, after: stringify(definition) },
+      ...files,
+      { path: this.lockFile(profileId), before: await readText(this.lockFile(profileId)), after: stringify({ ...lock, entries, at: new Date().toISOString() }) },
+      ...(copy?.activation ?? []),
+    ] }, [...(copy ? ["일반 문서 자동 적용을 켭니다. 앱 설정에서 바꿀 수 있습니다."] : []), ...(ordinaryFiles(item) ? [] : ["실행 파일이 포함되어 있습니다. 자세히에서 내용을 확인하세요."])]);
+    return { ...plan, targets: item.targets, scope: "settings-and-pc" };
+  }
+  async receivePreview(signal: AbortSignal, prepared?: Awaited<ReturnType<ProfileSync["prepareReceive"]>>) {
+    const c = await this.context();
+    const packet = prepared ?? await new ProfileSync(new SetupProfileStore(this.deps.stateDir, c.ctx.repoRoot)).prepareReceive(c.profile.id, signal);
+    if (packet.profile.id !== c.profile.id) throw new RequestError(409, "내 설정이 바뀌었습니다. 다시 검토하세요.");
+    const stage = path.join(this.deps.stateDir, "workbench", "previews", randomUUID());
+    const stagedProfile: SetupProfile = { ...packet.profile, root: path.join(stage, "definition"), localDir: path.join(stage, "local") };
+    await writeDocument(stagedProfile, packet.document);
+    const stagedContext = { ...c.ctx, templateRoot: stagedProfile.root, profileDir: stagedProfile.localDir };
+    const files: FileChange[] = [];
+    const changed: string[] = [];
+    for (const group of ["files", "personal"] as const) for (const key of new Set([...Object.keys(packet.before[group]), ...Object.keys(packet.document[group])])) {
+      const before = packet.before[group][key] ?? null, after = packet.document[group][key] ?? null;
+      if (before !== after) { changed.push(key); files.push({ path: await profileFile(group === "files" ? c.root : packet.profile.localDir, key), before, after }); }
+    }
+    if (stringify(packet.before.portable) !== stringify(packet.document.portable)) {
+      const file = await profileFile(packet.profile.localDir, "portability.json");
+      files.push({ path: file, before: await readText(file), after: stringify({ portable: packet.document.portable }) });
+    }
+    const previous = parseDefinition(c.definition).components;
+    const next = parseDefinition(packet.document.files[DEFINITION_FILE] ?? null).components;
+    const pcFiles = await this.componentChanges(c.ctx, previous, next);
+    for (const file of await previewManagedProfileFiles(stagedContext, changed)) {
+      const index = pcFiles.findIndex(f => f.path === file.absPath);
+      const adjusted = { path: file.absPath, before: file.before, after: file.after };
+      // 공통 지침과 개별 지침이 같은 파일을 쓰면 두 관리 블록을 모두 보존한다.
+      const own = pcFiles[index];
+      if (own) {
+        let after = adjusted.after;
+        for (const item of previous.filter(i => i.kind === "instruction")) if ((await this.targetFiles(c.ctx, item)).includes(file.absPath)) after = after.replace(new RegExp(`\\n?<!-- >>> harness-manager:${item.id} >>> -->[\\s\\S]*?<!-- <<< harness-manager:${item.id} <<< -->\\n?`), "\n");
+        for (const item of next.filter(i => i.kind === "instruction")) if ((await this.targetFiles(c.ctx, item)).includes(file.absPath)) after = upsertMarkerBlock(after, Object.values(item.files)[0]!, { start: `<!-- >>> harness-manager:${item.id} >>> -->`, end: `<!-- <<< harness-manager:${item.id} <<< -->` });
+        pcFiles[index] = { ...adjusted, after };
+      } else pcFiles.push(adjusted);
+    }
+    const install = await planInstallWith(stagedContext);
+    const commandChanged = (id: string) =>
+      (changed.includes("manifest/packages.json") && id.startsWith("packages.")) ||
+      (changed.includes("manifest/tools.json") && id.startsWith("tools.")) ||
+      ((changed.includes("manifest/plugins.json") || changed.includes("manifest.local.json")) && id.startsWith("plugins.")) ||
+      ((changed.includes("manifest/mcp.json") || changed.includes("manifest.local.json")) && id.startsWith("mcp.")) ||
+      ((changed.includes("manifest/skills.json") || changed.includes("manifest.local.json")) && id.startsWith("skills.")) ||
+      (["home/git/gitconfig.json", "gitconfig.local.json", "home/managed-keys.json"].some(file => changed.includes(file)) && id === "dotfiles.git");
+    const steps = install.steps.filter(s => commandChanged(s.id) && s.actionable && s.actions.some(a => a.kind === "command"));
+    const lock = await this.lock(c.profile.id);
+    const entries = [];
+    for (const item of next) {
+      const appliedHashes: Record<string, string> = {};
+      for (const file of await this.targetFiles(c.ctx, item)) { const text = pcFiles.find(f => f.path === file)?.after ?? await readText(file); if (text !== null) appliedHashes[file] = sha256(text); }
+      entries.push({ id: item.id, source: item.source, digest: sha256(stringify(item.files)), appliedHashes });
+    }
+    const plan = this.remember({ profileId: c.profile.id, definition: c.definition, files: [...files, ...pcFiles, { path: this.lockFile(c.profile.id), before: await readText(this.lockFile(c.profile.id)), after: stringify({ ...lock, entries, at: new Date().toISOString() }) }, packet.metadata], stepIds: steps.map(s => s.id), installDigest: sha256(stringify(steps)), stagedContext, verify: packet.verify, checkLocal: packet.checkLocal, candidate: [...previous, ...next], title: "다른 PC의 변경 받기", automatic: false }, ["다른 PC의 변경을 내 설정과 이 PC에 함께 적용합니다.", ...(steps.length ? ["외부 설치 명령은 자동 복원되지 않습니다. 실패하면 기준 설정 저장을 보류하고 완료·실패 항목을 기록합니다."] : [])], steps.flatMap(s => s.actions.map(a => a.summary)));
+    return { ...plan, scope: "settings-and-pc" as const, targets: ["claude", "codex"] as ProviderId[] };
+  }
+  private async componentChanges(ctx: InstallContext, previous: ComponentDefinition[], next: ComponentDefinition[]) {
+    const files = new Map<string, FileChange>();
+    const original = async (file: string) => files.get(file)?.after ?? await readText(file);
+    const put = async (file: string, after: string | null) => {
+      const before = files.get(file)?.before ?? await readText(file);
+      files.set(file, { path: file, before, after });
+    };
+    for (const old of previous) {
+      const replacement = next.find(i => i.id === old.id);
+      const retained = replacement ? await this.targetFiles(ctx, replacement) : [];
+      for (const file of await this.targetFiles(ctx, old)) if (!retained.includes(file)) {
+        const before = await original(file);
+        if (before !== null) await put(file, old.kind === "instruction" ? before.replace(new RegExp(`\\n?<!-- >>> harness-manager:${old.id} >>> -->[\\s\\S]*?<!-- <<< harness-manager:${old.id} <<< -->\\n?`), "\n") : null);
+      }
+    }
+    for (const item of next) for (const provider of item.targets) {
+      const targets = await this.targetFiles(ctx, { ...item, targets: [provider] });
+      for (const [index, text] of Object.values(item.files).entries()) {
+        const target = targets[index]!;
+        const after = item.kind === "instruction" ? upsertMarkerBlock(await original(target) ?? "", text, { start: `<!-- >>> harness-manager:${item.id} >>> -->`, end: `<!-- <<< harness-manager:${item.id} <<< -->` }) : text;
+        await put(target, after);
+      }
+    }
+    return [...files.values()].filter(f => f.before !== f.after);
   }
   async save(value: unknown): Promise<WorkbenchPlan> {
     const item = validateComponent(value); const c = await this.context();
@@ -165,7 +301,7 @@ export class WorkbenchService {
     parseDefinition(stringify(definition));
     return this.remember({ profileId: c.profile.id, definition: c.definition, files: [{ path: await profileFile(c.root, DEFINITION_FILE), before: c.definition, after: stringify(definition) }, ...retired], stepIds: [], title: `${item.name} 프로필 저장`, automatic: false }, ["프로필 저장과 PC 적용은 별도입니다. 다음 단계에서 실제 파일 변경을 검토하세요.", ...(retired.length ? ["적용 대상에서 빠진 관리 파일은 이력 보관 폴더로 옮깁니다."] : [])]);
   }
-  async adopt(id: string): Promise<WorkbenchPlan> {
+  async adopt(id: string, unified = false): Promise<WorkbenchPlan> {
     const item = (await this.snapshot()).components.find(i => i.id === id);
     if (!item?.catalogPath || !["skill", "instruction"].includes(item.kind)) throw new RequestError(422, "일반 로컬 스킬·지침만 가져올 수 있습니다");
     if (item.source === "설치된 플러그인") throw new RequestError(422, "플러그인은 패키지 단위로 관리합니다");
@@ -175,7 +311,7 @@ export class WorkbenchService {
     const body = await readText(item.catalogPath); if (body === null) throw new RequestError(409, "파일이 사라졌습니다");
     // 스크립트가 있는 스킬을 문서만 복사해 불완전한 설치로 만들지 않는다.
     if (item.kind === "skill" && (await fs.readdir(path.dirname(item.catalogPath))).some(p => p !== "SKILL.md")) throw new RequestError(422, "추가 파일이 있는 스킬은 GitHub 소스로 패키지 전체를 가져오세요");
-    return this.save({ id: item.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 80), name: item.name, kind: item.kind, description: item.description, targets: ["claude", "codex"], source: { kind: "profile" }, files: { [item.kind === "skill" ? "SKILL.md" : "instructions.md"]: body } });
+    return this[unified ? "prepare" : "save"]({ id: item.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 80), name: item.name, kind: item.kind, description: item.description, targets: ["claude", "codex"], source: { kind: "profile" }, files: { [item.kind === "skill" ? "SKILL.md" : "instructions.md"]: body } });
   }
   async preview(ids: string[]): Promise<WorkbenchPlan> {
     const c = await this.context(); const definition = parseDefinition(c.definition); const lock = await this.lock(c.profile.id);
@@ -219,9 +355,22 @@ export class WorkbenchService {
   async apply(token: string, signal = new AbortController().signal, actor: "user" | "automatic" = "user") {
     const pending = this.plans.get(token); this.plans.delete(token);
     if (!pending) throw new RequestError(409, "변경 미리보기를 다시 만드세요");
+    try { await this.applyPrepared(pending, signal, actor); }
+    finally { await this.cleanupPreview(pending).catch(() => undefined); }
+  }
+  private async applyPrepared(pending: Pending, signal: AbortSignal, actor: "user" | "automatic") {
     const c = await this.context();
-    if (pending.profileId !== c.profile.id || pending.definition !== c.definition) throw new RequestError(409, "프로필이 변경되었습니다. 다시 미리보기 하세요");
+    if (pending.profileId !== c.profile.id || pending.definition !== c.definition) throw new RequestError(409, "내 설정이 변경되었습니다. 다시 검토하세요");
     signal.throwIfAborted();
+    await pending.verify?.(signal);
+    if (pending.stagedContext && pending.stepIds.length) {
+      const steps = (await planInstallWith(pending.stagedContext)).steps.filter(s => pending.stepIds.includes(s.id));
+      if (sha256(stringify(steps)) !== pending.installDigest) throw new RequestError(409, "설치 계획이 변경되었습니다. 다시 검토하세요");
+      const result = await runInstallWith(pending.stagedContext, pending.stepIds, () => undefined, signal);
+      const failed = result.results.filter(r => r.outcome === "failed" || r.outcome === "manual");
+      await (await this.history()).recordCommand(c.profile.id, `${pending.title} · 설치`, result.results.map(r => `${r.id}: ${r.outcome} · ${r.detail}`).join("\n"), failed.length > 0 || result.cancelled);
+      if (failed.length || result.cancelled) throw new RequestError(422, `설치 ${result.results.filter(r => r.outcome === "done").length}개 완료, ${failed.length}개 실패. 내 설정 저장은 보류했습니다. 변경 기록을 확인하고 다시 받으면 남은 항목만 실행합니다.`);
+    }
     if (pending.probe) {
       const server = await this.mcp(pending.probe.id);
       if (sha256(stringify(server)) !== pending.probe.fingerprint) throw new RequestError(409, "MCP 설정이 변경되었습니다");
@@ -231,7 +380,7 @@ export class WorkbenchService {
       this.probes.set(pending.probe.id, { fingerprint: pending.probe.fingerprint, result, at: new Date().toISOString() });
       await (await this.history()).recordCommand(c.profile.id, pending.title, result.detail, !result.ok); return;
     }
-    if (pending.stepIds.length) {
+    if (pending.stepIds.length && !pending.stagedContext) {
       const steps = (await planInstallWith(c.ctx)).steps.filter(s => pending.stepIds.includes(s.id));
       if (sha256(stringify(steps)) !== pending.installDigest) throw new RequestError(409, "설치 계획이 변경되었습니다. 다시 검토하세요");
       const result = await runInstallWith(c.ctx, pending.stepIds, () => undefined, signal);
@@ -241,9 +390,12 @@ export class WorkbenchService {
         const version = await c.ctx.readVersion(executable, ["--version"]); if (version) environment.push({ id, version, pinned: false, detail: "관측 버전 · CLI 자체 업데이트·외부 설치기는 고정 설치를 보증하지 않습니다" });
       }
       await withLock(async () => { const lock = await this.lock(c.profile.id); await writeFileChecked(this.lockFile(c.profile.id), await readText(this.lockFile(c.profile.id)), stringify({ ...lock, environment, at: new Date().toISOString() })); });
-      if (steps.some(s => s.actions.some(a => a.kind !== "file"))) await (await this.history()).recordCommand(c.profile.id, pending.title, result.results.map(r => `${r.id}: ${r.detail}`).join("\n"), result.results.some(r => r.outcome === "failed")); return;
+      const failed = result.results.filter(r => r.outcome === "failed");
+      if (steps.some(s => s.actions.some(a => a.kind !== "file"))) await (await this.history()).recordCommand(c.profile.id, pending.title, result.results.map(r => `${r.id}: ${r.outcome} · ${r.detail}`).join("\n"), failed.length > 0 || result.cancelled);
+      if (failed.length || result.cancelled) throw new RequestError(422, `${result.results.filter(r => r.outcome === "done").length}개 완료 · ${failed.length}개 실패${failed.length ? ` (${failed.map(r => r.id).join(", ")})` : " · 취소됨"}. 다시 검토하면 남은 작업만 실행합니다.`);
+      return;
     }
-    let history = await this.history();
+    let history = await this.history(pending.candidate, pending.destination);
     if (pending.restore) {
       const record = await history.load(pending.restore);
       const old = record.profileId === c.profile.id ? record.changes.find(f => f.path === path.join(c.root, DEFINITION_FILE)) : undefined;
@@ -252,11 +404,12 @@ export class WorkbenchService {
     await withLock(async () => {
       signal.throwIfAborted();
       if (actor === "automatic" && (await Promise.all(this.deps.providers.map(p => p.detectRunning()))).some(Boolean)) throw new RequestError(409, "CLI 실행 중 · 자동 쓰기 보류");
-      if (await readProfileFile(c.root, DEFINITION_FILE) !== c.definition) throw new RequestError(409, "프로필이 변경되었습니다");
+      if (await readProfileFile(c.root, DEFINITION_FILE) !== c.definition) throw new RequestError(409, "내 설정이 변경되었습니다");
+      await pending.checkLocal?.();
       const latestUserChange = (await history.list()).find(r => r.profileId === c.profile.id && r.actor === "user");
       if (actor === "automatic" && latestUserChange?.status === "restored") { this.status.detail = "설정 복원 후 자동 쓰기 보류 · 다음 수동 적용으로 재개하세요"; return; }
       if (pending.restore) await history.restore(pending.restore, c.profile.id);
-      else await history.apply(c.profile.id, pending.title, pending.files, actor);
+      else await history.apply(pending.destination?.id ?? c.profile.id, pending.title, pending.files, actor);
     });
   }
   async historyList() { return (await this.history()).list(); }
@@ -264,10 +417,13 @@ export class WorkbenchService {
     const c = await this.context(); const record = await (await this.history()).load(id);
     if (record.profileId !== c.profile.id || !record.restorable) throw new RequestError(409, "현재 프로필에서 복원할 수 없습니다");
     const p = this.remember({ profileId: c.profile.id, definition: c.definition, title: `${record.title} 복원`, files: [], stepIds: [], automatic: false, restore: id }, ["새로 만든 파일은 삭제하지 않고 이력 보관 폴더로 옮깁니다. 이후 사용자 변경이 있으면 중단합니다."]);
-    p.files = record.changes.map(f => ({ path: f.path, diff: unifiedDiff(f.path, f.after, f.before ?? "") })); return p;
+    p.files = record.changes.map(f => ({ path: f.path, diff: unifiedDiff(f.path, f.after, f.before ?? "") }));
+    p.scope = record.changes.some(f => f.path === path.join(c.root, DEFINITION_FILE)) ? "settings-and-pc" : "pc";
+    p.notes.unshift(p.scope === "settings-and-pc" ? "내 설정과 PC 파일을 함께 복원합니다." : "이 기록은 PC 파일만 복원합니다. 기준 설정은 바꾸지 않습니다.");
+    return p;
   }
   discover = discoverSkills;
-  async importGithub(repository: string, directory: string) { return this.save(await fetchSkill(repository, directory)); }
+  async importGithub(repository: string, directory: string, unified = false) { return this[unified ? "prepare" : "save"](await fetchSkill(repository, directory)); }
   async updates(): Promise<UpdateCandidate[]> {
     const c = await this.context(); const definition = parseDefinition(c.definition); const result: UpdateCandidate[] = [];
     const revisions = new Map<string, string>();
@@ -280,10 +436,10 @@ export class WorkbenchService {
     }
     return result;
   }
-  async updatePreview(id: string) {
+  async updatePreview(id: string, unified = false) {
     const item = await this.definition(id); if (item?.source.kind !== "github") throw new RequestError(422, "GitHub 출처가 없습니다");
     const next = await fetchSkill(item.source.repository!, item.source.directory ?? "");
-    return this.save({ ...next, id: item.id, name: item.name, description: item.description, targets: item.targets });
+    return this[unified ? "prepare" : "save"]({ ...next, id: item.id, name: item.name, description: item.description, targets: item.targets });
   }
   automationStatus() { return this.status; }
   async poll(signal = new AbortController().signal) {
@@ -296,7 +452,7 @@ export class WorkbenchService {
     this.status = { ...this.status, running: true };
     try {
       let c = await this.context(); let definition = parseDefinition(c.definition);
-      if (c.profile.id === "default" || !c.definition || !definition.automatic) { this.status.detail = "프로필 자동 적용이 꺼져 있습니다"; return; }
+      if (c.profile.id === "default" || !c.definition || !definition.automatic) { this.status.detail = "문서 자동 적용이 꺼져 있습니다"; return; }
       const running = await Promise.all(this.deps.providers.map(p => p.detectRunning()));
       if (running.some(Boolean)) { this.status.detail = "CLI 실행 중 · 자동 쓰기 보류"; return; }
       const history = await this.history();

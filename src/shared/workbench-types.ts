@@ -9,6 +9,7 @@ export interface ComponentDefinition {
 export interface WorkbenchDefinition { schemaVersion: 2; automatic: boolean; components: ComponentDefinition[] }
 export interface ComponentObservation {
   provider: ProviderId; installed: boolean | null; enabled: boolean | null;
+  comparison?: "match" | "different" | "missing" | "outside" | "unknown";
   recognition: "confirmed" | "unverified"; execution: "confirmed" | "unverified";
   compatibility: Compatibility; detail: string; checkedAt: string; cwd?: string; version?: string;
 }
@@ -22,7 +23,7 @@ export interface WorkbenchSnapshot {
   components: ManagedComponent[]; warnings: string[]; checkedAt: string;
 }
 export interface ChangeFile { path: string; diff: string }
-export interface WorkbenchPlan { token: string; title: string; files: ChangeFile[]; commands: string[]; notes: string[]; automatic: boolean }
+export interface WorkbenchPlan { token: string; title: string; files: ChangeFile[]; commands: string[]; notes: string[]; automatic: boolean; targets?: ProviderId[]; scope?: "settings-and-pc" | "pc" | "settings" | "diagnostic" }
 export interface ChangeRecord {
   id: string; title: string; at: string; actor: "user" | "automatic"; profileId: string;
   status: "pending" | "done" | "failed" | "restored" | "recovery-needed";

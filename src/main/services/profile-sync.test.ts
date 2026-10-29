@@ -7,6 +7,9 @@ import { SetupProfileStore } from "./setup-profiles.js";
 import { ProfileSync } from "./profile-sync.js";
 import { readDocument, writeDocument } from "./profile-document.js";
 import { processRunner, type CommandRunner } from "./install/exec.js";
+import { WorkbenchService } from "./workbench/service.js";
+import type { InstallContext } from "./install/engine.js";
+import type { NodeRuntimeState } from "./node-runtime.js";
 vi.mock("./repo-sync/cloud.js", () => ({
   readCloudRoots: async () => [],
   isCloudSynced: () => false,
@@ -88,6 +91,35 @@ async function send() {
   const p = await sync.preview(id, "send", signal);
   await sync.apply(id, p.token, {}, signal);
 }
+it("reviews remote settings and PC effects together, detects stale edits and restores both", async () => {
+  await model("remote-model");
+  const first = id;
+  const source = await store.get(first), doc = await readDocument(source);
+  doc.files["home/components.v2.json"] = JSON.stringify({ schemaVersion: 2, automatic: true, components: [{ id: "review", name: "Review", description: "Review", kind: "skill", targets: ["claude", "codex"], source: { kind: "profile" }, files: { "SKILL.md": "Remote review instructions" } }] });
+  await writeDocument(source, doc); await send();
+  await store.create("second", "default"); id = (await store.active()).id;
+  await sync.connect(id, "test/profile", false, signal);
+  const profile = await store.active();
+  const ctx: InstallContext = { home: root, repoRoot: null, templateRoot: profile.root, setupProfile: profile, profileDir: profile.localDir, profile: "full", claudeHome: path.join(root, "claude"), claudeJson: path.join(root, "claude.json"), codexHome: path.join(root, "codex"), agentsSkillsDir: path.join(root, "agents/skills"), documentsDir: path.join(root, "Documents"), gitScope: { file: path.join(root, "gitconfig") }, env: {}, findExecutable: async () => null, readVersion: async () => null, inspectNodeRuntime: async () => ({ state: "fresh", detail: "fixture", candidates: [], registrations: [], versions: [] } as unknown as NodeRuntimeState), refreshEnvironment: async () => false, now: () => new Date(), selfSource: "github", runner: { run: async () => { throw new Error("unrelated environment installation"); } } };
+  const workbench = new WorkbenchService({ stateDir: store.stateDir, context: async () => ctx, providers: [], plugins: async () => ({ plugins: [], blocklist: [] }) });
+  const file = path.join(ctx.codexHome, "skills/review/SKILL.md");
+  let preview = await workbench.receivePreview(signal, await sync.prepareReceive(id, signal));
+  expect(preview.files.some(f => f.path === file)).toBe(true);
+  expect(preview.commands).toHaveLength(0);
+  expect((await readDocument(profile)).files["home/components.v2.json"]).toBeUndefined();
+  await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, "Concurrent edit");
+  await expect(workbench.apply(preview.token)).rejects.toMatchObject({ statusCode: 409 });
+  expect((await readDocument(profile)).files["home/components.v2.json"]).toBeUndefined();
+  preview = await workbench.receivePreview(signal, await sync.prepareReceive(id, signal));
+  await workbench.apply(preview.token);
+  expect(await fs.readFile(file, "utf8")).toBe("Remote review instructions");
+  expect(JSON.parse(await fs.readFile(path.join(ctx.claudeHome, "settings.json"), "utf8")).model).toBe("remote-model");
+  expect((await sync.status(id, signal)).changed).toBe(false);
+  const record = (await workbench.historyList())[0]!;
+  await workbench.apply((await workbench.restorePreview(record.id)).token);
+  expect((await readDocument(profile)).files["home/components.v2.json"]).toBeUndefined();
+  expect(await fs.readFile(file, "utf8")).toBe("Concurrent edit");
+}, 40_000);
 it("automatically receives ordinary v2 documentation but defers executable and settings changes", async () => {
   const first = id;
   const put = async (body: string, code = false) => {

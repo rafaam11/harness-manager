@@ -111,6 +111,12 @@ export interface WindowChromeState {
  */
 export interface ApiChannels {
   "workbench:snapshot": () => WorkbenchSnapshot;
+  "changes:prepare": (definition: ComponentDefinition) => WorkbenchPlan;
+  "changes:adopt": (id: string) => WorkbenchPlan;
+  "changes:import": (repository: string, directory: string) => WorkbenchPlan;
+  "changes:update": (id: string) => WorkbenchPlan;
+  "changes:receive": () => WorkbenchPlan;
+  "changes:discard": (token: string) => void;
   "workbench:definition": (id: string) => ComponentDefinition | null;
   "workbench:lock": () => VersionLock;
   "workbench:preview": (ids: string[]) => WorkbenchPlan;
@@ -224,6 +230,7 @@ export type ApiReturn<K extends ApiChannel> = Awaited<ReturnType<ApiChannels[K]>
 
 /** 런타임 채널 목록. preload는 이 목록에 있는 채널만 통과시키고 main은 전부 등록한다. */
 export const API_CHANNELS = [
+  "changes:prepare", "changes:adopt", "changes:import", "changes:update", "changes:receive", "changes:discard",
   "workbench:lock",
   "workbench:probe",
   "workbench:snapshot", "workbench:definition", "workbench:preview", "workbench:save", "workbench:adopt", "workbench:migrate", "workbench:apply", "workbench:history", "workbench:restore", "workbench:discover", "workbench:import", "workbench:updates", "workbench:update", "workbench:automation", "workbench:check", "workbench:poll", "workbench:hooks", "workbench:project",

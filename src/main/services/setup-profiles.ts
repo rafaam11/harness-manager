@@ -113,6 +113,27 @@ export class SetupProfileStore {
       if (!await fs.stat(terms).catch(() => null)) await writeFileChecked(terms, null, json({ terms: [] }));
     });
   }
+  /** 첫 편집의 검토에는 사본 생성도 포함한다. 승인 전에는 선택이나 파일을 바꾸지 않는다. */
+  async preparePersonalCopy() {
+    const base = await this.active();
+    const id = randomUUID();
+    const profile: SetupProfile = { id, name: "내 설정", kind: "local", root: path.join(this.stateDir, "profiles", id, "definition"), localDir: path.join(this.stateDir, "profiles", id, "local") };
+    const files: { path: string; before: string | null; after: string | null }[] = [];
+    for (const file of TEMPLATE_FILES) {
+      const text = await readProfileFile(base.root, file);
+      if (text !== null) files.push({ path: path.join(profile.root, file), before: null, after: text });
+    }
+    for (const file of LOCAL_FILES) {
+      const text = await readProfileFile(base.localDir, file);
+      if (text !== null) files.push({ path: path.join(profile.localDir, file), before: null, after: text });
+    }
+    const registry = await fs.readFile(this.registryFile, "utf8").catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return null; throw e; });
+    const settings = await fs.readFile(this.settingsFile, "utf8").catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return null; throw e; });
+    return { profile, files, activation: [
+      { path: this.registryFile, before: registry, after: json([...await this.registered(), profile]) },
+      { path: this.settingsFile, before: settings, after: json({ ...JSON.parse(settings ?? "{}"), setupProfileId: id }) },
+    ] };
+  }
   async connect(name: string, folder: string): Promise<SetupProfiles> {
     const root = await fs.realpath(folder);
     const reports = await validateManifest(root);

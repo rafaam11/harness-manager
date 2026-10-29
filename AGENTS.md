@@ -2,13 +2,14 @@
 
 ## v4 작업대 (현재 구현)
 
-- 첫 화면은 `Workbench` 구성요소 작업대이며 기본 탐색은 구성요소 / 환경 / 변경 내역 / 프로필이다. 아래 v3의 첫 화면·읽기 전용 카탈로그 결정은 이 구조로 대체한다.
-- 공통 스킬·지침은 `home/components.v2.json`에 저장한다. 전환은 미리보기 후 명시적으로 한다. 기존 프로필·doctor/install/capture CLI 계약은 유지한다. v2 이동 파일은 bundle version 2이며 version 1도 계속 읽는다.
+- 기본 탐색은 이 PC / 동기화 / 변경 기록 / 앱 설정이다. 프로필 선택·원본 파일 편집은 앱 설정 → 고급에서만 연다. 아래 v3의 첫 화면·읽기 전용 카탈로그 결정은 이 구조로 대체한다.
+- 공통 스킬·지침은 `home/components.v2.json`에 저장한다. 앱의 `changes:prepare`는 기준 저장과 PC 적용을 한 번 검토하고 같은 저널에 기록한다. 첫 편집은 개인 사본도 같은 트랜잭션에서 준비하고 성공할 때 선택한다. 기존 프로필 ID와 doctor/install/capture·workbench CLI 계약은 유지한다. v2 이동 파일은 bundle version 2이며 version 1도 계속 읽는다.
+- 목록은 36px 행과 가용 높이 기반 페이지로 보여 준다. 기본 화면의 바깥 스크롤은 막고 상세의 설정/진단/기록 탭, 본문과 diff만 내부 스크롤한다. 1100px 미만에서는 상세를 겹쳐 연다. 원격 수신은 `ProfileSync.prepareReceive`가 병합·원격 검증을 맡고 작업대가 기준 파일과 PC 파일을 함께 검토·적용한다. 외부 명령이 실패하면 기준 저장을 보류하고 결과를 기록한다.
 - `services/workbench/`는 구성요소·GitHub 커밋 고정·변경 저널·복원·MCP 초기화 검사·hook/프로젝트 정적 진단을 담당한다. 모든 프로필/CLI 설정 쓰기는 기존 안전 경로를 유지한다. 프로젝트는 읽기 전용이다.
 - 일반 문서 자동 적용은 전환한 개인 프로필 전체에 적용한다. 앱 실행 중 30초마다 로컬 정의 변경을 감지하고 30분마다 원격·업데이트를 확인한다. 실행 코드·권한·hook·MCP·패키지·충돌·알 수 없는 CLI 실행 상태는 보류한다. 수동 작업은 자동 확인을 취소·정리한 뒤 우선 실행한다.
 - GitHub 프로필은 일반 문서 변경만 조건부 자동 수신한다. 새로운 출처·항목 추가/제거·개인 설정·충돌은 수동 수신이다. 원격 업로드는 항상 수동이다. 복원 후 다음 수동 적용 전까지 자동 쓰기를 보류한다.
 - `hm components`, `hm updates`, `hm history`, `hm restore`가 앱과 같은 엔진을 사용한다. `--yes`가 없으면 변경 미리보기다.
-- v4 E2E: `npm run test:e2e`. 임시 홈에서 실제 Electron·IPC·파일 저장을 검증한다. OS 프로세스 조회만 격리하므로 테스트를 실행하는 Codex가 자동 적용을 막지 않는다. 실제 계정·모델 호출은 하지 않는다.
+- v4 E2E: `npm run test:e2e`. 임시 홈에서 실제 Electron·IPC·파일 저장을 검증한다. OS 프로세스 조회와 GitHub 설정을 격리하므로 테스트를 실행하는 Codex가 자동 적용을 막지 않고 실제 계정·모델을 호출하지 않는다.
 
 이 저장소에서 작업하는 코딩 에이전트(Claude Code, Codex CLI 등)를 위한 지침이다. `CLAUDE.md`는 이 파일을 `@AGENTS.md`로 불러오는 래퍼일 뿐이다. 내용은 여기에만 쓴다.
 
@@ -139,7 +140,7 @@ npm run dist         # build + electron-builder --win --publish never (로컬 �
 npm run dist:linux   # build + electron-builder --linux --publish never (Linux/WSL/Docker 필요)
 ```
 - **검증 순서**: `npm test` → `npm run typecheck` → `npm run build`(→ `npm run dist`). 린트 도구는 없다.
-- **테스트**: vitest를 쓴다(`vitest.config.ts`). 대상은 `src/**/*.test.ts`이고 node 환경, forks pool에서 돈다. `src/renderer/src/markdown.test.ts`만 파일 주석으로 jsdom 환경을 쓴다. CI 릴리스 워크플로는 아직 테스트를 돌리지 않는다.
+- **테스트**: vitest를 쓴다(`vitest.config.ts`). 기본은 node 환경과 forks pool이며 renderer 테스트 일부는 파일 주석으로 jsdom 환경을 쓴다. CI 릴리스 워크플로는 Windows·Linux에서 단위·계약 테스트, 빌드, 실제 Electron E2E가 통과한 뒤 패키징한다.
 - **포트·로컬 서버가 없다.** renderer ↔ main 통신은 전부 IPC다.
 - `npm install` 뒤 `npm run dev`가 "Electron uninstall"로 실패하면 Electron 바이너리 다운로드가 빠진 것이다. `node node_modules/electron/install.js`로 받는다.
 - 화면 확인이 필요하면 `npx electron-vite dev --remoteDebuggingPort 9333`으로 띄우고 CDP(`/json/list` → `Runtime.evaluate`)로 DOM을 읽는다. 백그라운드 창 캡처는 갱신이 늦을 수 있다.

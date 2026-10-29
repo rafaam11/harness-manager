@@ -20,5 +20,5 @@ export interface ProfileEditor { profile: SetupProfile; document: ProfileDocumen
 export interface ProfileChange { file: string; diff: string }
 export interface ProfilePreview { token: string; changes: ProfileChange[]; notes: string[] }
 export interface ProfileBundle { format: "harness-manager-profile"; version: 1 | 2; name: string; files: Record<string, string>; personal: Record<string, string> }
-export interface ProfileSyncStatus { connected: boolean; repository?: string; account?: string; detail: string; changed?: boolean; available: boolean }
+export interface ProfileSyncStatus { connected: boolean; repository?: string; account?: string; detail: string; changed?: boolean; outgoing?: boolean; available: boolean }
 export interface ProfileSyncPreview extends ProfilePreview { conflicts: string[]; direction: "send" | "receive" }
