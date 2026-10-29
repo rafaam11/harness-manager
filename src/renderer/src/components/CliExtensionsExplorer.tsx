@@ -20,7 +20,11 @@ export default function CliExtensionsExplorer({ provider, revision, onPlan }: { 
   const [dirty, setDirty] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
   const work = async (task: () => Promise<void>) => { setBusy(true); setError(""); try { await task(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } };
-  const load = async () => { setExtensions(await call("cli-settings:extensions", provider)); setDirty(false); setValues({}); setInvalid(""); };
+  const load = async () => {
+    // 저장 완료 후 재조회가 느려도 이미 적용한 편집에 이탈 확인을 띄우지 않는다.
+    setDirty(false); setValues({}); setInvalid("");
+    setExtensions(await call("cli-settings:extensions", provider));
+  };
   useEffect(() => { void work(load); }, [provider, revision]);
   useEffect(() => {
     const guard = (event: Event) => { if (!dirty) return; event.preventDefault(); void confirm({ title: "옵션 편집을 마칠까요?", message: "아직 적용하지 않은 옵션이 있습니다.", confirmLabel: "편집 내용 버리기", danger: true }).then(ok => { if (ok) (event as CustomEvent<{ proceed(): void }>).detail.proceed(); }); };

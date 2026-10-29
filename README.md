@@ -221,6 +221,6 @@ hm history --json
 hm restore --id <이력 ID> --json
 ```
 
-`--yes`를 빼면 변경을 미리 본다. CLI 설정을 편집한 이동 파일은 version 3이며 v1·v2도 읽는다. 동기화하는 모든 PC를 v5로 업데이트한 뒤 새 설정을 공유한다. 상세 정책은 [CLI 설정 계약](docs/contracts/cli-settings.md)과 [v4 구현 계약](docs/v4-workbench.md), 최신 변경은 [v5.0.0 릴리스 노트](docs/release/v5.0.0.md)를 본다.
+`--yes`를 빼면 변경을 미리 본다. CLI 설정을 편집한 이동 파일은 version 3이며 v1·v2도 읽는다. 동기화하는 모든 PC를 v5로 업데이트한 뒤 새 설정을 공유한다. 상세 정책은 [CLI 설정 계약](docs/contracts/cli-settings.md)과 [v4 구현 계약](docs/v4-workbench.md), 최신 변경은 [v5.0.1 릴리스 노트](docs/release/v5.0.1.md)를 본다.
 
 검증은 `npm test` → `npm run typecheck` → `npm run build`, 실제 화면은 `npm run test:e2e`다. E2E는 임시 홈을 사용하며 실행 중인 코딩 에이전트의 영향을 없애기 위해 OS 프로세스 조회만 격리한다.
