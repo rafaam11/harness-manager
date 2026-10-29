@@ -109,6 +109,22 @@
 .pc-connect { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .pc-connect label { display: grid; gap: 6px; }
 .pc-cancel { align-self: flex-end; flex-shrink: 0; }
+.cli-explorer { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.cli-scope { flex-shrink: 0; justify-content: space-between; }
+.cli-scope .tabs { margin: 0; }
+.cli-search { min-width: 90px; flex: 1; }
+.cli-caption { flex-shrink: 0; font: var(--type-secondary); }
+.cli-setting-columns { display: grid; grid-template-columns: minmax(130px, 1fr) 90px 90px; align-items: center; padding: 0 12px; gap: 8px; height: 36px; flex-shrink: 0; }
+.cli-setting-columns > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cli-key { display: block; font: var(--type-secondary); overflow-wrap: anywhere; color: var(--muted); }
+.cli-object { display: grid; gap: 10px; }
+.cli-value-row { padding: 8px; border: 1px solid var(--line); border-radius: 5px; display: grid; gap: 8px; }
+.cli-value-row .pc-inline { justify-content: space-between; }
+.cli-string, .cli-json-editor textarea { width: 100%; resize: vertical; min-height: 64px; }
+.cli-json-editor { display: grid; gap: 10px; }
+.cli-json-editor label { display: grid; gap: 6px; }
+.cli-json-editor textarea { min-height: 180px; font-family: var(--font-family-mono); }
+.cli-option { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 @media (max-width: 1099px) {
   .pc-split { grid-template-columns: minmax(0, 1fr); }
   .pc-detail { display: none; position: absolute; z-index: 9; inset: 0 0 0 auto; width: min(460px, 100%); box-shadow: -10px 0 30px rgb(0 0 0 / 25%); }
@@ -1540,3 +1556,9 @@ select:focus-visible { outline: none; border-color: var(--primary); }
 .install-failure p { margin: 6px 0; color: var(--muted); overflow-wrap: anywhere; }
 .install-failures button { display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 700px) { .doctor-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.cli-option { display: grid; grid-template-columns: minmax(0, 1fr) 120px; column-gap: 12px; row-gap: 4px; padding: 12px 0; }
+.cli-option > h3 { margin: 0; font: var(--type-ui-semibold); }
+.cli-option > p { grid-column: 1; margin: 0; font: var(--type-secondary); }
+.cli-option > :last-child { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 0; max-width: 100%; }
+.cli-option > .cli-object, .cli-option > .cli-json-editor { grid-column: 1 / -1; grid-row: auto; }

@@ -8,8 +8,8 @@ export interface SetupProfile {
 }
 export interface SetupProfiles { activeId: string; profiles: SetupProfile[] }
 
-export const PROFILE_FILES = ["manifest/packages.json", "manifest/tools.json", "manifest/plugins.json", "manifest/mcp.json", "manifest/skills.json", "home/managed-keys.json", "home/agents/AGENTS.md", "home/claude/CLAUDE.md", "home/claude/settings.managed.json", "home/codex/config.managed.toml", "home/powershell/profile.ps1", "home/git/gitconfig.json", "home/components.v2.json"] as const;
-export const PERSONAL_FILES = ["AGENTS.local.md", "claude-settings.local.json", "codex-config.local.json", "manifest.local.json", "powershell.local.ps1", "gitconfig.local.json"] as const;
+export const PROFILE_FILES = ["manifest/packages.json", "manifest/tools.json", "manifest/plugins.json", "manifest/mcp.json", "manifest/skills.json", "home/managed-keys.json", "home/agents/AGENTS.md", "home/claude/CLAUDE.md", "home/claude/settings.managed.json", "home/codex/config.managed.toml", "home/powershell/profile.ps1", "home/git/gitconfig.json", "home/components.v2.json", "home/cli-settings.v1.json"] as const;
+export const PERSONAL_FILES = ["AGENTS.local.md", "claude-settings.local.json", "codex-config.local.json", "manifest.local.json", "powershell.local.ps1", "gitconfig.local.json", "cli-settings.local.json"] as const;
 export interface ProfileDocument {
   files: Record<string, string>;
   personal: Record<string, string>;
@@ -19,6 +19,6 @@ export interface ProfileDocument {
 export interface ProfileEditor { profile: SetupProfile; document: ProfileDocument; fingerprint: string }
 export interface ProfileChange { file: string; diff: string }
 export interface ProfilePreview { token: string; changes: ProfileChange[]; notes: string[] }
-export interface ProfileBundle { format: "harness-manager-profile"; version: 1 | 2; name: string; files: Record<string, string>; personal: Record<string, string> }
+export interface ProfileBundle { format: "harness-manager-profile"; version: 1 | 2 | 3; name: string; files: Record<string, string>; personal: Record<string, string> }
 export interface ProfileSyncStatus { connected: boolean; repository?: string; account?: string; detail: string; changed?: boolean; outgoing?: boolean; available: boolean }
 export interface ProfileSyncPreview extends ProfilePreview { conflicts: string[]; direction: "send" | "receive" }

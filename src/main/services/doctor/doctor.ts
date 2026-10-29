@@ -1,3 +1,4 @@
+import { cliDefinition, projectCliSettings } from "../cli-settings/projection.js";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import { projectComponents } from "../workbench/projection.js";
@@ -155,6 +156,15 @@ export async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
   const local = isRecord(overlay) ? overlay : {};
   const pluginsValue = (isRecord(plugins) ? plugins : {}) as Partial<PluginsManifest>;
   const localPlugins = (isRecord(local.plugins) ? local.plugins : {}) as Partial<PluginsManifest>;
+  const typed = await cliDefinition(ctx);
+  const effectiveIds = (provider: "claude" | "codex", original: string[]) => [...new Set([...original.filter(id => !typed.extensions.some(e => e.provider === provider && e.id === id)), ...typed.extensions.filter(e => e.provider === provider && e.enabled).map(e => e.id)])];
+  const marketplaces = [...(pluginsValue.marketplaces ?? []), ...(localPlugins.marketplaces ?? [])];
+  const ownTargets = typed.extensions.filter(e => e.enabled && e.id.endsWith("@jinmin")).map(e => e.provider);
+  if (ownTargets.length) {
+    const existing = marketplaces.find(m => m.name === "jinmin");
+    if (existing) existing.providers = [...new Set([...existing.providers, ...ownTargets])];
+    else pluginsValue.marketplaces = [...pluginsValue.marketplaces ?? [], { name: "jinmin", source: { kind: "self" }, providers: [...new Set(ownTargets)] }];
+  }
   const tag = <T>(items: T[] | undefined, isLocal: boolean) => (items ?? []).map((entry) => ({ entry, local: isLocal }));
   const ids = (items: string[] | undefined, isLocal: boolean) => (items ?? []).map((id) => ({ id, local: isLocal }));
   return {
@@ -162,8 +172,8 @@ export async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
     tools: list<ToolEntry>(tools, "tools"),
     plugins: { schemaVersion: 1, marketplaces: [], claude: { enabled: [] }, codex: { enabled: [] }, ...pluginsValue },
     marketplaces: [...tag(pluginsValue.marketplaces, false), ...tag(localPlugins.marketplaces, true)],
-    claudeEnabled: [...ids(pluginsValue.claude?.enabled, false), ...ids(localPlugins.claude?.enabled, true)],
-    codexEnabled: [...ids(pluginsValue.codex?.enabled, false), ...ids(localPlugins.codex?.enabled, true)],
+    claudeEnabled: effectiveIds("claude", [...pluginsValue.claude?.enabled ?? [], ...localPlugins.claude?.enabled ?? []]).map(id => ({ id, local: Boolean(localPlugins.claude?.enabled?.includes(id)) })),
+    codexEnabled: effectiveIds("codex", [...pluginsValue.codex?.enabled ?? [], ...localPlugins.codex?.enabled ?? []]).map(id => ({ id, local: Boolean(localPlugins.codex?.enabled?.includes(id)) })),
     mcp: [...tag(list<McpEntry>(mcp, "servers"), false), ...tag(list<McpEntry>(local.mcp, "servers"), true)],
     skills: [...tag(list<ExternalSkillEntry>(skills, "external"), false), ...tag(list<ExternalSkillEntry>(local.skills, "external"), true)],
   };
@@ -419,7 +429,7 @@ async function checkPlugins(ctx: DoctorContext, manifests: Manifests): Promise<D
   }
   const userConfig = isRecord(settings) && isRecord(settings.pluginConfigs) ? settings.pluginConfigs : {};
   for (const mod of ["jinmin-hud", "mcw-chips"]) {
-    if (enabled.has(`${mod}@${SELF_MARKETPLACE}`) && !isRecord(userConfig[`${mod}@${SELF_MARKETPLACE}`])) {
+    if (enabled.has(`${mod}@${SELF_MARKETPLACE}`) && (!isRecord(userConfig[`${mod}@${SELF_MARKETPLACE}`]) || !isRecord((userConfig[`${mod}@${SELF_MARKETPLACE}`] as Record<string, unknown>).options))) {
       checks.push({ id: `plugins.config.${mod}`, title: `${mod} 옵션`, state: "info", detail: "userConfig가 없어 기본값으로 동작합니다" });
     }
   }
@@ -646,6 +656,14 @@ export async function runDoctorWith(ctx: DoctorContext): Promise<DoctorReport> {
       card.state = cardState(card.checks); card.summary = cardSummary(card.section, card.checks);
     }
   } catch (error) { const card = cards.find(c => c.section === "skills")!; card.checks.push({ id: "components.error", title: "v4 구성요소 검사 실패", state: "error", detail: (error as Error).message }); card.state = "fail"; }
+  try {
+    const projection = await projectCliSettings(ctx);
+    for (const provider of ["claude", "codex"] as const) if (projection.definition.settings.some(s => s.provider === provider) || projection.definition.extensions.some(s => s.provider === provider)) {
+      const card = cards.find(c => c.section === provider)!;
+      card.checks.push({ id: `cli-settings.${provider}`, title: `${provider} 전용 설정`, state: projection.files.some(f => f.path.startsWith((provider === "claude" ? ctx.claudeHome : ctx.codexHome) + path.sep)) ? "drift" : "ok", detail: "명시적으로 관리하는 설정·기본값·확장 상태" });
+      card.state = cardState(card.checks); card.summary = cardSummary(card.section, card.checks);
+    }
+  } catch (error) { const card = cards.find(c => c.section === "claude")!; card.checks.push({ id: "cli-settings.error", title: "CLI 설정 정의 오류", state: "error", detail: (error as Error).message }); card.state = "fail"; }
   return { schemaVersion: 1, generatedAt: ctx.now().toISOString(), profile: ctx.profile, setupProfile: ctx.setupProfile, repoRoot: ctx.repoRoot, cards };
 }
 

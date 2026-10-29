@@ -65,7 +65,7 @@ const unflatten = (
   flat: Record<string, string>,
 ): ProfileBundle => ({
   format: "harness-manager-profile",
-  version: flat["files/home/components.v2.json"] ? 2 : 1,
+  version: flat["files/home/cli-settings.v1.json"] ? 3 : flat["files/home/components.v2.json"] ? 2 : 1,
   name,
   files: Object.fromEntries(
     Object.entries(flat)

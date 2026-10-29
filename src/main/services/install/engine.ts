@@ -1,3 +1,6 @@
+import { cliDefinition, projectCliSettings, applyProviderSettings } from "../cli-settings/projection.js";
+import { validateSettings } from "../cli-settings/projection.js";
+import { installedOptions } from "../cli-settings/extensions.js";
 import fs from "node:fs/promises";
 import { projectComponents } from "../workbench/projection.js";
 import { ChangeHistory } from "../workbench/history.js";
@@ -286,7 +289,9 @@ async function claudeSettingsChange(ctx: InstallContext): Promise<FileChange> {
   const keys = (await managedKeys(ctx)).claudeSettings;
   const next = mergeManagedJson(current, keys, template, overlay);
   const after = JSON.stringify(next) === JSON.stringify(current) && before !== null ? before : stableJson(next);
-  return { absPath, before, after };
+  const definition = await cliDefinition(ctx);
+  validateSettings(definition, await installedOptions(ctx));
+  return { absPath, before, after: applyProviderSettings("claude", after, definition)! };
 }
 
 async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
@@ -297,7 +302,9 @@ async function codexConfigChange(ctx: InstallContext): Promise<FileChange> {
   const overlay = await readJsonObject(path.join(ctx.profileDir, "codex-config.local.json"));
   const keys = (await managedKeys(ctx)).codexConfig;
   const entries = [...tomlEntriesFor(keys, template), ...tomlEntriesFor(keys, overlay)];
-  return { absPath, before, after: patchTomlScalars(before ?? "", entries) };
+  const definition = await cliDefinition(ctx);
+  validateSettings(definition, await installedOptions(ctx));
+  return { absPath, before, after: applyProviderSettings("codex", patchTomlScalars(before ?? "", entries), definition)! };
 }
 
 /**
@@ -610,7 +617,20 @@ async function describe(def: StepDef, report: DoctorReport, ctx: InstallContext)
 }
 
 async function componentStepDefs(ctx: InstallContext): Promise<StepDef[]> {
-  return (await projectComponents(ctx)).map(({ component }) => ({
+  const typed: StepDef[] = [];
+  for (const provider of ["claude", "codex"] as const) {
+    const definition = await cliDefinition(ctx);
+    if (!definition.settings.some(s => s.provider === provider) && !definition.extensions.some(e => e.provider === provider)) continue;
+    typed.push({ id: `cli-settings.${provider}`, section: provider, title: `${provider} 전용 설정`, rank: 880, checks: byId(`cli-settings.${provider}`),
+      plan: async context => (await projectCliSettings(context)).files.filter(f => f.path.startsWith((provider === "claude" ? context.claudeHome : context.codexHome) + path.sep)).map(f => ({ kind: "file" as const, summary: f.path, diff: unifiedDiff(f.path, f.before, f.after ?? "") })),
+      apply: async context => {
+        const files = (await projectCliSettings(context)).files.filter(f => f.path.startsWith((provider === "claude" ? context.claudeHome : context.codexHome) + path.sep));
+        const allowed = new Set(files.map(f => f.path));
+        await new ChangeHistory(path.join(context.home, ".harness-manager/workbench/history"), async file => { if (!allowed.has(file)) throw new Error("관리 경로 밖입니다"); }).apply(context.setupProfile?.id ?? "legacy", `${provider} 전용 설정`, files);
+      },
+    });
+  }
+  return [...typed, ...(await projectComponents(ctx)).map<StepDef>(({ component }) => ({
     id: `components.${component.id}`, section: "skills", title: component.name, rank: 850, checks: byId(`components.${component.id}`),
     plan: async context => (await projectComponents(context)).find(p => p.component.id === component.id)!.files.filter(f => f.before !== f.after).map(f => ({ kind: "file" as const, summary: `${tildify(f.path, context.home)} 관리 파일`, diff: unifiedDiff(tildify(f.path, context.home), f.before, f.after) })),
     apply: async context => {
@@ -619,7 +639,7 @@ async function componentStepDefs(ctx: InstallContext): Promise<StepDef[]> {
       const history = new ChangeHistory(path.join(context.home, ".harness-manager", "workbench", "history"), async file => { if (!allowed.has(file)) throw new Error("관리 경로 밖입니다"); await projectComponents(context); });
       await history.apply(context.setupProfile?.id ?? "legacy", `${component.name} 설치`, projection.files);
     },
-  }));
+  }))];
 }
 
 export async function planInstallWith(ctx: InstallContext): Promise<InstallPlan> {

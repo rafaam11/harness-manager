@@ -96,6 +96,7 @@ it("reviews remote settings and PC effects together, detects stale edits and res
   const first = id;
   const source = await store.get(first), doc = await readDocument(source);
   doc.files["home/components.v2.json"] = JSON.stringify({ schemaVersion: 2, automatic: true, components: [{ id: "review", name: "Review", description: "Review", kind: "skill", targets: ["claude", "codex"], source: { kind: "profile" }, files: { "SKILL.md": "Remote review instructions" } }] });
+  doc.files["home/cli-settings.v1.json"] = JSON.stringify({ schemaVersion: 1, settings: [{ provider: "codex", path: ["model"], operation: "set", value: "remote-codex" }], extensions: [] });
   await writeDocument(source, doc); await send();
   await store.create("second", "default"); id = (await store.active()).id;
   await sync.connect(id, "test/profile", false, signal);
@@ -114,6 +115,7 @@ it("reviews remote settings and PC effects together, detects stale edits and res
   await workbench.apply(preview.token);
   expect(await fs.readFile(file, "utf8")).toBe("Remote review instructions");
   expect(JSON.parse(await fs.readFile(path.join(ctx.claudeHome, "settings.json"), "utf8")).model).toBe("remote-model");
+  expect(await fs.readFile(path.join(ctx.codexHome, "config.toml"), "utf8")).toContain("remote-codex");
   expect((await sync.status(id, signal)).changed).toBe(false);
   const record = (await workbench.historyList())[0]!;
   await workbench.apply((await workbench.restorePreview(record.id)).token);

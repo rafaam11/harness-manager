@@ -1,3 +1,5 @@
+import { CLI_SETTINGS_FILE, CLI_SETTINGS_LOCAL, parseCliSettings, mergeCliSettings, getValue, containsPcPath } from "../cli-settings/definition.js";
+import { transferProblem } from "../profile-document.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
@@ -251,7 +253,41 @@ export async function planClaudeSettings(ctx: CaptureContext): Promise<TargetPla
   plan.files.push(await repoFile(ctx, templatePath, stableJson(publicValue)));
   const local = await localFile(ctx, "claude-settings.local.json", Object.keys(localValue).length > 0 ? stableJson(localValue) : "");
   if (local) plan.files.push(local);
+  await captureTypedSettings(ctx, ["claude"], plan);
   return plan;
+}
+
+async function captureTypedSettings(ctx: CaptureContext, providers: ("claude" | "codex")[], plan: TargetPlan) {
+  const file = path.join(ctx.repoRoot, CLI_SETTINGS_FILE), before = await readText(file);
+  if (before === null) return;
+  const localBefore = await readText(path.join(ctx.profileDir, CLI_SETTINGS_LOCAL));
+  const definition = mergeCliSettings(parseCliSettings(before), parseCliSettings(localBefore));
+  const localDefinition = parseCliSettings(localBefore);
+  for (const provider of providers) {
+    const text = await readText(provider === "claude" ? path.join(ctx.claudeHome, "settings.json") : path.join(ctx.codexHome, "config.toml"));
+    if (text === null) continue;
+    const current = provider === "claude" ? JSON.parse(text) : parseToml(text);
+    for (const item of definition.settings.filter(i => i.provider === provider)) {
+      const value = getValue(current, item.path);
+      if (value !== undefined && transferProblem(JSON.stringify(value))?.includes("인증")) { plan.notes.push(`${item.path.join(".")}: 비공개 값은 기존 정의를 유지합니다.`); continue; }
+      item.operation = value === undefined ? "remove" : "set";
+      if (value === undefined) delete item.value; else item.value = value;
+    }
+    for (const item of definition.extensions.filter(i => i.provider === provider)) {
+      const value = getValue(current, provider === "claude" ? ["enabledPlugins", item.id] : ["plugins", item.id, "enabled"]);
+      if (typeof value === "boolean") item.enabled = value;
+    }
+  }
+  // 배열도 하나의 값으로 관리하므로 PC 경로가 하나라도 있으면 전체 값을 로컬에 둔다.
+  const privateSettings = definition.settings.filter(item => item.operation === "set" && (containsPcPath(item.value) || transferProblem(JSON.stringify(item.value))));
+  localDefinition.settings = privateSettings;
+  localDefinition.extensions = [];
+  definition.settings = definition.settings.filter(item => !privateSettings.includes(item));
+  plan.files.push(await repoFile(ctx, CLI_SETTINGS_FILE, stableJson(definition)));
+  if (localBefore || privateSettings.length) {
+    const file = await localFile(ctx, CLI_SETTINGS_LOCAL, stableJson(localDefinition));
+    if (file) plan.files.push(file);
+  }
 }
 
 export async function planCodexConfig(ctx: CaptureContext): Promise<TargetPlan> {
@@ -276,6 +312,7 @@ export async function planCodexConfig(ctx: CaptureContext): Promise<TargetPlan> 
   plan.files.push(await repoFile(ctx, templatePath, withTrailingNewline(stringifyToml(publicValue))));
   const local = await localFile(ctx, "codex-config.local.json", Object.keys(localValue).length > 0 ? stableJson(localValue) : "");
   if (local) plan.files.push(local);
+  await captureTypedSettings(ctx, ["codex"], plan);
   return plan;
 }
 
@@ -418,6 +455,8 @@ export async function planPlugins(ctx: CaptureContext): Promise<TargetPlan> {
 
   const existingValue = await readJson(path.join(ctx.repoRoot, "manifest", "plugins.json")).catch(() => null);
   const existing = isRecord(existingValue) ? (existingValue as unknown as PluginsManifest) : emptyPlugins();
+  const typed = mergeCliSettings(parseCliSettings(await readText(path.join(ctx.repoRoot, CLI_SETTINGS_FILE))), parseCliSettings(await readText(path.join(ctx.profileDir, CLI_SETTINGS_LOCAL))));
+  const owned = (provider: "claude" | "codex", id: string) => typed.extensions.some(e => e.provider === provider && e.id === id);
   const appendNew = (old: string[], seen: string[]): string[] => [...old, ...seen.filter((id) => !old.includes(id))];
   const next: PluginsManifest = {
     schemaVersion: 1,
@@ -425,8 +464,8 @@ export async function planPlugins(ctx: CaptureContext): Promise<TargetPlan> {
       ...seen,
       providers: unionTargets(old.providers, seen.providers),
     })),
-    claude: { enabled: appendNew(existing.claude?.enabled ?? [], claudeEnabled.filter((id) => !isPrivatePlugin(id))) },
-    codex: { enabled: appendNew(existing.codex?.enabled ?? [], codexEnabled.filter((id) => !isPrivatePlugin(id))) },
+    claude: { enabled: appendNew(existing.claude?.enabled ?? [], claudeEnabled.filter((id) => !isPrivatePlugin(id))).filter(id => !owned("claude", id)) },
+    codex: { enabled: appendNew(existing.codex?.enabled ?? [], codexEnabled.filter((id) => !isPrivatePlugin(id))).filter(id => !owned("codex", id)) },
   };
   const missing = [...(existing.claude?.enabled ?? []).filter((id) => !claudeEnabled.includes(id))];
   if (missing.length > 0) plan.notes.push(`이 PC의 Claude에 꺼져 있지만 레포에 남겨 둠: ${missing.join(", ")}`);
@@ -444,6 +483,7 @@ export async function planPlugins(ctx: CaptureContext): Promise<TargetPlan> {
   }
   const local = await localManifestFile(ctx, "plugins", localSection);
   if (local) plan.files.push(local);
+  await captureTypedSettings(ctx, ["claude", "codex"], plan);
   return plan;
 }
 

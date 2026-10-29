@@ -100,6 +100,9 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
     "workbench:snapshot": () => workbench.snapshot(),
+    "cli-settings:list": provider => workbench.cliSettings.snapshot(provider),
+    "cli-settings:extensions": provider => workbench.cliSettings.extensions(provider),
+    "cli-settings:prepare": (edits, extension) => workbench.prepareSettings(edits as never, extension as never),
     "changes:prepare": definition => workbench.prepare(definition),
     "changes:adopt": id => workbench.adopt(nonEmptyString(id, "id"), true),
     "changes:import": (repository, directory) => workbench.importGithub(nonEmptyString(repository, "repository"), stringValue(directory, "directory"), true),

@@ -3,6 +3,7 @@
 import type { DoctorReport } from "./doctor-types";
 import type { WorkbenchSnapshot, WorkbenchPlan, ComponentDefinition, ChangeRecord, UpdateCandidate, AutomationStatus, HookDiagnostic, ProjectComparison } from "./workbench-types";
 import type { VersionLock } from "./workbench-types";
+import type { SettingsSnapshot, SettingsEdit, ExtensionDescriptor, ExtensionEdit } from "./cli-settings-types";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
@@ -110,6 +111,9 @@ export interface WindowChromeState {
  * 렌더러는 식별자(설정 파일 id, 경로 후보)만 보내고, 무엇을 읽고 쓸지는 main이 정한다.
  */
 export interface ApiChannels {
+  "cli-settings:list": (provider: ProviderId) => SettingsSnapshot;
+  "cli-settings:extensions": (provider: ProviderId) => ExtensionDescriptor[];
+  "cli-settings:prepare": (edits: SettingsEdit[], extension?: ExtensionEdit) => WorkbenchPlan;
   "workbench:snapshot": () => WorkbenchSnapshot;
   "changes:prepare": (definition: ComponentDefinition) => WorkbenchPlan;
   "changes:adopt": (id: string) => WorkbenchPlan;
@@ -230,6 +234,7 @@ export type ApiReturn<K extends ApiChannel> = Awaited<ReturnType<ApiChannels[K]>
 
 /** 런타임 채널 목록. preload는 이 목록에 있는 채널만 통과시키고 main은 전부 등록한다. */
 export const API_CHANNELS = [
+  "cli-settings:list", "cli-settings:extensions", "cli-settings:prepare",
   "changes:prepare", "changes:adopt", "changes:import", "changes:update", "changes:receive", "changes:discard",
   "workbench:lock",
   "workbench:probe",

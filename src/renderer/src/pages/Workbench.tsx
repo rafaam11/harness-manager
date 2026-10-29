@@ -12,7 +12,15 @@ import { Pager } from "../components/Pager";
 import { usePagination } from "../components/usePagination";
 import { useConfirmDialog } from "../components/confirm-dialog";
 
+import CliSettingsExplorer from "../components/CliSettingsExplorer";
+import CliExtensionsExplorer from "../components/CliExtensionsExplorer";
+
 export default function Workbench() {
+  const [scope, setScope] = useState<"common" | "claude" | "codex">(() => { const saved = localStorage.getItem("hm-cli-scope"); return saved === "claude" || saved === "codex" ? saved : "common"; });
+  const [mode, setMode] = useState<"settings" | "extensions" | "components">(() => { const value = localStorage.getItem("hm-cli-mode"); return value === "extensions" || value === "components" ? value : "settings"; });
+  const [revision, setRevision] = useState(0);
+  const navigateScope = (next: () => void) => { const proceed = () => { setEditor(null); next(); }; if (window.dispatchEvent(new CustomEvent("hm:before-navigate", { cancelable: true, detail: { proceed } }))) proceed(); };
+  useEffect(() => { localStorage.setItem("hm-cli-scope", scope); localStorage.setItem("hm-cli-mode", mode); }, [scope, mode]);
   const [snapshot, setSnapshot] = useState<WorkbenchSnapshot | null>(null);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
@@ -52,7 +60,7 @@ export default function Workbench() {
     edit({ id: "", name: "", kind, description: "", targets: ["claude", "codex"], source: { kind: "profile" }, files: { [kind === "skill" ? "SKILL.md" : "instructions.md"]: "" } });
   };
   const item = snapshot?.components.find(row => row.id === selected);
-  const rows = snapshot?.components.filter(row => (kind === "all" || row.kind === kind) && (filter !== "managed" || row.managed) && (filter !== "issues" || row.issue || row.observations.some(o => o.installed === false)) && `${row.name} ${row.description} ${row.source}`.toLowerCase().includes(query.toLowerCase())) ?? [];
+  const rows = snapshot?.components.filter(row => (scope === "common" ? row.observations.length !== 1 : row.observations.some(o => o.provider === scope)) && (kind === "all" || row.kind === kind) && (filter !== "managed" || row.managed) && (filter !== "issues" || row.issue || row.observations.some(o => o.installed === false)) && `${row.name} ${row.description} ${row.source}`.toLowerCase().includes(query.toLowerCase())) ?? [];
   const pager = usePagination(rows.length, `${query}:${kind}:${filter}`);
   const select = async (row: ManagedComponent) => { if (await leaveEditor()) { setSelected(row.id); setEditor(null); } };
   const closeDetail = async () => { if (await leaveEditor()) { setEditor(null); setSelected(null); } };
@@ -61,14 +69,17 @@ export default function Workbench() {
     const id = editor?.id;
     setPlan(null); setEditor(null); setTool(null); setChecked([]);
     if (id) setSelected(`definition:${id}`);
+    setRevision(value => value + 1);
     await load(); setNotice(plan!.title.includes("연결 검사") ? "검사를 마쳤습니다. 진단 탭에서 결과를 확인하세요." : "이 PC에 적용했습니다");
   });
   return <div className="pc-page" onClick={event => { const button = (event.target as HTMLElement).closest(".pc-menu button"); button?.closest("details")?.removeAttribute("open"); }}>
-    <PageHeader title="이 PC" meta={<span role="status">{notice || (snapshot ? `${snapshot.components.length}개 항목 · 차이 ${snapshot.components.filter(row => row.issue).length}개` : "환경 확인 중")}</span>}>
-      <button className="btn ghost" disabled={busy} onClick={() => void work(load)}><RefreshCw size={16} /> 다시 확인</button>
-      <details className="pc-menu"><summary className="btn" role="button"><Plus size={16} /> 추가</summary><div><button disabled={busy} onClick={() => void create("skill")}>새 스킬</button><button disabled={busy} onClick={() => void create("instruction")}>새 지침</button><button disabled={busy} onClick={() => setTool("github")}>GitHub에서 가져오기</button></div></details>
+    <PageHeader title="이 PC" meta={<span role="status">{notice || (scope !== "common" && mode !== "components" ? "CLI별 설정과 확장 관리" : snapshot ? `${snapshot.components.length}개 항목 · 차이 ${snapshot.components.filter(row => row.issue).length}개` : "환경 확인 중")}</span>}>
+      {(scope === "common" || mode === "components") && <button className="btn ghost" disabled={busy} onClick={() => void work(load)}><RefreshCw size={16} /> 다시 확인</button>}
+      {(scope === "common" || mode === "components") && <details className="pc-menu"><summary className="btn" role="button"><Plus size={16} /> 추가</summary><div><button disabled={busy} onClick={() => void create("skill")}>새 스킬</button><button disabled={busy} onClick={() => void create("instruction")}>새 지침</button><button disabled={busy} onClick={() => setTool("github")}>GitHub에서 가져오기</button></div></details>}
     </PageHeader>
     {error && <Banner tone="err">{error}</Banner>}
+    <div className="pc-inline cli-scope"><Tabs<"common" | "claude" | "codex"> label="이 PC 대상" value={scope} onChange={value => navigateScope(() => setScope(value))} items={[{ id: "common", label: "공통" }, { id: "claude", label: "Claude Code" }, { id: "codex", label: "Codex" }]} />{scope !== "common" && <Tabs<"settings" | "extensions" | "components"> label="CLI 관리" value={mode} onChange={value => navigateScope(() => setMode(value))} items={[{ id: "settings", label: "설정" }, { id: "extensions", label: "확장" }, { id: "components", label: "스킬·연결" }]} />}</div>
+    {scope !== "common" && mode === "settings" ? <CliSettingsExplorer key={scope} provider={scope} revision={revision} onPlan={setPlan} /> : scope !== "common" && mode === "extensions" ? <CliExtensionsExplorer key={scope} provider={scope} revision={revision} onPlan={setPlan} /> : <>
     <div className="pc-toolbar">
       <label className="pc-search"><Search size={16} /><input aria-label="구성요소 검색" placeholder="이름, 설명 검색" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <select aria-label="구성요소 종류" value={kind} onChange={e => setKind(e.target.value)}><option value="all">모든 종류</option>{Object.entries(COMPONENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
@@ -97,6 +108,7 @@ export default function Workbench() {
         {editor ? <ComponentEditor value={editor} existing={editingExisting} busy={busy} onChange={setEditor} onCancel={() => void closeDetail()} onReview={() => void work(async () => setPlan(await call("changes:prepare", editor)))} /> : item ? <ComponentDetail item={item} busy={busy} work={task => void work(task)} onPlan={setPlan} onEdit={edit} /> : <EmptyState>목록에서 항목을 선택하세요.<p>설정과 진단을 여기에서 확인합니다.</p></EmptyState>}
       </aside>
     </div>
+    </>}
     {tool && <WorkbenchTools tool={tool} busy={busy} error={error} warnings={snapshot?.warnings ?? []} work={task => void work(task)} onPlan={setPlan} onClose={() => setTool(null)} />}
     {plan && <ChangePreview plan={plan} busy={busy} onClose={() => setPlan(null)} onApply={apply} applyLabel={plan.title.includes("연결 검사") ? "검사 실행" : "이 PC에 적용"} />}
     {dialog}

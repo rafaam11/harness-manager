@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## v5 CLI 설정·확장
+
+- `이 PC`의 공통 / Claude Code / Codex 탭을 사용한다. CLI별 설정 / 확장 / 스킬·연결로 책임을 나눈다. 기본은 공통이며 선택과 검색을 기억한다.
+- `services/cli-settings/`는 공식 카탈로그·설정 검증·JSON/TOML 부분 편집·확장 옵션을 담당하는 순수 Node 모듈이다. 계약은 `docs/contracts/cli-settings.md`다.
+- CLI별 명시적 set/remove와 확장 enabled true/false는 `home/cli-settings.v1.json`, PC 고유 경로는 `local/cli-settings.local.json`에 둔다. 배열은 정확히 교체하며 기존 배열 union과 구분한다. 관리 해제는 PC 값을 유지하고 기준에서 뺀다.
+- 새 정의가 있으면 이동 파일 version 3이다. 기존 v1/v2를 자동 변경하지 않으며 모든 동기화 PC는 v5 이상이어야 한다. 조직 정책·인증·프로젝트·Codex profiles와 MCW 전용 파일은 수정하지 않는다. 설치·활성·hook 신뢰·세션 실행은 구별한다.
+- 설정 변경은 기존 workbench 검토·저널을 통해 기준과 PC 파일을 함께 저장·복원한다. 외부 명령은 main이 만들며 실패·검증 실패 시 기준을 저장하지 않는다. 카탈로그 갱신은 `python scripts/update-settings-catalog.py`와 출처 문서를 함께 점검한다.
+
 ## v4 작업대 (현재 구현)
 
 - 기본 탐색은 이 PC / 동기화 / 변경 기록 / 앱 설정이다. 프로필 선택·원본 파일 편집은 앱 설정 → 고급에서만 연다. 아래 v3의 첫 화면·읽기 전용 카탈로그 결정은 이 구조로 대체한다.

@@ -1,3 +1,4 @@
+import { parseCliSettings, CLI_SETTINGS_FILE } from "./cli-settings/definition.js";
 import { parseDefinition } from "./workbench/definition.js";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -162,6 +163,11 @@ export function validateDocument(
     if (!report.ok) fail(report.errors.join(" · "));
   }
   if (doc.files["home/components.v2.json"]) parseDefinition(doc.files["home/components.v2.json"]);
+  if (doc.files[CLI_SETTINGS_FILE]) parseCliSettings(doc.files[CLI_SETTINGS_FILE]);
+  if (doc.personal["cli-settings.local.json"]) {
+    if (!doc.files[CLI_SETTINGS_FILE]) fail("PC 전용 CLI 설정에는 v3 공통 정의가 필요합니다");
+    parseCliSettings(doc.personal["cli-settings.local.json"]);
+  }
   const managed = JSON.parse(doc.files["home/managed-keys.json"] ?? "{}");
   if (
     !strings(managed.claudeSettings) ||
@@ -226,7 +232,7 @@ export async function writeDocument(
 ): Promise<void> {
   validateDocument(doc);
   for (const file of PROFILE_FILES) {
-    if (file === "home/components.v2.json" && !(file in doc.files) && await readProfileFile(profile.root, file) !== null) fail("v4 구성요소 정의를 제거할 수 없습니다. 백업 복원으로 이전하세요.");
+    if (["home/components.v2.json", CLI_SETTINGS_FILE].includes(file) && !(file in doc.files) && await readProfileFile(profile.root, file) !== null) fail("v4 구성요소 정의를 제거할 수 없습니다. 백업 복원으로 이전하세요.");
 
     if (
       !(file in doc.files) &&
@@ -294,7 +300,7 @@ export function bundleProfile(
   }
   const bundle: ProfileBundle = {
       format: "harness-manager-profile",
-      version: doc.files["home/components.v2.json"] ? 2 : 1,
+      version: doc.files[CLI_SETTINGS_FILE] ? 3 : doc.files["home/components.v2.json"] ? 2 : 1,
       name,
       files: doc.files,
       personal,
@@ -309,8 +315,9 @@ export function parseBundle(text: string): ProfileBundle {
   if (
     !value ||
     value.format !== "harness-manager-profile" ||
-    ![1, 2].includes(value.version) ||
-    (value.version === 2) !== Boolean(value.files?.["home/components.v2.json"]) ||
+    ![1, 2, 3].includes(value.version) ||
+    (value.version === 3) !== Boolean(value.files?.[CLI_SETTINGS_FILE]) ||
+    (value.version !== 3 && (value.version === 2) !== Boolean(value.files?.["home/components.v2.json"])) ||
     typeof value.name !== "string" ||
     !value.name.trim() ||
     value.name.length > 80 ||

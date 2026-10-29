@@ -26,8 +26,12 @@ import { probeMcp, type McpProbeResult } from "./mcp-probe.js";
 import { powershellProfilePath } from "../dotfiles.js";
 import { PROFILE_FILES, PERSONAL_FILES, type SetupProfile } from "@shared/setup-profile-types";
 import { discoverSkills, fetchSkill } from "./github.js";
+import { CliSettingsService, type CliChange } from "../cli-settings/service.js";
+import { projectCliSettings } from "../cli-settings/projection.js";
+import { CLI_SETTINGS_FILE, CLI_SETTINGS_LOCAL } from "../cli-settings/definition.js";
+import type { SettingsEdit, ExtensionEdit } from "@shared/cli-settings-types";
 
-interface Pending { profileId: string; definition: string | null; files: FileChange[]; stepIds: string[]; title: string; automatic: boolean; restore?: string; installDigest?: string; candidate?: ComponentDefinition[]; destination?: SetupProfile; verify?(signal: AbortSignal): Promise<void>; checkLocal?(): Promise<void>; stagedContext?: InstallContext; probe?: { id: string; fingerprint: string } }
+interface Pending { profileId: string; definition: string | null; files: FileChange[]; stepIds: string[]; title: string; automatic: boolean; restore?: string; installDigest?: string; candidate?: ComponentDefinition[]; destination?: SetupProfile; verify?(signal: AbortSignal): Promise<void>; checkLocal?(): Promise<void>; stagedContext?: InstallContext; cli?: CliChange; probe?: { id: string; fingerprint: string } }
 export interface WorkbenchDependencies {
   stateDir: string; context(): Promise<InstallContext>; providers: ProviderAdapter[]; plugins(): Promise<PluginsSnapshot>;
   receiveRemote?(profileId: string, signal: AbortSignal): Promise<string>;
@@ -40,6 +44,12 @@ export class WorkbenchService {
   private lastDefinition = "";
   private status: AutomationStatus = { running: false, detail: "아직 자동 확인하지 않았습니다", pending: [] };
   constructor(readonly deps: WorkbenchDependencies) {}
+  get cliSettings() { return new CliSettingsService(this.deps); }
+  async prepareSettings(edits: SettingsEdit[], extension?: ExtensionEdit) {
+    const c = await this.context();
+    const change = await this.cliSettings.prepare(edits, extension);
+    return { ...this.remember({ profileId: c.profile.id, definition: c.definition, files: change.files, stepIds: [], title: change.title, automatic: false, destination: change.destination, cli: change, verify: change.verify, checkLocal: change.verify }, change.notes, change.commands.map(spec => `${spec.command} ${spec.args.join(" ")}`)), scope: "settings-and-pc" as const };
+  }
   private async context() {
     const ctx = await this.deps.context();
     const root = ctx.templateRoot ?? ctx.repoRoot;
@@ -240,6 +250,10 @@ export class WorkbenchService {
         pcFiles[index] = { ...adjusted, after };
       } else pcFiles.push(adjusted);
     }
+    for (const file of (await projectCliSettings(stagedContext, undefined, pcFiles)).files) {
+      const index = pcFiles.findIndex(f => f.path === file.path);
+      if (index >= 0) pcFiles[index] = file; else pcFiles.push(file);
+    }
     const install = await planInstallWith(stagedContext);
     const commandChanged = (id: string) =>
       (changed.includes("manifest/packages.json") && id.startsWith("packages.")) ||
@@ -363,6 +377,27 @@ export class WorkbenchService {
     if (pending.profileId !== c.profile.id || pending.definition !== c.definition) throw new RequestError(409, "내 설정이 변경되었습니다. 다시 검토하세요");
     signal.throwIfAborted();
     await pending.verify?.(signal);
+    if (pending.cli?.commands.length) {
+      const detail: string[] = [];
+      let failed = false;
+      for (const spec of pending.cli.commands) {
+        signal.throwIfAborted();
+        const result = await c.ctx.runner.run({ ...spec, env: { ...c.ctx.env, CLAUDE_CONFIG_DIR: c.ctx.claudeHome, CODEX_HOME: c.ctx.codexHome } }, () => undefined, signal);
+        detail.push(`${spec.command} ${spec.args.join(" ")}: ${result.code === 0 ? "완료" : "실패"}`);
+        if (result.code !== 0 || result.timedOut || result.notFound) { failed = true; break; }
+      }
+      if (!failed) {
+        const snapshot = await this.deps.plugins();
+        for (const extension of pending.cli.effective.extensions) {
+          const installed = snapshot.plugins.find(p => p.provider === extension.provider && p.id === extension.id);
+          if (extension.enabled && !installed?.installs.length || extension.provider === "claude" && installed && installed.enabledInSettings !== extension.enabled) { failed = true; detail.push("설치·활성 상태 재검증 실패"); }
+        }
+      }
+      await (await this.history()).recordCommand(c.profile.id, pending.title, detail.join("\n"), failed);
+      if (failed) throw new RequestError(422, "확장 작업이 실패했습니다. 기준 저장은 보류했습니다. 변경 기록을 확인하고 다시 검토하세요.");
+      await this.cliSettings.rebaseNative(pending.cli, c.ctx);
+    }
+
     if (pending.stagedContext && pending.stepIds.length) {
       const steps = (await planInstallWith(pending.stagedContext)).steps.filter(s => pending.stepIds.includes(s.id));
       if (sha256(stringify(steps)) !== pending.installDigest) throw new RequestError(409, "설치 계획이 변경되었습니다. 다시 검토하세요");
@@ -418,7 +453,7 @@ export class WorkbenchService {
     if (record.profileId !== c.profile.id || !record.restorable) throw new RequestError(409, "현재 프로필에서 복원할 수 없습니다");
     const p = this.remember({ profileId: c.profile.id, definition: c.definition, title: `${record.title} 복원`, files: [], stepIds: [], automatic: false, restore: id }, ["새로 만든 파일은 삭제하지 않고 이력 보관 폴더로 옮깁니다. 이후 사용자 변경이 있으면 중단합니다."]);
     p.files = record.changes.map(f => ({ path: f.path, diff: unifiedDiff(f.path, f.after, f.before ?? "") }));
-    p.scope = record.changes.some(f => f.path === path.join(c.root, DEFINITION_FILE)) ? "settings-and-pc" : "pc";
+    p.scope = record.changes.some(f => f.path === path.join(c.root, DEFINITION_FILE) || f.path === path.join(c.root, CLI_SETTINGS_FILE) || f.path === path.join(c.ctx.profileDir, CLI_SETTINGS_LOCAL)) ? "settings-and-pc" : "pc";
     p.notes.unshift(p.scope === "settings-and-pc" ? "내 설정과 PC 파일을 함께 복원합니다." : "이 기록은 PC 파일만 복원합니다. 기준 설정은 바꾸지 않습니다.");
     return p;
   }

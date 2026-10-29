@@ -1,6 +1,6 @@
 {
   "name": "harness-manager",
-  "version": "4.1.2",
+  "version": "5.0.0",
   "description": "Claude Code와 Codex 로컬 환경을 관리하는 로컬 전용 데스크톱 앱",
   "main": "out/main/index.js",
   "private": true,
@@ -21,6 +21,7 @@
     "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "diff": "^8.0.4",
     "dompurify": "^3.2.3",
     "electron-updater": "^6.8.9",
@@ -33,6 +34,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "smol-toml": "^1.7.0",
+    "toml-eslint-parser": "^1.0.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -59,7 +61,9 @@
       "output": "release"
     },
     "files": [
-      "out/**"
+      "out/**",
+      "THIRD_PARTY_NOTICES.md",
+      "docs/licenses/**"
     ],
     "asarUnpack": [
       "out/main/node-runtime.ps1"

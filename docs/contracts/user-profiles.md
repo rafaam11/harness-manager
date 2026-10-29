@@ -10,11 +10,13 @@
 - 기본 정의는 읽기 전용이다. 개인 사본은 앱 업데이트로 덮어쓰지 않는다. 기존 `legacy` 선택은 원본을 보존해 개인 사본으로 이전한다.
 - 보관은 등록 정보만 바꾼다. 연결한 외부 폴더도 지우지 않는다.
 - 편집은 `profiles:editor` → `profiles:preview` → `profiles:apply`. main이 문서를 검증하고 미리보기 토큰과 원본 지문을 다시 확인한다. 실행 명령을 renderer에서 직접 받지 않는다.
-- 저장·받기는 실제 PC 설정이나 패키지를 변경하지 않는다. 실제 반영은 기존 install의 계획·미리보기·실행·검증 절차를 거친다.
+- 고급 원본 편집과 기존 profiles CLI는 기준만 저장한다. 이 PC의 구성요소·CLI 설정 편집과 앱 동기화 수신은 기준과 PC 변경을 같은 저널로 처리한다.
 
 ## 이동 형식
 
-`.hmprofile.json`은 `{ format: "harness-manager-profile", version: 1, name, files, personal }` JSON이다. `files`와 `personal`은 고정 allowlist의 상대 파일명 → UTF-8 텍스트 맵이다. 파일별 2 MiB, 가져오기 전체 16 MiB 상한을 적용한다. 파일 경로와 상위 폴더의 symlink를 따라가지 않는다.
+`.hmprofile.json`은 `{ format: "harness-manager-profile", version: 1 | 2 | 3, name, files, personal }` JSON이다. `files`와 `personal`은 고정 allowlist의 상대 파일명 → UTF-8 텍스트 맵이다. 파일별 2 MiB, 가져오기 전체 16 MiB 상한을 적용한다. 파일 경로와 상위 폴더의 symlink를 따라가지 않는다.
+
+`home/cli-settings.v1.json`이 있으면 version 3, 구성요소 정의만 있으면 version 2, 나머지는 version 1이다. 기존 형식은 그대로 읽고 새 정의는 명시적 편집 시에만 생성한다. v3은 v5 이상에서 읽으며 구형 앱은 쓰기 전에 거절한다. CLI 설정의 PC 전용 경로는 `cli-settings.local.json`에 두고 기본 이동 대상에서 제외한다.
 
 개인 설정 이동 선택은 로컬 `portability.json`에 기억한다. 선택한 개인 지침·이메일 등은 포함할 수 있으나 인증 정보와 PC 고유 절대경로는 제외한다. 정의 파일에 이런 값이 있으면 내보내기를 막고 수정하도록 안내한다. 비공개 낱말 검사는 공개 소스 게시와 capture의 개인 값 분리에 계속 사용한다. 인증 검사와 별개다.
 

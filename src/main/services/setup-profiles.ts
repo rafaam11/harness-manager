@@ -13,8 +13,8 @@ import { unifiedDiff } from "./capture/text.js";
 
 const edits = new Map<string, { id: string; root: string; fingerprint: string; doc: ProfileDocument }>();
 
-const TEMPLATE_FILES = ["home/components.v2.json", "home/managed-keys.json", "home/agents/AGENTS.md", "home/claude/CLAUDE.md", "home/claude/settings.managed.json", "home/codex/config.managed.toml", "home/powershell/profile.ps1", "home/git/gitconfig.json", ...MANIFEST_FILES.map((name) => `manifest/${name}.json`)];
-const LOCAL_FILES = ["AGENTS.local.md", "claude-settings.local.json", "codex-config.local.json", "manifest.local.json", "powershell.local.ps1", "gitconfig.local.json", "private-terms.json", "portability.json"];
+const TEMPLATE_FILES = ["home/cli-settings.v1.json", "home/components.v2.json", "home/managed-keys.json", "home/agents/AGENTS.md", "home/claude/CLAUDE.md", "home/claude/settings.managed.json", "home/codex/config.managed.toml", "home/powershell/profile.ps1", "home/git/gitconfig.json", ...MANIFEST_FILES.map((name) => `manifest/${name}.json`)];
+const LOCAL_FILES = ["cli-settings.local.json", "AGENTS.local.md", "claude-settings.local.json", "codex-config.local.json", "manifest.local.json", "powershell.local.ps1", "gitconfig.local.json", "private-terms.json", "portability.json"];
 const migrations = new Map<string, Promise<unknown>>();
 const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
 const BASE: Record<string, unknown> = {
