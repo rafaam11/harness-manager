@@ -37,7 +37,8 @@ export default function Workbench() {
   useEffect(() => { void work(load); }, []);
   useEffect(() => {
     const beforeNavigate = (event: Event) => {
-      if (!dirty && !busy) return;
+      // 적용 후 목록을 다시 읽는 동안에도 이동은 허용한다. 보호할 대상은 미적용 편집이다.
+      if (!dirty) return;
       event.preventDefault();
       if (!busy) void confirm({ title: "편집을 마칠까요?", message: "아직 적용하지 않은 내용이 있습니다.", confirmLabel: "편집 내용 버리기", danger: true }).then(ok => { if (ok) (event as CustomEvent<{ proceed(): void }>).detail.proceed(); });
     };

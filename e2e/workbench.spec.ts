@@ -75,6 +75,7 @@ test("first edit → one review → both CLIs → conflict → compact layout �
     await expect.poll(() => detail.getByRole("button", { name: "변경 검토" }).evaluate(button => { const rect = button.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight; })).toBe(true);
     await page.screenshot({ path: info.outputPath("this-pc-900-125.png"), fullPage: true });
     await page.getByRole("button", { name: "변경 기록", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "변경 기록", exact: true })).toBeVisible();
     await page.locator(".pc-name").filter({ hasText: "E2E 스킬 변경" }).first().click();
     await page.getByRole("button", { name: "복원 검토", exact: true }).click();
     await review.getByRole("button", { name: "검토한 변경 복원", exact: true }).click();
