@@ -4,6 +4,9 @@ import path from "node:path";
 import os from "node:os";
 
 test("first edit → one review → both CLIs → conflict → compact layout → restore", async ({}, info) => {
+  // Windows CI에서는 실제 파일 트랜잭션과 OS 진단을 함께 돌려 90초를 넘는다.
+  // 개별 동작·기대 조건의 제한은 유지하고 전체 흐름에만 여유를 준다.
+  test.setTimeout(150_000);
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "hm-v4-e2e-"));
   const entry = path.join(root, "main.cjs");
   // The agent running this test is itself Codex. Isolate OS process discovery, while production
