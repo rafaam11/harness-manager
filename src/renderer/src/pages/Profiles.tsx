@@ -17,6 +17,7 @@ import RepoConnect from "../components/RepoConnect";
 import type { PageContext } from "./registry";
 
 const FILE_LABELS: Record<string, string> = {
+  "home/components.v2.json": "v4 구성요소와 자동 적용 정책",
   "manifest/packages.json": "툴체인 패키지",
   "manifest/tools.json": "독립 설치 도구",
   "manifest/plugins.json": "마켓플레이스와 플러그인",

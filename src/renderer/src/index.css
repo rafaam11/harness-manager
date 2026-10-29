@@ -39,6 +39,50 @@
 
 * { box-sizing: border-box; }
 
+/* v4: 목록은 짧게, 근거와 변경은 상세 패널에서 읽는다. */
+.wb-page { display: flex; flex-direction: column; gap: 16px; min-height: 100%; }
+.wb-toolbar, .wb-detail-actions, .wb-targets, .wb-list-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.wb-profile-bar { display: flex; align-items: center; gap: 18px; padding: 10px 22px; background: var(--sidebar); border-bottom: 1px solid var(--line); }
+.wb-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
+.wb-search input { width: 100%; }
+.wb-page input:not([type="checkbox"]), .wb-page select { background: var(--surface-raised); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: var(--type-ui); }
+.wb-layout { display: grid; grid-template-columns: minmax(320px, 0.9fr) minmax(380px, 1.1fr); gap: 20px; align-items: start; }
+.wb-master { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.wb-list-actions { padding: 14px; border-bottom: 1px solid var(--line); }
+.wb-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-bottom: 1px solid var(--line); }
+.wb-row:last-child { border-bottom: 0; }
+.wb-row[data-selected="true"] { background: var(--surface-accent); box-shadow: inset 3px 0 var(--primary); }
+.wb-row-button { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 0; background: transparent; color: var(--text); border: 0; cursor: pointer; text-align: left; min-width: 0; }
+.wb-row-button:hover { background: var(--surface-hover); }
+.wb-item-icon { flex: 0 0 48px; height: 48px; display: grid; place-items: center; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 13px; color: var(--primary); }
+.wb-row-copy { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.wb-row-copy strong { font: var(--type-panel-title); overflow-wrap: anywhere; }
+.wb-row-copy > span { color: var(--muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wb-row-copy small { font: var(--type-caption); color: var(--quiet); overflow-wrap: anywhere; }
+.wb-row-state { display: grid; justify-items: end; gap: 9px; flex-shrink: 0; }
+.wb-row-state small { font: var(--type-caption); color: var(--muted); }
+.wb-detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.wb-detail-head { display: flex; gap: 16px; align-items: center; padding: 10px 0; }
+.wb-detail-head h2 { margin: 8px 0; font: var(--type-page-title); }
+.wb-detail-head p { color: var(--muted); margin: 0; }
+.wb-observations { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wb-provider { display: flex; align-items: center; gap: 12px; }
+.wb-facts { display: grid; grid-template-columns: auto 1fr; gap: 12px; }
+.wb-facts dt { color: var(--muted); }
+.wb-facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.wb-parity { width: 100%; border-collapse: collapse; text-align: left; }
+.wb-parity td, .wb-parity th { padding: 10px; border-bottom: 1px solid var(--line); }
+.wb-welcome { padding: 36px 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: grid; justify-items: start; gap: 16px; }
+.wb-welcome > svg { color: var(--primary); }
+.wb-welcome h2, .wb-welcome p { margin: 0; }
+.wb-editor { display: grid; gap: 14px; }
+.wb-editor > label { display: grid; gap: 6px; }
+.wb-editor textarea { width: 100%; resize: vertical; font: var(--type-ui); padding: 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+.wb-preview { position: fixed; inset: 44px 0 0; z-index: 50; background: var(--bg); padding: 24px; overflow: auto; }
+.wb-preview-body { max-width: 1100px; margin: auto; display: grid; gap: 14px; }
+.wb-diff { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; padding: 12px; background: var(--bg); color: var(--text); font: var(--type-secondary); }
+@media (max-width: 1050px) { .wb-layout { grid-template-columns: 1fr; } }
+
 html,
 body,
 #root {

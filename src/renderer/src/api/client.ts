@@ -23,6 +23,7 @@ export async function call<K extends ApiChannel>(channel: K, ...args: ApiArgs<K>
     throw new ApiError(500, errorMessage(error));
   }
   if (!result.ok) throw new ApiError(result.statusCode, result.error);
+  if (["profiles:select", "profiles:create", "profiles:connect", "profiles:import", "profiles:update"].includes(channel) && typeof window.dispatchEvent === "function") window.dispatchEvent(new Event("hm:profile-changed"));
   return result.data;
 }
 

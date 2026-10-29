@@ -7,6 +7,7 @@
  * 아니다 — 레포 실패는 결과 JSON에 담긴다. 2는 사용법 오류, 3은 `manifest validate`의 검사 실패, 4는 capture 적용 거절, 5는 install에서 실패한 step이 있음이다.
  */
 import type { RepoSyncReport } from "@shared/repo-sync-types";
+import { runWorkbenchCli, WORKBENCH_USAGE } from "./cli-workbench.js";
 import { REPO_FAIL_LABELS, REPO_SKIP_LABELS } from "@shared/repo-sync-types";
 import { CAPTURE_USAGE, runCaptureCli } from "./cli-capture.js";
 import { DOCTOR_USAGE, runDoctorCli } from "./cli-doctor.js";
@@ -28,7 +29,8 @@ ${CAPTURE_USAGE}
 ${DOCTOR_USAGE}
 ${INSTALL_USAGE}
 ${SETTINGS_USAGE}
-${PROFILES_USAGE}`;
+${PROFILES_USAGE}
+${WORKBENCH_USAGE}`;
 
 class UsageError extends Error {}
 
@@ -138,6 +140,7 @@ function write(report: RepoSyncReport, json: boolean): void {
 }
 
 export async function main(argv: string[]): Promise<number> {
+  if (["components", "updates", "history", "restore"].includes(argv[0] ?? "")) return runWorkbenchCli(argv);
   if (argv[0] === "capture" || argv[0] === "manifest") return runCaptureCli(argv);
   if (argv[0] === "doctor") return runDoctorCli(argv);
   if (argv[0] === "install") return runInstallCli(argv);

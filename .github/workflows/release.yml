@@ -16,7 +16,38 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Require package version to match tag
+        shell: bash
+        run: test "$GITHUB_REF_NAME" = "v$(node -p "require('./package.json').version")"
+      - name: Unit and contract tests
+        run: node node_modules/vitest/vitest.mjs run --maxWorkers=4
+      - run: npm run build
+      - name: Electron E2E (Windows)
+        if: runner.os == 'Windows'
+        run: npx playwright test
+      - name: Electron E2E (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-${{ runner.os }}
+          path: test-results/
   build:
+    needs: verify
     strategy:
       fail-fast: false
       # 잡 직렬화(동시성 1): electron-builder --publish는 잡마다 "릴리스 없으면 생성"을 하므로

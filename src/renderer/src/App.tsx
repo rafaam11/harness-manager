@@ -5,6 +5,7 @@ import { TitleBar } from "./components/TitleBar";
 import { Toaster, showToast } from "./components/toast";
 import { Banner } from "./components/ui";
 import ProfileSyncNotice from "./components/ProfileSyncNotice";
+import ActiveProfile from "./components/ActiveProfile";
 import { PAGE_ORDER, PAGES, type PageKey } from "./pages/registry";
 import { providerLabel } from "./provider-ui";
 import { applyTheme, useResolvedTheme } from "./theme";
@@ -12,6 +13,7 @@ import { REPOSITORY_URL, buildTitleBarMenus } from "./title-bar-menu";
 
 export default function App() {
   const [page, setPage] = useState<PageKey>(PAGE_ORDER[0]!);
+  const [profileRevision, setProfileRevision] = useState(0);
   const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
   const [appVersion, setAppVersion] = useState("");
   const theme = useResolvedTheme();
@@ -66,6 +68,7 @@ export default function App() {
     <div className="app-frame">
       <ProfileSyncNotice />
       <TitleBar menus={menus} onAction={handleMenuAction} theme={theme} onToggleTheme={toggleTheme} onOpenWizard={() => setPage("wizard")} />
+      <ActiveProfile onChanged={() => setProfileRevision(n => n + 1)} />
       <div className="layout">
         {/* 아이콘 열. 아이콘 아래 짧은 이름을 함께 둔다 — 아이콘만으로 뜻을 전하지 않는다. */}
         <nav className="rail" aria-label="화면">
@@ -81,13 +84,13 @@ export default function App() {
                 title={entry.label}
                 onClick={() => setPage(key)}
               >
-                <Icon size={22} aria-hidden="true" />
+                <Icon size={28} aria-hidden="true" />
                 <span>{entry.short}</span>
               </button>
             );
           })}
         </nav>
-        <main className={"wide" in current && current.wide ? "page-wide" : undefined}>
+        <main key={profileRevision} className={"wide" in current && current.wide ? "page-wide" : undefined}>
           {"writesUserFiles" in current && current.writesUserFiles && runningProviders.length > 0 && (
             <Banner tone="warn">
               실행 중인 provider: {runningProviders.map((status) => providerLabel(status.id)).join(", ")} —

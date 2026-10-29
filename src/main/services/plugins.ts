@@ -25,7 +25,7 @@ export async function getPlugins(): Promise<PluginsSnapshot> {
   ) as { plugins: { plugin: string; reason: string }[] };
 
   const settings = JSON.parse(
-    await fs.readFile(path.join(CLAUDE_HOME, "settings.json"), "utf8"),
+    await fs.readFile(path.join(CLAUDE_HOME, "settings.json"), "utf8").catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return "{}"; throw error; }),
   ) as { enabledPlugins?: Record<string, boolean> };
 
   const enabled = settings.enabledPlugins ?? {};
@@ -43,6 +43,7 @@ export async function getPlugins(): Promise<PluginsSnapshot> {
         version: i.version,
         installedAt: i.installedAt,
         lastUpdated: i.lastUpdated,
+        ...(i.installPath ? { installPath: i.installPath } : {}),
       })),
       blocked: blocklist.plugins.some((b) => b.plugin === id),
     };
@@ -69,7 +70,7 @@ export async function getCodexPlugins(runner: CommandRunner = processRunner): Pr
     const item = value as Record<string, unknown>;
     if (typeof item.pluginId !== "string" || typeof item.enabled !== "boolean" || item.installed !== true) continue;
     plugins.push({ provider: "codex", id: item.pluginId, enabledInSettings: item.enabled, blocked: false,
-      installs: [{ scope: "user", version: typeof item.version === "string" ? item.version : "", installedAt: "" }] });
+      installs: [{ scope: "user", version: typeof item.version === "string" ? item.version : "", installedAt: "", ...(item.source && typeof item.source === "object" && typeof (item.source as { path?: unknown }).path === "string" && path.isAbsolute((item.source as { path: string }).path) ? { installPath: (item.source as { path: string }).path } : {}) }] });
   }
   return { plugins, blocklist: [] };
 }

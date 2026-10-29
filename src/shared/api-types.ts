@@ -1,6 +1,8 @@
 // renderer ↔ main IPC 계약의 단일 출처. 채널 이름·인자·반환 타입을 여기 한 곳에서만 정의하고,
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
 import type { DoctorReport } from "./doctor-types";
+import type { WorkbenchSnapshot, WorkbenchPlan, ComponentDefinition, ChangeRecord, UpdateCandidate, AutomationStatus, HookDiagnostic, ProjectComparison } from "./workbench-types";
+import type { VersionLock } from "./workbench-types";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
 import type { AppSettings, CaptureApplyResult, CapturePlan, CaptureTargetId, ManifestFileReport } from "./manifest-types";
@@ -52,6 +54,7 @@ export interface PluginInfo {
     version: string;
     installedAt: string;
     lastUpdated?: string;
+    installPath?: string;
   }[];
   blocked: boolean;
 }
@@ -107,6 +110,26 @@ export interface WindowChromeState {
  * 렌더러는 식별자(설정 파일 id, 경로 후보)만 보내고, 무엇을 읽고 쓸지는 main이 정한다.
  */
 export interface ApiChannels {
+  "workbench:snapshot": () => WorkbenchSnapshot;
+  "workbench:definition": (id: string) => ComponentDefinition | null;
+  "workbench:lock": () => VersionLock;
+  "workbench:preview": (ids: string[]) => WorkbenchPlan;
+  "workbench:save": (definition: ComponentDefinition) => WorkbenchPlan;
+  "workbench:adopt": (id: string) => WorkbenchPlan;
+  "workbench:migrate": (automatic: boolean) => WorkbenchPlan;
+  "workbench:apply": (token: string) => void;
+  "workbench:history": () => ChangeRecord[];
+  "workbench:restore": (id: string) => WorkbenchPlan;
+  "workbench:discover": (repository: string) => { revision: string; directories: string[] };
+  "workbench:import": (repository: string, directory: string) => WorkbenchPlan;
+  "workbench:updates": () => UpdateCandidate[];
+  "workbench:update": (id: string) => WorkbenchPlan;
+  "workbench:automation": () => AutomationStatus;
+  "workbench:check": () => void;
+  "workbench:poll": () => void;
+  "workbench:hooks": () => HookDiagnostic[];
+  "workbench:probe": (id: string) => WorkbenchPlan;
+  "workbench:project": () => ProjectComparison | null;
   "app:version": () => string;
   "app:open-releases": () => void;
   "app:open-external": (url: string) => void;
@@ -201,6 +224,9 @@ export type ApiReturn<K extends ApiChannel> = Awaited<ReturnType<ApiChannels[K]>
 
 /** 런타임 채널 목록. preload는 이 목록에 있는 채널만 통과시키고 main은 전부 등록한다. */
 export const API_CHANNELS = [
+  "workbench:lock",
+  "workbench:probe",
+  "workbench:snapshot", "workbench:definition", "workbench:preview", "workbench:save", "workbench:adopt", "workbench:migrate", "workbench:apply", "workbench:history", "workbench:restore", "workbench:discover", "workbench:import", "workbench:updates", "workbench:update", "workbench:automation", "workbench:check", "workbench:poll", "workbench:hooks", "workbench:project",
   "app:version",
   "app:open-releases",
   "app:open-external",

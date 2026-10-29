@@ -127,9 +127,7 @@ if (!app.requestSingleInstanceLock()) {
     // GUI로 실행하면 셸 PATH를 못 받는다(Linux). 실행 파일 감지(findOnPath)가 이 PATH를 쓴다.
     Object.assign(process.env, await discoverSessionEnvironment(process.env as Record<string, string>));
 
-    registerMainIpc(
-      ipcMain,
-      createApiHandlers({
+    const apiHandlers = createApiHandlers({
         appVersion: () => app.getVersion(),
         openExternal: openExternalSafely,
         openReleases: openReleasesPage,
@@ -175,9 +173,12 @@ if (!app.requestSingleInstanceLock()) {
             if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(value, { mode });
           },
         },
-      }),
-      (event) => isMainWindowSender(mainWindow, event),
-    );
+      });
+    registerMainIpc(ipcMain, apiHandlers, (event) => isMainWindowSender(mainWindow, event));
+    const automaticChecks = setInterval(() => { void Promise.resolve(apiHandlers["workbench:poll"]()).catch(console.warn); }, 30_000);
+    automaticChecks.unref();
+    app.once("will-quit", () => clearInterval(automaticChecks));
+    void Promise.resolve(apiHandlers["workbench:poll"]()).catch(console.warn);
 
     mainWindow = createWindow();
     initUpdater({ getWindow: () => mainWindow });

@@ -1,3 +1,4 @@
+import { parseDefinition } from "./workbench/definition.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse as parseToml } from "smol-toml";
@@ -160,6 +161,7 @@ export function validateDocument(
     );
     if (!report.ok) fail(report.errors.join(" · "));
   }
+  if (doc.files["home/components.v2.json"]) parseDefinition(doc.files["home/components.v2.json"]);
   const managed = JSON.parse(doc.files["home/managed-keys.json"] ?? "{}");
   if (
     !strings(managed.claudeSettings) ||
@@ -224,6 +226,8 @@ export async function writeDocument(
 ): Promise<void> {
   validateDocument(doc);
   for (const file of PROFILE_FILES) {
+    if (file === "home/components.v2.json" && !(file in doc.files) && await readProfileFile(profile.root, file) !== null) fail("v4 구성요소 정의를 제거할 수 없습니다. 백업 복원으로 이전하세요.");
+
     if (
       !(file in doc.files) &&
       (await readProfileFile(profile.root, file)) !== null
@@ -290,7 +294,7 @@ export function bundleProfile(
   }
   const bundle: ProfileBundle = {
       format: "harness-manager-profile",
-      version: 1,
+      version: doc.files["home/components.v2.json"] ? 2 : 1,
       name,
       files: doc.files,
       personal,
@@ -305,7 +309,8 @@ export function parseBundle(text: string): ProfileBundle {
   if (
     !value ||
     value.format !== "harness-manager-profile" ||
-    value.version !== 1 ||
+    ![1, 2].includes(value.version) ||
+    (value.version === 2) !== Boolean(value.files?.["home/components.v2.json"]) ||
     typeof value.name !== "string" ||
     !value.name.trim() ||
     value.name.length > 80 ||

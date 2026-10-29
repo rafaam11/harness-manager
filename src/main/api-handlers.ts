@@ -1,4 +1,6 @@
 import { getVisibleCodexSkills } from "./services/codex-skills.js";
+import { WorkbenchService, defaultWorkbenchDependencies } from "./services/workbench/service.js";
+import { hookDiagnostics, compareProject } from "./services/workbench/diagnostics.js";
 import type { ApiChannel, ApiReturn, CleanupExecuteResult, ManifestEntry } from "@shared/api-types";
 import { CAPTURE_TARGET_IDS, type CaptureTargetId } from "@shared/manifest-types";
 import { assertCleanupCategory } from "./lib/path-scope.js";
@@ -88,6 +90,7 @@ function captureIds(value: unknown): CaptureTargetId[] {
 }
 
 export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
+  const workbench = new WorkbenchService({ ...defaultWorkbenchDependencies(null), context: async () => defaultInstallContext(await resolveRepoRoot({ startDirs: deps.repoStartDirs() })) });
   const repair = new RepairCoordinator(deps.install.session, deps.install.emitRepair, path.join(APP_STATE_DIR, "repair"), createRepairSource());
   const profileStore = async () => {
     const root = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
@@ -96,6 +99,26 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
+    "workbench:snapshot": () => workbench.snapshot(),
+    "workbench:definition": id => workbench.definition(nonEmptyString(id, "id")),
+    "workbench:lock": () => workbench.versionLock(),
+    "workbench:preview": ids => workbench.preview(nonEmptyStringArray(ids, "ids", 500)),
+    "workbench:save": definition => workbench.save(definition),
+    "workbench:adopt": id => workbench.adopt(nonEmptyString(id, "id")),
+    "workbench:migrate": automatic => workbench.migrate(booleanValue(automatic, "automatic")),
+    "workbench:apply": token => { const value = nonEmptyString(token, "token"); return deps.install.session.run(signal => workbench.apply(value, signal)); },
+    "workbench:history": () => workbench.historyList(),
+    "workbench:restore": id => workbench.restorePreview(nonEmptyString(id, "id")),
+    "workbench:discover": repository => workbench.discover(nonEmptyString(repository, "repository")),
+    "workbench:import": (repository, directory) => workbench.importGithub(nonEmptyString(repository, "repository"), stringValue(directory, "directory")),
+    "workbench:updates": () => workbench.updates(),
+    "workbench:update": id => workbench.updatePreview(nonEmptyString(id, "id")),
+    "workbench:automation": () => workbench.automationStatus(),
+    "workbench:check": () => deps.install.session.run(signal => workbench.tick(signal)),
+    "workbench:poll": () => deps.install.session.runAutomatic(signal => workbench.poll(signal)),
+    "workbench:hooks": async () => hookDiagnostics(getProviders(), (await getAllPlugins()).plugins),
+    "workbench:probe": id => workbench.probePreview(nonEmptyString(id, "id")),
+    "workbench:project": async () => { const folder = await deps.chooseDirectory("프로젝트 설정 비교 · 읽기 전용"); return folder ? compareProject(folder, getProviders()) : null; },
     ...profileHandlers(deps, profileStore),
     "app:version": () => deps.appVersion(),
     "app:open-releases": () => deps.openReleases(),

@@ -1,4 +1,8 @@
 import Profiles from "./Profiles";
+import ProfileWorkbench from "./ProfileWorkbench";
+import Workbench from "./Workbench";
+import History from "./History";
+import Environment from "./Environment";
 import type { ReactNode } from "react";
 import {
   Archive,
@@ -42,11 +46,13 @@ export interface PageDefinition {
  * (mcw App.tsx가 2,800줄까지 불어난 것을 반면교사로, 화면별 분기를 App에 두지 않는다).
  */
 export const PAGES = {
-  dashboard: { label: "상태판", short: "상태판", icon: LayoutDashboard, render: () => <Dashboard /> },
+  workbench: { label: "구성요소", short: "구성요소", icon: BookOpen, wide: true, writesUserFiles: true, render: (context) => <Workbench {...context} /> },
+  history: { label: "변경 내역", short: "변경 내역", icon: Archive, wide: true, writesUserFiles: true, render: () => <History /> },
+  dashboard: { label: "환경", short: "환경", icon: LayoutDashboard, render: (context) => <Environment {...context} /> },
   install: { label: "설치", short: "설치", icon: Download, writesUserFiles: true, render: () => <Install /> },
   catalog: { label: "카탈로그", short: "카탈로그", icon: BookOpen, wide: true, render: () => <Catalog /> },
   cleanup: { label: "정리", short: "정리", icon: Archive, writesUserFiles: true, render: () => <Cleanup /> },
-  profiles: { label: "사용자 프로필", short: "프로필", icon: UserRound, render: (context) => <Profiles {...context} /> },
+  profiles: { label: "사용자 프로필", short: "프로필", icon: UserRound, render: (context) => <ProfileWorkbench {...context} /> },
   capture: { label: "가져오기", short: "가져오기", icon: Import, render: () => <Capture /> },
   "external-api": { label: "외부 API", short: "외부 API", icon: Globe, wide: true, render: () => <ExternalApi /> },
   // 사이드바에 없다. 타이틀바의 "셋업 위저드" 버튼으로만 연다.
@@ -62,4 +68,4 @@ export const PAGES = {
 export type PageKey = keyof typeof PAGES;
 
 // 첫 화면은 상태판이다(상태판 + 섹션 탭).
-export const PAGE_ORDER: PageKey[] = ["dashboard", "profiles", "install", "catalog", "cleanup", "capture", "external-api"];
+export const PAGE_ORDER: PageKey[] = ["workbench", "dashboard", "history", "profiles"];

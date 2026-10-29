@@ -88,6 +88,23 @@ async function send() {
   const p = await sync.preview(id, "send", signal);
   await sync.apply(id, p.token, {}, signal);
 }
+it("automatically receives ordinary v2 documentation but defers executable and settings changes", async () => {
+  const first = id;
+  const put = async (body: string, code = false) => {
+    const p = await store.get(id), doc = await readDocument(p);
+    doc.files["home/components.v2.json"] = JSON.stringify({ schemaVersion: 2, automatic: true, components: [{ id: "review", name: "review", description: "review", kind: "skill", targets: ["claude", "codex"], source: { kind: "profile" }, files: { "SKILL.md": body, ...(code ? { "run.js": "process.exit(0)" } : {}) } }] });
+    await writeDocument(p, doc);
+  };
+  await put("base"); await send();
+  await store.create("second", "default"); id = (await store.active()).id; const second = id;
+  await sync.connect(id, "test/profile", false, signal); const initial = await sync.preview(id, "receive", signal); await sync.apply(id, initial.token, {}, signal);
+  id = first; await put("remote update"); await send();
+  expect(await sync.receiveAutomatic(second, signal)).toContain("수신 완료");
+  expect((await readDocument(await store.get(second))).files["home/components.v2.json"]).toContain("remote update");
+  await put("code update", true); await send();
+  expect(await sync.receiveAutomatic(second, signal)).toContain("수동 수신");
+  expect((await readDocument(await store.get(second))).files["home/components.v2.json"]).not.toContain("code update");
+}, 40_000);
 it("round trips through a private remote without app sources and preserves device-only data", async () => {
   await model("first");
   await send();

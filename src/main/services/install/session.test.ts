@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { InstallSession, installProgress } from "./session.js";
 
 describe("InstallSession", () => {
+  it("수동 작업은 자동 확인을 취소하고 정리가 끝난 뒤 실행한다", async () => {
+    const session = new InstallSession(); const order: string[] = [];
+    const background = session.runAutomatic(signal => new Promise<void>(resolve => signal.addEventListener("abort", () => { order.push("cancel"); setTimeout(() => { order.push("cleaned"); resolve(); }, 10); })));
+    await session.run(async () => { order.push("manual"); }); await background;
+    expect(order).toEqual(["cancel", "cleaned", "manual"]); expect(session.running).toBe(false);
+  });
   it("한 번에 하나만 돌리고, 도는 중에는 409로 거절한다", async () => {
     const session = new InstallSession();
     let release!: () => void;

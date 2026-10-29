@@ -14,6 +14,7 @@ export class InstallBusyError extends Error {
  */
 export class InstallSession {
   private controller: AbortController | null = null;
+  private backgroundController: AbortController | null = null;
   private finished: Promise<unknown> = Promise.resolve();
   private repairs = new Map<string, { controller: AbortController; finished: Promise<unknown> }>();
 
@@ -22,20 +23,32 @@ export class InstallSession {
   }
 
   async run<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return this.execute(work, false);
+  }
+  async runAutomatic<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
+    if (this.running) return undefined;
+    return this.execute(work, true);
+  }
+  private async execute<T>(work: (signal: AbortSignal) => Promise<T>, automatic: boolean): Promise<T> {
+    // 사용자가 고른 작업은 백그라운드 확인이 정리된 뒤 실행한다. 일반 설치끼리는 계속 409다.
+    if (!automatic && this.backgroundController) { this.backgroundController.abort(); await this.finished; }
     if (this.running) throw new InstallBusyError();
     const controller = new AbortController();
     this.controller = controller;
+    if (automatic) this.backgroundController = controller;
     const pending = (async () => work(controller.signal))();
     this.finished = pending.catch(() => undefined);
     try {
       return await pending;
     } finally {
       this.controller = null;
+      if (this.backgroundController === controller) this.backgroundController = null;
     }
   }
 
   /** 복구끼리의 동시 실행·자원 충돌은 coordinator가 관리하고 일반 설치와는 서로 배제한다. */
   async runRepair<T>(id: string, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.backgroundController) { this.backgroundController.abort(); await this.finished; }
     if (this.controller || this.repairs.has(id)) throw new InstallBusyError();
     const controller = new AbortController();
     const pending = Promise.resolve().then(() => work(controller.signal));

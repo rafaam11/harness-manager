@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import { projectComponents } from "../workbench/projection.js";
+import { ChangeHistory } from "../workbench/history.js";
 import path from "node:path";
 import { parse as parseToml } from "smol-toml";
 import type { DoctorCheck, DoctorReport, DoctorSection } from "@shared/doctor-types";
@@ -242,7 +244,8 @@ function fileStep(base: Omit<StepDef, "plan" | "apply">, compute: (ctx: InstallC
     apply: async (ctx, log) => {
       const change = await compute(ctx);
       if ((change.before ?? "") === change.after) return;
-      await writeFileChecked(change.absPath, change.before, change.after, tildify(change.absPath, ctx.home));
+      const history = new ChangeHistory(path.join(ctx.home, ".harness-manager", "workbench", "history"), async file => { if (file !== change.absPath) throw new Error("관리 파일 밖입니다"); });
+      await history.apply(ctx.setupProfile?.id ?? "legacy", base.title, [{ path: change.absPath, before: change.before, after: change.after }]);
       log("info", `${tildify(change.absPath, ctx.home)}을(를) 썼습니다(원본은 ~/.harness-manager/backups).`);
     },
   };
@@ -587,10 +590,23 @@ async function describe(def: StepDef, report: DoctorReport, ctx: InstallContext)
   return { id: def.id, section: def.section, title: def.title, state, detail: detail || (state === "ok" ? "정상" : ""), actionable, manual, actions };
 }
 
+async function componentStepDefs(ctx: InstallContext): Promise<StepDef[]> {
+  return (await projectComponents(ctx)).map(({ component }) => ({
+    id: `components.${component.id}`, section: "skills", title: component.name, rank: 850, checks: byId(`components.${component.id}`),
+    plan: async context => (await projectComponents(context)).find(p => p.component.id === component.id)!.files.filter(f => f.before !== f.after).map(f => ({ kind: "file" as const, summary: `${tildify(f.path, context.home)} 관리 파일`, diff: unifiedDiff(tildify(f.path, context.home), f.before, f.after) })),
+    apply: async context => {
+      const projection = (await projectComponents(context)).find(p => p.component.id === component.id)!;
+      const allowed = new Set(projection.files.map(f => f.path));
+      const history = new ChangeHistory(path.join(context.home, ".harness-manager", "workbench", "history"), async file => { if (!allowed.has(file)) throw new Error("관리 경로 밖입니다"); await projectComponents(context); });
+      await history.apply(context.setupProfile?.id ?? "legacy", `${component.name} 설치`, projection.files);
+    },
+  }));
+}
+
 export async function planInstallWith(ctx: InstallContext): Promise<InstallPlan> {
   const [report, manifests] = await Promise.all([runDoctorWith(ctx), loadManifests(ctx)]);
   const steps: InstallStep[] = [];
-  for (const def of buildStepDefs(manifests)) {
+  for (const def of [...buildStepDefs(manifests), ...await componentStepDefs(ctx)]) {
     if (def.checks(report).length === 0) continue; // doctor가 보지 않는 항목(프로필 밖이 아닌데 검사 없음)은 다루지 않는다
     steps.push(await describe(def, report, ctx));
   }
@@ -637,7 +653,7 @@ async function executeInstallWith(
   };
   if (await ctx.refreshEnvironment()) notices.add(TERMINAL_NOTICE);
   const manifests = await loadManifests(ctx);
-  const defs = buildStepDefs(manifests).filter((def) => ids.includes(def.id));
+  const defs = [...buildStepDefs(manifests), ...await componentStepDefs(ctx)].filter((def) => ids.includes(def.id));
   const unknown = ids.filter((id) => !defs.some((def) => def.id === id));
   if (unknown.length > 0) throw new Error(`모르는 step: ${unknown.join(", ")}`);
   onEvent({ type: "run-start", total: defs.length });

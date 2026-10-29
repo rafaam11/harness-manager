@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
+import { projectComponents } from "../workbench/projection.js";
 import path from "node:path";
 import { parse as parseToml } from "smol-toml";
 import {
@@ -638,6 +639,13 @@ export async function runDoctorWith(ctx: DoctorContext): Promise<DoctorReport> {
       return { section, label: DOCTOR_SECTION_LABELS[section], state: cardState(checks), summary: cardSummary(section, checks), checks };
     }),
   );
+  try {
+    for (const { component, files } of await projectComponents(ctx)) {
+      const card = cards.find(c => c.section === "skills")!;
+      card.checks.push({ id: `components.${component.id}`, title: component.name, state: files.every(f => f.before === f.after) ? "ok" : files.some(f => f.before === null) ? "missing" : "drift", detail: `${component.targets.join(" · ")} · ${files.length}개 관리 파일` });
+      card.state = cardState(card.checks); card.summary = cardSummary(card.section, card.checks);
+    }
+  } catch (error) { const card = cards.find(c => c.section === "skills")!; card.checks.push({ id: "components.error", title: "v4 구성요소 검사 실패", state: "error", detail: (error as Error).message }); card.state = "fail"; }
   return { schemaVersion: 1, generatedAt: ctx.now().toISOString(), profile: ctx.profile, setupProfile: ctx.setupProfile, repoRoot: ctx.repoRoot, cards };
 }
 

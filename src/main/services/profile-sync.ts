@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { parseDefinition, ordinaryFiles } from "./workbench/definition.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
@@ -64,7 +65,7 @@ const unflatten = (
   flat: Record<string, string>,
 ): ProfileBundle => ({
   format: "harness-manager-profile",
-  version: 1,
+  version: flat["files/home/components.v2.json"] ? 2 : 1,
   name,
   files: Object.fromEntries(
     Object.entries(flat)
@@ -81,6 +82,23 @@ const unflatten = (
 /** 사용자 Git 폴더 대신 매번 독립 사본을 준비한다. fetch/reset으로 사용자의 작업을 덮지 않는다. */
 export class ProfileSync {
   private plans = new Map<string, SyncPlan>();
+  async receiveAutomatic(id: string, signal: AbortSignal): Promise<string> {
+    if (!await this.link(id)) return "원격 프로필 연결 없음";
+    const preview = await this.preview(id, "receive", signal);
+    if (preview.conflicts.length) return "원격 프로필 충돌 · 수동 검토 필요";
+    const plan = this.plans.get(preview.token)!;
+    const before = plan.document.files, after = plan.merged.files;
+    const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(key => before[key] !== after[key]);
+    if (!changed.length) { this.plans.delete(preview.token); return "원격 프로필과 동일"; }
+    if (changed.some(key => key !== "home/components.v2.json") || stringify(plan.merged.personal) !== stringify(Object.fromEntries(Object.entries(plan.document.personal).filter(([key]) => plan.document.portable.includes(key))))) return "원격 설정·개인 항목 변경 · 수동 수신 필요";
+    const old = parseDefinition(before["home/components.v2.json"] ?? null), next = parseDefinition(after["home/components.v2.json"] ?? null);
+    if (!old.automatic || next.automatic !== old.automatic || old.components.length !== next.components.length) return "원격 정책·항목 추가/제거 · 수동 수신 필요";
+    for (const item of next.components) {
+      const previous = old.components.find(c => c.id === item.id);
+      if (!previous || previous.kind !== item.kind || previous.source.kind !== item.source.kind || previous.source.repository !== item.source.repository || previous.source.directory !== item.source.directory || stringify(previous.targets) !== stringify(item.targets) || !ordinaryFiles(item) || !ordinaryFiles(previous) || Object.keys(previous.files).some(f => !(f in item.files))) return "원격 출처·실행 코드·적용 대상 변경 · 수동 수신 필요";
+    }
+    await this.apply(id, preview.token, {}, signal); return "일반 문서 원격 프로필 수신 완료";
+  }
   constructor(
     private store: SetupProfileStore,
     private runner: CommandRunner = processRunner,

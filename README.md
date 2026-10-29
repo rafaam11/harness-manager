@@ -11,13 +11,15 @@
   <img src="https://img.shields.io/badge/local--only-no%20telemetry-3fb950" alt="local only">
 </p>
 
-**하네스 매니저**는 새 PC에서도 **같은 Claude Code · Codex 개발환경**을 만드는 **로컬 전용 Windows · Ubuntu 데스크톱 앱**(Electron)이다. 앱 소스와 사용자 프로필을 구분하며, 선택한 프로필의 manifest에 따라 툴체인, Claude Code · Codex 설정, 플러그인 · 스킬, MCP, 셸 · git dotfiles를 구축한다.
+**하네스 매니저**는 Claude Code · Codex의 전역 개발환경을 함께 구성하고 검증하는 로컬 전용 Windows · Ubuntu 앱이다.
 
-- 첫 화면 **상태판**이 카드 8장으로 무엇이 되어 있고 무엇이 빠졌는지 보여 준다. 상태는 초록 · 노랑 · 빨강 점과 글자 라벨로 함께 표시한다.
-- **설치**는 manifest 기반 step 엔진이다. plan → dry-run → run → verify 순서로 돌고, 이미 정상인 것은 건너뛰므로 몇 번을 돌려도 같다.
-- **가져오기**는 반대 방향이다. 이 PC에서 바꾼 설정을 diff로 보고 선택한 개인 프로필로 가져온다.
-- **셋업 위저드**는 두 겹이다. 앱의 8단계 위저드, 그리고 Claude에게 **"설치해줘"** 라고 하면 따르는 `jinmin-setup` 스킬. 둘 다 같은 `hm` CLI를 부른다.
-- 사용자 설정은 통째로 덮어쓰지 않는다. JSON은 관리 키만, TOML은 관리 줄만, 텍스트 파일은 마커 블록만 고치고, 쓰기 전에 백업한다. 정리는 지우지 않고 아카이브로 옮긴다.
+- **구성요소 작업대**: 큰 아이콘과 검색 목록에서 스킬·지침·MCP·mod를 선택하고 양쪽 CLI의 설치·활성·인식·실행 검증을 비교한다.
+- **공통 스킬·지침**: 한 번 작성하거나 GitHub에서 가져와 원하는 CLI에 적용한다. 출처 커밋과 적용 파일 해시를 기록한다.
+- **환경**: 툴체인·CUA·dotfiles를 진단하고 기존 설치·가져오기·정리·외부 API 기능으로 이동한다.
+- **변경 내역**: 미리보기 → 적용 → 검증 → 복원. 이후 사용자 수정이 있으면 복원을 멈추고 새 파일은 삭제 대신 보관한다.
+- **프로필**: 개인 프로필로 명시적으로 v4 전환한다. 일반 문서는 조건부 자동 적용하고 실행 코드·권한·hook·MCP·플러그인 변경은 검토를 기다린다. 원격 공유는 수동이다.
+
+기존 사용자 설정을 통째로 덮어쓰지 않는다. JSON은 관리 키, TOML은 관리 줄, 지침은 마커 블록만 관리한다. 정상 Node와 MCW 소유 설정도 보호한다.
 
 렌더러와 main은 로컬 IPC로 통신하며 네트워크 포트나 텔레메트리는 없다. 업데이트·설치·외부 API 조회는 관련 서비스에 연결한다. 사용자가 AI 복구를 요청하면 선택한 CLI의 서비스로 진단 문맥을 보내고, 공통 앱 수정은 검증 후 Git 원격 저장소에 커밋·푸시한다. 로그인은 사용자가 CLI에서 진행한다.
 
@@ -25,9 +27,9 @@
 
 <!-- 60초 소개 영상: HarnessManager_홍보_60s_github.mp4를 GitHub 웹에 올려 받은 user-attachments 주소를 이 자리에 한 줄로 둔다. -->
 
-<p align="center"><img src="docs/mockup-dashboard.svg" alt="상태판 — 카드 8장, 섹션 탭, 펼친 플러그인 섹션" width="100%"></p>
+<p align="center"><img src="docs/workbench-v4.png" alt="v4 구성요소 작업대 — 스킬 목록과 Claude·Codex 적용 상태" width="100%"></p>
 
-<p align="center"><em>상태판. 노랑 하나, 빨강 둘 — 카드를 누르거나 섹션 탭을 고르면 상태 · 이름 · 상세 표가 펼쳐진다.</em></p>
+<p align="center"><em>실제 Electron E2E의 격리 프로필 화면. CLI 인식·실행은 검사 근거가 없으면 미검증으로 남긴다.</em></p>
 
 <p align="center"><img src="docs/mockup-install.svg" alt="설치 — 할 일 목록, 파일 diff와 명령, 로그" width="100%"></p>
 
@@ -203,3 +205,20 @@ npm run dev        # main/preload/renderer HMR + Electron 창
 - 검증 순서는 `npm test` → `npm run typecheck` → `npm run build`다.
 - 릴리스는 `v*` 태그를 푸시하면 CI(`.github/workflows/release.yml`)가 Windows · Ubuntu x64 · Ubuntu arm64로 빌드해 draft 릴리스에 모으고, 확인한 뒤 발행한다. 릴리스 노트는 [`docs/release/`](docs/release)에 있다.
 - 코드 구조와 규약은 [AGENTS.md](AGENTS.md)에 있다.
+
+## v4 작업대와 CLI
+
+개인 프로필을 만든 뒤 **v4 전환·정책 검토**를 실행한다. 구성요소의 프로필 저장과 실제 PC 적용은 각각 검토한다. 자동 적용은 최초 수동 적용 후 일반 문서에만 작동한다. 앱을 닫으면 자동 확인도 멈춘다.
+
+```text
+hm components --json
+hm components migrate --automatic --yes --json
+hm components apply --ids definition:review --yes --json
+hm updates --json
+hm history --json
+hm restore --id <이력 ID> --json
+```
+
+`--yes`를 빼면 변경을 미리 본다. v4 이동 파일은 version 2이며 v1도 읽는다. 상세 정책과 지원 한계는 [v4 구현 계약](docs/v4-workbench.md), 최신 변경은 [v4.0.0 릴리스 노트](docs/release/v4.0.0.md)를 본다.
+
+검증은 `npm test` → `npm run typecheck` → `npm run build`, 실제 화면은 `npm run test:e2e`다. E2E는 임시 홈을 사용하며 실행 중인 코딩 에이전트의 영향을 없애기 위해 OS 프로세스 조회만 격리한다.
