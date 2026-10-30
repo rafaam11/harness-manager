@@ -183,19 +183,36 @@ export async function loadManifests(ctx: DoctorContext): Promise<Manifests> {
 
 async function toolCheck(ctx: DoctorContext, tool: ToolEntry | undefined, fallbackCommand: string): Promise<DoctorCheck> {
   if (!tool && ctx.templateRoot) return { id: `tools.${fallbackCommand}`, title: fallbackCommand, state: "skipped", detail: "선택한 프로필에서 관리하지 않습니다" };
-  const command = tool?.verify.command ?? fallbackCommand;
+  if (tool && "path" in tool.verify) {
+    const target = expandHome(tool.verify.path, ctx.home);
+    return (await exists(target))
+      ? { id: `tools.${tool.id}`, title: tool.name, state: "ok", detail: tildify(target, ctx.home) }
+      : { id: `tools.${tool.id}`, title: tool.name, state: "missing", detail: `${tool.verify.path}가 없습니다` };
+  }
+  const verify = tool && !("path" in tool.verify) ? tool.verify : { command: fallbackCommand, args: [] };
+  const command = verify.command;
   const title = tool?.name ?? command;
   const found = await ctx.findExecutable(command);
   if (!found) return { id: `tools.${tool?.id ?? command}`, title, state: "missing", detail: `PATH에서 ${command}를 찾지 못했습니다` };
-  const version = tool && tool.verify.args.includes("--version") ? await ctx.readVersion(found, tool.verify.args) : null;
-  if (tool?.verify.args.includes("--version") && !version) {
+  const version = tool && verify.args.includes("--version") ? await ctx.readVersion(found, verify.args) : null;
+  if (tool && verify.args.includes("--version") && !version) {
     return { id: `tools.${tool.id}`, title, state: "error", detail: `${tildify(found, ctx.home)}는 있지만 실행 검증에 실패했습니다. Node·PATH 등 실행 의존성을 확인하세요` };
   }
   return { id: `tools.${tool?.id ?? command}`, title, state: "ok", detail: version ? `${version} · ${tildify(found, ctx.home)}` : tildify(found, ctx.home) };
 }
 
+/** 전용 카드가 따로 검사하는 도구. 나머지 tools 항목은 툴체인 카드가 맡는다 — install step도 툴체인 섹션에 둔다. */
+const CARD_TOOLS = new Set(["claude", "codex", "cua-driver"]);
+
 async function checkToolchain(ctx: DoctorContext, manifests: Manifests): Promise<DoctorCheck[]> {
-  return Promise.all(
+  const tools = manifests.tools
+    .filter((tool) => !CARD_TOOLS.has(tool.id))
+    .map((tool): Promise<DoctorCheck> | DoctorCheck =>
+      tool.profiles.includes(ctx.profile)
+        ? toolCheck(ctx, tool, tool.id)
+        : { id: `tools.${tool.id}`, title: tool.name, state: "skipped", detail: `프로필 ${tool.profiles.join("·")}` },
+    );
+  const packages = Promise.all(
     manifests.packages.map(async (entry): Promise<DoctorCheck> => {
       const id = `packages.${entry.source}.${entry.id}`;
       const title = `${entry.id} (${entry.source} ${entry.name})`;
@@ -220,6 +237,7 @@ async function checkToolchain(ctx: DoctorContext, manifests: Manifests): Promise
         : { id, title, state: "missing", detail: `PATH에서 ${entry.bin}을(를) 찾지 못했습니다` };
     }),
   );
+  return [...(await packages), ...(await Promise.all(tools))];
 }
 
 /**

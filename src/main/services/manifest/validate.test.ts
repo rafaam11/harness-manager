@@ -44,4 +44,18 @@ describe("manifest 검사", () => {
       "$.claude.enabled: bad-id은(는) 플러그인@마켓플레이스 형식이 아닙니다",
     ]);
   });
+
+  it("도구 설치 확인은 명령 또는 ~/ 경로 중 하나다", () => {
+    const tool = (verify: unknown) => ({ id: "x", name: "X", profiles: ["dev"], install: { kind: "manual", ref: "https://x" }, verify });
+    const report = validateManifestValue("tools", {
+      schemaVersion: 1,
+      tools: [
+        tool({ path: "~/AppData/Local/Programs/X/X.exe" }),
+        { ...tool({ path: "C:\\Programs\\X.exe" }), id: "y" },
+        { ...tool({ path: "~/x", command: "x" }), id: "z" },
+      ],
+    });
+    expect(report.errors).toEqual(["$.tools[1].verify.path: ~/로 시작하는 홈 기준 경로만 씁니다"]);
+    expect(report.warnings).toEqual(["$.tools[2].verify: 모르는 키 command(무시)"]);
+  });
 });

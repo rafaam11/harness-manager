@@ -57,10 +57,15 @@ export interface ToolEntry {
   /** 고정 버전. 없으면 최신을 받는다. */
   version?: string;
   install: { kind: ToolInstallKind; ref: string };
-  /** 설치 확인 명령. 셸 없이 실행한다. */
-  verify: { command: string; args: string[] };
+  verify: ToolVerify;
   notes?: string;
 }
+
+/**
+ * 설치 확인. 보통은 PATH의 명령을 셸 없이 실행한다. 트레이 GUI 앱처럼 PATH에 올리지 않는 도구는
+ * 설치 파일 위치로 확인한다 — 개인 경로가 정의에 들어가지 않도록 `~/`로 시작해야 한다.
+ */
+export type ToolVerify = { command: string; args: string[] } | { path: string };
 
 /** `manifest/plugins.json` — 마켓플레이스와 provider별로 켤 플러그인. */
 export interface PluginsManifest {

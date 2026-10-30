@@ -131,6 +131,28 @@ describe("doctor", () => {
     expect(card).toMatchObject({ state: "fail", summary: "패키지 1/2 정상 · 1개 없음" });
   });
 
+  it("툴체인: 전용 카드가 없는 도구는 PATH 명령이나 설치 파일 위치로 확인한다", async () => {
+    write(path.join(ctx.repoRoot!, "manifest", "tools.json"), {
+      schemaVersion: 1,
+      tools: [
+        { id: "claude", name: "Claude Code", profiles: ["core"], install: { kind: "manual", ref: "x" }, verify: { command: "claude", args: ["--version"] } },
+        { id: "herdr", name: "herdr", profiles: ["dev"], install: { kind: "powershell-script", ref: "https://herdr.dev/install.ps1" }, verify: { command: "herdr", args: ["--version"] } },
+        { id: "gui", name: "GUI 앱", profiles: ["dev"], install: { kind: "manual", ref: "https://gui.example/download" }, verify: { path: "~/Apps/Gui/Gui.exe" } },
+        { id: "heavy", name: "Heavy", profiles: ["full"], install: { kind: "manual", ref: "x" }, verify: { command: "heavy", args: [] } },
+      ],
+    });
+    onPath.herdr = "C:\\bin\\herdr.exe";
+    let checks = checksOf(await runDoctorWith(ctx), "toolchain");
+    expect(checks["tools.claude"]).toBeUndefined();
+    expect(checks["tools.herdr"]).toMatchObject({ state: "ok", detail: "1.2.3 · C:\\bin\\herdr.exe" });
+    expect(checks["tools.gui"]).toMatchObject({ state: "missing", detail: "~/Apps/Gui/Gui.exe가 없습니다" });
+    expect(checks["tools.heavy"]).toMatchObject({ state: "skipped" });
+
+    write(path.join(ctx.home, "Apps", "Gui", "Gui.exe"), "");
+    checks = checksOf(await runDoctorWith(ctx), "toolchain");
+    expect(checks["tools.gui"]).toMatchObject({ state: "ok" });
+  });
+
   it("Claude: 도구 버전, CLAUDE.md, 관리 키 값과 배열(템플릿+로컬 오버레이)을 비교한다", async () => {
     const checks = checksOf(await runDoctorWith(ctx), "claude");
     expect(checks["tools.claude"]).toMatchObject({ state: "ok", detail: "1.2.3 · C:\\bin\\claude.exe" });

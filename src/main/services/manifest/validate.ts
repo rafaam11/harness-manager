@@ -127,7 +127,12 @@ const VALIDATORS: Record<ManifestFileName, (check: Checker, root: Record<string,
         check.string(`${at}.install.ref`, install.ref);
       }
       const verify = check.record(`${at}.verify`, entry.verify);
-      if (verify) {
+      if (verify && "path" in verify) {
+        check.keys(`${at}.verify`, verify, ["path"]);
+        if (check.string(`${at}.verify.path`, verify.path) && !String(verify.path).startsWith("~/")) {
+          check.error(`${at}.verify.path`, "~/로 시작하는 홈 기준 경로만 씁니다");
+        }
+      } else if (verify) {
         check.keys(`${at}.verify`, verify, ["command", "args"]);
         check.string(`${at}.verify.command`, verify.command);
         check.stringArray(`${at}.verify.args`, verify.args);
