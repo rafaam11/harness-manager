@@ -91,6 +91,43 @@ async function send() {
   const p = await sync.preview(id, "send", signal);
   await sync.apply(id, p.token, {}, signal);
 }
+it("sends the first profile when GitHub reports an empty default branch name", async () => {
+  sync = new ProfileSync(store, {
+    run: async (spec, log, abort) => {
+      if (spec.command === "gh" && spec.args.includes("view") && !head()) {
+        log("stdout", JSON.stringify({ isPrivate: true, defaultBranchRef: { name: "" } }));
+        return { code: 0, notFound: false, timedOut: false };
+      }
+      return runner.run(spec, log, abort);
+    },
+  });
+  expect((await sync.status(id, signal)).available).toBe(true);
+  const preview = await sync.preview(id, "send", signal);
+  expect(preview.changes.length).toBeGreaterThan(0);
+  expect(head()).toBeNull();
+  await sync.apply(id, preview.token, {}, signal);
+  expect(head()).not.toBeNull();
+  expect((await sync.status(id, signal)).outgoing).toBe(false);
+});
+
+it("reports the failing Git operation and stderr without exposing credentials", async () => {
+  const secret = "private-test-credential";
+  const failing = new ProfileSync(store, {
+    run: async (spec, log, abort) => {
+      if (spec.command === "git") {
+        log("stderr", `fatal: authentication failed; credential=${secret}`);
+        return { code: 128, notFound: false, timedOut: false };
+      }
+      return runner.run(spec, log, abort);
+    },
+  }, { ...process.env, GH_TOKEN: secret });
+  const error = await failing.preview(id, "send", signal).catch((e: Error) => e);
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toContain("git clone 실패 (종료 코드 128)");
+  expect((error as Error).message).toContain("fatal: authentication failed");
+  expect((error as Error).message).not.toContain(secret);
+});
+
 it("reviews remote settings and PC effects together, detects stale edits and restores both", async () => {
   await model("remote-model");
   const first = id;

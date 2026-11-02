@@ -136,15 +136,15 @@ describe("doctor", () => {
       schemaVersion: 1,
       tools: [
         { id: "claude", name: "Claude Code", profiles: ["core"], install: { kind: "manual", ref: "x" }, verify: { command: "claude", args: ["--version"] } },
-        { id: "herdr", name: "herdr", profiles: ["dev"], install: { kind: "powershell-script", ref: "https://herdr.dev/install.ps1" }, verify: { command: "herdr", args: ["--version"] } },
+        { id: "pathtool", name: "pathtool", profiles: ["dev"], install: { kind: "powershell-script", ref: "https://pathtool.example/install.ps1" }, verify: { command: "pathtool", args: ["--version"] } },
         { id: "gui", name: "GUI 앱", profiles: ["dev"], install: { kind: "manual", ref: "https://gui.example/download" }, verify: { path: "~/Apps/Gui/Gui.exe" } },
         { id: "heavy", name: "Heavy", profiles: ["full"], install: { kind: "manual", ref: "x" }, verify: { command: "heavy", args: [] } },
       ],
     });
-    onPath.herdr = "C:\\bin\\herdr.exe";
+    onPath.pathtool = "C:\\bin\\pathtool.exe";
     let checks = checksOf(await runDoctorWith(ctx), "toolchain");
     expect(checks["tools.claude"]).toBeUndefined();
-    expect(checks["tools.herdr"]).toMatchObject({ state: "ok", detail: "1.2.3 · C:\\bin\\herdr.exe" });
+    expect(checks["tools.pathtool"]).toMatchObject({ state: "ok", detail: "1.2.3 · C:\\bin\\pathtool.exe" });
     expect(checks["tools.gui"]).toMatchObject({ state: "missing", detail: "~/Apps/Gui/Gui.exe가 없습니다" });
     expect(checks["tools.heavy"]).toMatchObject({ state: "skipped" });
 

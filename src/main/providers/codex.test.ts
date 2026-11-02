@@ -47,6 +47,41 @@ afterEach(async () => {
 });
 
 describe("codex provider", () => {
+  it("lists shared user skills and allows reading their catalog content", async () => {
+    const names = ["ux-heuristics", "qt-ui-design", "ux-copy", "slicer"];
+    for (const name of names) {
+      await writeText(path.join(homeDir, ".agents", "skills", name, "SKILL.md"), `---\nname: ${name}\ndescription: Shared ${name}\n---\n# ${name}\n`);
+    }
+
+    const { codexProvider } = await loadCodexProvider();
+    const catalog = await codexProvider.listCatalog();
+    expect(catalog.map(item => item.name).sort()).toEqual([...names].sort());
+    const qt = catalog.find(item => item.name === "qt-ui-design")!;
+    expect(qt).toMatchObject({ kind: "skill", description: "Shared qt-ui-design", path: path.join(homeDir, ".agents", "skills", "qt-ui-design", "SKILL.md") });
+    const { readCatalogContent } = await import("../services/catalog.js");
+    expect(await readCatalogContent(qt.path)).toMatchObject({ raw: "# qt-ui-design\n", frontmatter: { name: "qt-ui-design" } });
+  });
+
+  it("follows skill links once, skips broken links and cycles, and stops at a skill package", async () => {
+    const skills = path.join(homeDir, ".agents", "skills");
+    const linked = path.join(homeDir, "downloaded", "qt-ui-design");
+    await writeText(path.join(linked, "SKILL.md"), "---\ndescription: Linked Qt skill\n---\n# Qt\n");
+    await writeText(path.join(skills, "slicer", "SKILL.md"), "# Slicer\n");
+    await writeText(path.join(skills, "slicer", "slicer-source", "nested", "SKILL.md"), "# Not an installed skill\n");
+    await fs.mkdir(path.join(skills, "group"), { recursive: true });
+    await fs.mkdir(path.join(homeDir, ".codex", "skills"), { recursive: true });
+    const linkType = process.platform === "win32" ? "junction" : "dir";
+    await fs.symlink(linked, path.join(skills, "qt-ui-design"), linkType);
+    await fs.symlink(linked, path.join(homeDir, ".codex", "skills", "qt-ui-design"), linkType);
+    await fs.symlink(skills, path.join(skills, "group", "loop"), linkType);
+    await fs.symlink(path.join(homeDir, "missing"), path.join(skills, "broken"), linkType);
+
+    const { codexProvider } = await loadCodexProvider();
+    const catalog = await codexProvider.listCatalog();
+    expect(catalog.map(item => item.name).sort()).toEqual(["qt-ui-design", "slicer"]);
+    expect(catalog.find(item => item.name === "qt-ui-design")?.path).toBe(path.join(skills, "qt-ui-design", "SKILL.md"));
+  });
+
   it("lists config files, MCP servers, and read-only local catalog surfaces", async () => {
     const codexHome = path.join(homeDir, ".codex");
     await writeText(

@@ -26,6 +26,7 @@ import {
   type CommandRunner,
   type LogSink,
 } from "./install/exec.js";
+import { redactInstallText } from "./install/journal.js";
 import { RequestError } from "../ipc-validation.js";
 import { withLock } from "../lib/lock.js";
 import { unifiedDiff } from "./capture/text.js";
@@ -125,6 +126,7 @@ export class ProfileSync {
   ): Promise<string> {
     let output = "";
     let overflow = false;
+    let diagnostic = "";
     const result = await this.runner.run(
       {
         command,
@@ -144,7 +146,9 @@ export class ProfileSync {
           overflow = true;
           output = "";
         }
-        log(stream, line);
+        const safe = redactInstallText(line, this.env);
+        if (stream === "stderr") diagnostic = `${diagnostic}${safe}\n`.slice(-4000);
+        log(stream, safe);
       },
       signal,
     );
@@ -155,11 +159,15 @@ export class ProfileSync {
         422,
         `${command}가 필요합니다. GitHub 도구 준비를 실행하세요.`,
       );
-    if (result.code !== 0 || result.timedOut)
+    if (result.code !== 0 || result.timedOut) {
+      const operation = command === "git"
+        ? args.find((arg, index) => arg !== "-c" && (index === 0 || args[index - 1] !== "-c"))
+        : args[0];
       throw new RequestError(
         422,
-        `${command} ${args[0]} 실패. 로그인·권한·네트워크를 확인하세요.`,
+        `${command} ${operation ?? ""} ${result.timedOut ? "시간 초과" : `실패 (종료 코드 ${result.code ?? "확인 못함"})`}${diagnostic ? `\n${diagnostic.trim()}` : ""}`,
       );
+    }
     return output.trim();
   }
   private git(args: string[], cwd: string, signal: AbortSignal) {
@@ -369,8 +377,9 @@ export class ProfileSync {
       parent,
       signal,
     );
-    const branch = info.defaultBranchRef?.name ?? "main";
-    const head = info.defaultBranchRef
+    // gh는 비어 있는 저장소의 기본 브랜치를 null 대신 { name: "" }로도 반환한다.
+    const branch = info.defaultBranchRef?.name || "main";
+    const head = info.defaultBranchRef?.name
       ? await this.git(["rev-parse", "HEAD"], cwd, signal)
       : null;
     if (!head) await this.git(["checkout", "-b", branch], cwd, signal);
