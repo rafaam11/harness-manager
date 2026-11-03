@@ -1,11 +1,12 @@
 import { DoctorIcon } from "../components/DoctorIcon";
 import { useEffect, useRef, useState } from "react";
 import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
-import { DOCTOR_CARD_LABELS, DOCTOR_SECTION_LABELS, type DoctorReport, type DoctorSection } from "@shared/doctor-types";
+import { DOCTOR_CARD_LABELS, type DoctorReport } from "@shared/doctor-types";
 import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type InstallStepResult } from "@shared/install-types";
 import type { AppSettings, Profile } from "@shared/manifest-types";
 import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { call } from "../api/client";
+import InstallStepTable from "../components/InstallStepTable";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
 import { showToast } from "../components/toast";
 import RepairPanel from "../components/RepairPanel";
@@ -126,7 +127,6 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
   const actionable = plan?.steps.filter((entry) => entry.actionable) ?? [];
   const manual = plan?.steps.filter((entry) => entry.manual && ["missing", "drift", "error"].includes(entry.state)) ?? [];
   const selectedSteps = actionable.filter((entry) => chosen.has(entry.id));
-  const sections = [...new Set(actionable.map((entry) => entry.section))] as DoctorSection[];
   const canNext =
     !busy &&
     !running &&
@@ -205,31 +205,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
             {actionable.length === 0 ? (
               <p>할 일이 없습니다. 이 프로필의 모든 항목이 이미 manifest와 같습니다.</p>
             ) : (
-              sections.map((section) => (
-                <fieldset className="wizard-choice" key={section}>
-                  <legend>{DOCTOR_SECTION_LABELS[section]}</legend>
-                  {actionable
-                    .filter((entry) => entry.section === section)
-                    .map((entry) => (
-                      <label key={entry.id}>
-                        <input
-                          type="checkbox"
-                          checked={chosen.has(entry.id)}
-                          onChange={() =>
-                            setChosen((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(entry.id)) next.delete(entry.id);
-                              else next.add(entry.id);
-                              return next;
-                            })
-                          }
-                        />
-                        <span className="wizard-choice-title">{entry.title}</span>
-                        <span className="muted">{entry.detail}</span>
-                      </label>
-                    ))}
-                </fieldset>
-              ))
+              <InstallStepTable steps={actionable} selection={{ selected: chosen, onChange: setChosen }} />
             )}
             {manual.length > 0 && (
               <Banner tone="warn">
@@ -244,30 +220,7 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
             {selectedSteps.length === 0 ? (
               <p>고른 항목이 없습니다.</p>
             ) : (
-              selectedSteps.map((entry) => (
-                <section className="panel" key={entry.id}>
-                  <header className="panel-head">
-                    <span className="panel-title">{entry.title}</span>
-                    <span className="mono muted panel-aside">{entry.id}</span>
-                  </header>
-                  {entry.actions.map((action, index) =>
-                    action.diff ? (
-                      <details className="capture-file" key={index}>
-                        <summary>
-                          <StatusTag tone="muted">파일</StatusTag>
-                          <span className="mono">{action.summary}</span>
-                        </summary>
-                        <pre className="capture-diff">{action.diff}</pre>
-                      </details>
-                    ) : (
-                      <div className="install-action mono" key={index}>
-                        {action.kind === "command" ? "$ " : "· "}
-                        {action.summary}
-                      </div>
-                    ),
-                  )}
-                </section>
-              ))
+              <InstallStepTable steps={selectedSteps} summary="action" />
             )}
             <label className="check wizard-dry-run">
               <input type="checkbox" checked={dryRun} onChange={() => setDryRun(!dryRun)} />
@@ -287,17 +240,28 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
             ) : runResult.results.length === 0 ? (
               <p>{dryRun ? "dry-run: 아무것도 실행하지 않았습니다." : "실행할 step이 없었습니다."}</p>
             ) : (
-              <ul className="wizard-results">
-                {runResult.results.map((entry) => (
-                  <li key={entry.id}>
-                    <StatusTag tone={entry.outcome === "done" ? "ok" : entry.outcome === "failed" ? "err" : "muted"}>
-                      {INSTALL_OUTCOME_LABELS[entry.outcome]}
-                    </StatusTag>
-                    <span className="mono">{entry.id}</span>
-                    <span className="muted">{entry.detail}</span>
-                  </li>
-                ))}
-              </ul>
+              <table className="data-table install-table">
+                <thead>
+                  <tr>
+                    <th scope="col">결과</th>
+                    <th scope="col">식별자</th>
+                    <th scope="col">내용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runResult.results.map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="install-table-nowrap">
+                        <StatusTag tone={entry.outcome === "done" ? "ok" : entry.outcome === "failed" ? "err" : "muted"}>
+                          {INSTALL_OUTCOME_LABELS[entry.outcome]}
+                        </StatusTag>
+                      </td>
+                      <td className="mono">{entry.id}</td>
+                      <td className="muted">{entry.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
             {running && (
               <div className="install-progress" role="status">
@@ -319,15 +283,24 @@ export default function Wizard({ onFinish }: { onFinish(): void }) {
         )}
 
         {step === 6 && (
-          <ul className="wizard-results">
-            {AUTH_STEPS.map((entry) => (
-              <li key={entry.title}>
-                <span className="wizard-choice-title">{entry.title}</span>
-                <span className="mono">{entry.command}</span>
-                <span className="muted">{entry.why}</span>
-              </li>
-            ))}
-          </ul>
+          <table className="data-table install-table">
+            <thead>
+              <tr>
+                <th scope="col">도구</th>
+                <th scope="col">명령</th>
+                <th scope="col">하는 일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {AUTH_STEPS.map((entry) => (
+                <tr key={entry.title}>
+                  <td className="install-table-nowrap">{entry.title}</td>
+                  <td className="mono">{entry.command}</td>
+                  <td className="muted">{entry.why}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
         {step === 7 && (finalReport ? <Cards report={finalReport} /> : <p className="muted">다시 검사하는 중…</p>)}

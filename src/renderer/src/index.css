@@ -313,7 +313,6 @@ button.btn.danger { background: var(--red); }
   gap: 8px;
 }
 .panel-title { font: var(--type-ui-semibold); }
-.panel-aside { margin-left: auto; font-size: var(--type-caption-size); }
 
 .status-tag {
   display: inline-block;
@@ -973,6 +972,16 @@ select:focus-visible { outline: none; border-color: var(--primary); }
   font: var(--type-secondary);
 }
 
+.capture-terms {
+  margin-bottom: 12px;
+}
+
+.capture-terms > summary {
+  padding: 4px 0;
+  cursor: pointer;
+  font: var(--type-ui-semibold);
+}
+
 .capture-repo,
 .capture-validate {
   display: flex;
@@ -1129,8 +1138,35 @@ select:focus-visible { outline: none; border-color: var(--primary); }
   font: var(--type-secondary);
 }
 
-.install-detail {
-  margin-top: 6px;
+/* step이 수십 개라 스크롤해도 열 이름이 남아야 한다. sticky 머리는 collapse 표에서 테두리를 잃는다. */
+.install-table,
+.capture-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.install-table thead,
+.capture-table thead {
+  position: sticky;
+  /* sticky는 main 패딩 안쪽을 기준으로 붙는다. 패딩(24px)만큼 올려야 머리 위로 행이 비치지 않는다. */
+  top: -24px;
+  z-index: 1;
+  background: var(--bg);
+}
+
+/* 경로·명령처럼 공백 없는 글자가 표 폭을 밀어내지 않게 한다. */
+.install-table td,
+.capture-table td {
+  overflow-wrap: anywhere;
+}
+
+/* 배너만 있는 펼침 행에 페이지용 아래 여백이 남지 않게 한다. */
+.capture-table .banner:last-child {
+  margin-bottom: 0;
+}
+
+.data-table .install-table-nowrap {
+  white-space: nowrap;
 }
 
 .install-action {
@@ -1269,21 +1305,6 @@ select:focus-visible { outline: none; border-color: var(--primary); }
 
 .wizard-dry-run {
   margin-top: 12px;
-}
-
-.wizard-results {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.wizard-results li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
 }
 
 .wizard-nav {

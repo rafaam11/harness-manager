@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
 /**
@@ -119,6 +120,16 @@ export function Banner({ tone, children }: { tone: Exclude<Tone, "muted">; child
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
+}
+
+/** 표 행을 펼치는 버튼. 행마다 같은 아이콘이 반복되므로 접근 이름에 어느 행인지 적는다. */
+export function ExpandButton({ label, expanded, onToggle }: { label: string; expanded: boolean; onToggle(): void }) {
+  const name = `${label} 상세 ${expanded ? "닫기" : "열기"}`;
+  return (
+    <button type="button" className="profiles-icon-button" aria-label={name} aria-expanded={expanded} title={name} onClick={onToggle}>
+      {expanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+    </button>
+  );
 }
 
 /** 체크박스와 라벨 한 묶음. */

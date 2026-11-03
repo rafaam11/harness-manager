@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { CaptureItem, CapturePlan, CaptureTargetId, ManifestFileReport } from "@shared/manifest-types";
-import { Banner, StatusTag, ToolbarSpacer } from "../components/ui";
+import { Banner, ExpandButton, StatusTag, Toolbar, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
 import SetupProfilePicker from "../components/SetupProfilePicker";
 import PrivateTerms from "../components/PrivateTerms";
@@ -53,6 +53,7 @@ export default function Capture() {
   const [plan, setPlan] = useState<CapturePlan | null>(null);
   const [reports, setReports] = useState<ManifestFileReport[] | null>(null);
   const [selected, setSelected] = useState<Set<CaptureTargetId>>(new Set());
+  const [flipped, setFlipped] = useState<ReadonlySet<CaptureTargetId>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog } = useConfirmDialog();
@@ -65,6 +66,8 @@ export default function Capture() {
       setPlan(next);
       // 새 계획에서 여전히 적용할 수 있는 항목만 선택을 유지한다.
       setSelected((prev) => new Set(next.items.filter((item) => item.applicable && prev.has(item.id)).map((item) => item.id)));
+      // 펼침 상태는 "기본값과 다른 행"이라, 새 계획에서 경고가 생긴 행이 접히지 않도록 함께 비운다.
+      setFlipped(new Set());
       setReports(next.repoRoot ? await call("manifest:validate") : null);
     } catch (caught) {
       setError((caught as Error).message);
@@ -77,13 +80,19 @@ export default function Capture() {
     void load();
   }, []);
 
-
-
   const applicable = plan?.items.filter((item) => item.applicable) ?? [];
   const chosen = applicable.filter((item) => selected.has(item.id));
 
   const toggle = (id: CaptureTargetId) =>
     setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const flip = (id: CaptureTargetId) =>
+    setFlipped((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -129,8 +138,28 @@ export default function Capture() {
       {dialog}
       <h2>가져오기</h2>
       <p className="muted capture-intro">이 PC의 설정을 선택한 개인 프로필로 가져옵니다. 실제 PC에 적용하는 작업은 설치 화면에서 실행합니다.</p>
-      <SetupProfilePicker disabled={busy} onChanged={() => { setProfileVersion((v) => v + 1); void load(); }} />
-      <PrivateTerms refreshKey={profileVersion} onSaved={() => void load()} />
+      {/* 공통 기본 프로필이면 계획이 409로 실패하므로, 선택만은 계획 결과와 상관없이 항상 보여 준다. */}
+      <Toolbar>
+        <SetupProfilePicker parts="select" disabled={busy} onChanged={() => { setProfileVersion((v) => v + 1); void load(); }} />
+        <ToolbarSpacer />
+        {plan?.repoRoot && (
+          <>
+            <span className="muted">
+              선택 {chosen.length} / {applicable.length}
+            </span>
+            <button className="btn ghost" onClick={() => void load()} disabled={busy}>
+              다시 불러오기
+            </button>
+            <button className="btn" onClick={() => void apply()} disabled={busy || chosen.length === 0}>
+              적용 ({chosen.length})
+            </button>
+          </>
+        )}
+      </Toolbar>
+      <details className="capture-terms">
+        <summary>비공개 낱말 관리</summary>
+        <PrivateTerms refreshKey={profileVersion} onSaved={() => void load()} />
+      </details>
       {error && <Banner tone="err">{error}</Banner>}
       {plan && <p className="capture-repo">저장할 프로필: {plan.repoRoot}</p>}
       {plan?.warnings.map((warning) => (
@@ -160,81 +189,98 @@ export default function Capture() {
         </div>
       )}
 
-      {plan?.repoRoot && (
-        <div className="toolbar">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={applicable.length > 0 && chosen.length === applicable.length}
-              disabled={applicable.length === 0}
-              onChange={() =>
-                setSelected(chosen.length === applicable.length ? new Set() : new Set(applicable.map((item) => item.id)))
-              }
-            />
-            적용 가능한 항목 전체
-          </label>
-          <span className="muted">
-            선택 {chosen.length} / {applicable.length}
-          </span>
-          <ToolbarSpacer />
-          <button className="btn ghost" onClick={() => void load()} disabled={busy}>
-            다시 불러오기
-          </button>
-          <button className="btn" onClick={() => void apply()} disabled={busy || chosen.length === 0}>
-            적용 ({chosen.length})
-          </button>
-        </div>
+      {plan && plan.items.length > 0 && (
+        <table className="data-table capture-table">
+          <thead>
+            <tr>
+              <th scope="col" className="profiles-check-head">
+                <input
+                  type="checkbox"
+                  aria-label="적용 가능한 항목 전체"
+                  checked={applicable.length > 0 && chosen.length === applicable.length}
+                  disabled={applicable.length === 0 || busy}
+                  onChange={() =>
+                    setSelected(chosen.length === applicable.length ? new Set() : new Set(applicable.map((item) => item.id)))
+                  }
+                />
+              </th>
+              <th scope="col">항목</th>
+              <th scope="col">상태</th>
+              <th scope="col">소스</th>
+              <th scope="col">파일</th>
+              <th scope="col" aria-label="상세" />
+            </tr>
+          </thead>
+          <tbody>
+            {plan.items.map((item) => {
+              const state = itemState(item);
+              const files = item.changes.filter((change) => change.changed || change.exposure.length > 0);
+              const hasDetail = Boolean(item.error) || item.notes.length > 0 || files.length > 0;
+              // 오류와 노출 경고는 적용을 막는 이유라서 눌러 보지 않아도 보이게 한다.
+              const warned = Boolean(item.error) || item.changes.some((change) => change.exposure.length > 0);
+              const expanded = hasDetail && flipped.has(item.id) !== warned;
+              return (
+                <Fragment key={item.id}>
+                  <tr>
+                    <td className="profiles-check-cell">
+                      <input
+                        type="checkbox"
+                        aria-label={`${item.label} 선택`}
+                        checked={selected.has(item.id)}
+                        disabled={!item.applicable || busy}
+                        onChange={() => toggle(item.id)}
+                      />
+                    </td>
+                    <td>{item.label}</td>
+                    <td className="install-table-nowrap">
+                      <StatusTag tone={state.tone}>{state.label}</StatusTag>
+                    </td>
+                    <td className="mono muted">{item.sources.join(" · ")}</td>
+                    <td className="install-table-nowrap">{files.length > 0 ? `${files.length}개` : "없음"}</td>
+                    <td className="profiles-check-cell">
+                      {hasDetail && <ExpandButton label={item.label} expanded={expanded} onToggle={() => flip(item.id)} />}
+                    </td>
+                  </tr>
+                  {expanded && (
+                    <tr className="profiles-row-detail">
+                      <td colSpan={6}>
+                        {item.error && <Banner tone="err">{item.error}</Banner>}
+                        {item.notes.length > 0 && (
+                          <ul className="capture-notes">
+                            {item.notes.map((note) => (
+                              <li key={note}>{note}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {files.map((change) => (
+                          <details className="capture-file" key={change.displayPath} open>
+                            <summary>
+                              <StatusTag tone={change.scope === "repo" ? "ok" : "muted"}>
+                                {change.scope === "repo" ? "프로필" : "개인 설정"}
+                              </StatusTag>
+                              <span className="mono">{change.displayPath}</span>
+                              {!change.existed && <StatusTag tone="muted">새 파일</StatusTag>}
+                            </summary>
+                            {change.exposure.map((flag) => (
+                              <div className="capture-exposure" key={`${flag.line}-${flag.kind}`}>
+                                <StatusTag tone="warn">{EXPOSURE_LABELS[flag.kind]}</StatusTag>
+                                <span className="mono">
+                                  {flag.line}행: {flag.text}
+                                </span>
+                              </div>
+                            ))}
+                            {change.diff && <DiffView diff={change.diff} />}
+                          </details>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       )}
-
-      {plan?.items.map((item) => {
-        const state = itemState(item);
-        return (
-          <section className="panel" key={item.id}>
-            <header className="panel-head">
-              <input
-                type="checkbox"
-                aria-label={`${item.label} 선택`}
-                checked={selected.has(item.id)}
-                disabled={!item.applicable || busy}
-                onChange={() => toggle(item.id)}
-              />
-              <span className="panel-title">{item.label}</span>
-              <StatusTag tone={state.tone}>{state.label}</StatusTag>
-              <span className="mono muted panel-aside">{item.sources.join(" · ")}</span>
-            </header>
-            {item.error && <Banner tone="err">{item.error}</Banner>}
-            {item.notes.length > 0 && (
-              <ul className="capture-notes">
-                {item.notes.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            )}
-            {item.changes
-              .filter((change) => change.changed || change.exposure.length > 0)
-              .map((change) => (
-                <details className="capture-file" key={change.displayPath} open>
-                  <summary>
-                    <StatusTag tone={change.scope === "repo" ? "ok" : "muted"}>
-                      {change.scope === "repo" ? "프로필" : "개인 설정"}
-                    </StatusTag>
-                    <span className="mono">{change.displayPath}</span>
-                    {!change.existed && <StatusTag tone="muted">새 파일</StatusTag>}
-                  </summary>
-                  {change.exposure.map((flag) => (
-                    <div className="capture-exposure" key={`${flag.line}-${flag.kind}`}>
-                      <StatusTag tone="warn">{EXPOSURE_LABELS[flag.kind]}</StatusTag>
-                      <span className="mono">
-                        {flag.line}행: {flag.text}
-                      </span>
-                    </div>
-                  ))}
-                  {change.diff && <DiffView diff={change.diff} />}
-                </details>
-              ))}
-          </section>
-        );
-      })}
     </div>
   );
 }

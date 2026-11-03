@@ -37,7 +37,7 @@ export default function SetupProfilePicker({ disabled, onChanged, parts = "all" 
     {location}
     {legacy}
     {creator}
-    <p className="muted">개인 프로필은 로컬에 보관합니다. 동기화·이동 탭에서 파일로 옮기거나 비공개 GitHub 저장소에 동기화할 수 있습니다. 로그인 정보는 각 PC에서 따로 관리합니다.</p>
+    <p className="muted">개인 프로필은 로컬에 보관합니다. 파일 이동 탭에서 파일로 옮기거나 동기화 화면에서 비공개 GitHub 저장소에 동기화할 수 있습니다. 로그인 정보는 각 PC에서 따로 관리합니다.</p>
   </Panel>;
   return <Panel head={<span className="panel-title">사용자 프로필</span>}>
     <p>선택한 프로필의 패키지·설정·플러그인만 적용합니다. core / dev / full은 그 안의 설치 범위입니다.</p>
@@ -48,6 +48,6 @@ export default function SetupProfilePicker({ disabled, onChanged, parts = "all" 
     {location}
     {legacy}
     {creator}
-    <p className="muted">개인 프로필은 로컬에 보관합니다. 프로필 화면에서 파일로 이동하거나 비공개 GitHub 저장소에 동기화할 수 있습니다. 로그인 정보는 각 PC에서 따로 관리합니다.</p>
+    <p className="muted">개인 프로필은 로컬에 보관합니다. 프로필 화면에서 파일로 이동하거나 동기화 화면에서 비공개 GitHub 저장소에 동기화할 수 있습니다. 로그인 정보는 각 PC에서 따로 관리합니다.</p>
   </Panel>;
 }

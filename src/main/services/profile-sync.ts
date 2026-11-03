@@ -296,7 +296,7 @@ export class ProfileSync {
         outgoing: [...new Set([...Object.keys(local), ...Object.keys(baseline)])].some(key => local[key] !== baseline[key]),
         detail:
           head !== link.head
-            ? "원격 변경이 있습니다. 받기 미리보기를 확인하세요."
+            ? "다른 PC의 변경이 있습니다. '다른 PC의 변경 받기'로 검토하세요."
             : "원격 변경 없음 · 보내기·받기는 수동으로 실행합니다",
       };
     } catch (error) {
@@ -410,7 +410,7 @@ export class ProfileSync {
     if (direction === "send" && remote.head !== link.head)
       throw new RequestError(
         409,
-        "원격이 변경되었습니다. 먼저 받기 미리보기를 확인하세요.",
+        "다른 PC의 변경이 있습니다. 먼저 받은 뒤 다시 보내세요.",
       );
     if (direction === "receive" && !remote.bundle)
       throw new RequestError(
@@ -614,7 +614,7 @@ export class ProfileSync {
     const preview = await this.preview(id, "receive", signal);
     const plan = this.plans.get(preview.token)!;
     this.plans.delete(preview.token);
-    if (preview.conflicts.length) throw new RequestError(409, `같은 파일이 양쪽에서 바뀌었습니다: ${preview.conflicts.join(", ")}. 앱 설정의 고급 프로필에서 충돌을 해결한 뒤 다시 받으세요.`);
+    if (preview.conflicts.length) throw new RequestError(409, `같은 파일이 양쪽에서 바뀌었습니다: ${preview.conflicts.join(", ")}. 동기화 화면에서 파일별로 고르세요.`);
     const profile = await this.store.get(id);
     const merged = parseBundle(stringify(plan.merged));
     const personal = { ...plan.document.personal, ...merged.personal };

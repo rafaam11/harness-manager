@@ -58,7 +58,7 @@ const TAB_LABELS: Record<Tab, string> = {
   items: "설치 항목",
   managed: "관리 설정",
   personal: "개인 설정",
-  transfer: "동기화·이동",
+  transfer: "파일 이동",
   manage: "프로필 관리",
 };
 const TAB_KEY = "harness-manager.profiles-tab.v1";
@@ -229,11 +229,6 @@ export default function Profiles({ navigate }: PageContext) {
   const [preview, setPreview] = useState<ProfilePreview | null>(null);
   const [action, setAction] = useState<ProfileAction>("edit");
   const [sync, setSync] = useState<ProfileSyncStatus | null>(null);
-  const [repo, setRepo] = useState("");
-  const [choices, setChoices] = useState<Record<string, "local" | "remote">>(
-    {},
-  );
-  const [logs, setLogs] = useState<string[]>([]);
   const [maintainer, setMaintainer] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
   const adopt = (next: ProfileEditor) => {
@@ -258,9 +253,6 @@ export default function Profiles({ navigate }: PageContext) {
     void load().catch((e: Error) => setError(e.message));
     void call("settings:get").then((s) =>
       setMaintainer(Boolean(s.maintainerMode)),
-    );
-    return window.hm.on("profiles:log", (event) =>
-      setLogs((lines) => [...lines.slice(-100), event.text]),
     );
   }, [version]);
   const dirty = useMemo(
@@ -341,7 +333,6 @@ export default function Profiles({ navigate }: PageContext) {
     fn: () => Promise<ProfilePreview | null>,
   ) => {
     setAction(kind);
-    setChoices({});
     setPreview(await fn());
   };
   const apply = async () => {
@@ -358,11 +349,6 @@ export default function Profiles({ navigate }: PageContext) {
     } else if (action === "import") {
       await call("profiles:import", preview.token);
       changed();
-    } else {
-      setSync(
-        await call("profiles:sync", editor.profile.id, preview.token, choices),
-      );
-      adopt(await call("profiles:editor", editor.profile.id));
     }
     setPreview(null);
   };
@@ -523,8 +509,7 @@ export default function Profiles({ navigate }: PageContext) {
         <div className="pc-settings-body profiles-tab-body">
           {hasChanges && (
             <Banner tone="warn">
-              저장하지 않은 변경은 내보내기·동기화에 포함되지 않습니다. 보내기와
-              받기는 저장 후 사용할 수 있습니다.
+              저장하지 않은 변경은 내보내기에 포함되지 않습니다.
             </Banner>
           )}
           <Panel head="파일로 이동">
@@ -573,173 +558,24 @@ export default function Profiles({ navigate }: PageContext) {
                   </td>
                   <td>.hmprofile.json 파일을 새 프로필로 가져옵니다.</td>
                 </tr>
-              </tbody>
-            </table>
-          </Panel>
-          <Panel head="GitHub 동기화">
-            <p>{sync?.detail ?? "연결 상태 확인 중…"}</p>
-            <p className="muted">
-              {sync?.account && `계정 ${sync.account} · `}
-              {sync?.repository ??
-                "저장소를 만들지 않고도 모든 로컬 기능을 사용할 수 있습니다."}
-            </p>
-            <table className="data-table">
-              <thead>
                 <tr>
-                  <th>구분</th>
-                  <th>작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="settings-tool-cell">도구</td>
-                  <td>
-                    <div className="pc-inline">
-                      <button
-                        className="btn ghost"
-                        disabled={busy}
-                        onClick={() =>
-                          void work(async () => {
-                            if (
-                              await confirm({
-                                title: "GitHub 도구 준비",
-                                message:
-                                  "Windows에서 Git.Git과 GitHub.cli를 winget으로 설치합니다. 설치 후 열린 터미널을 다시 열어 주세요.",
-                                confirmLabel: "설치",
-                              })
-                            )
-                              await call("profiles:github-tools");
-                          })
-                        }
-                      >
-                        GitHub 도구 준비
-                      </button>
-                      <button
-                        className="btn ghost"
-                        disabled={busy}
-                        onClick={() =>
-                          void work(async () => {
-                            setLogs([]);
-                            await call("profiles:github-login");
-                            setSync(
-                              await call(
-                                "profiles:github-status",
-                                editor.profile.id,
-                              ),
-                            );
-                          })
-                        }
-                      >
-                        GitHub 로그인
-                      </button>
-                      <button
-                        className="btn ghost"
-                        disabled={busy}
-                        onClick={() =>
-                          void work(async () =>
-                            setSync(
-                              await call(
-                                "profiles:github-status",
-                                editor.profile.id,
-                              ),
-                            ),
-                          )
-                        }
-                      >
-                        원격 변경 확인
-                      </button>
-                    </div>
+                  <td className="settings-tool-cell">
+                    <button
+                      className="btn ghost"
+                      onClick={() => navigate("sync")}
+                    >
+                      동기화 화면 열기
+                    </button>
                   </td>
-                </tr>
-                <tr>
-                  <td className="settings-tool-cell">저장소</td>
                   <td>
-                    <div className="pc-inline">
-                      <input
-                        aria-label="프로필 GitHub 저장소"
-                        placeholder="소유자/저장소"
-                        value={repo}
-                        onChange={(e) => setRepo(e.target.value)}
-                      />
-                      {([true, false] as const).map((create) => (
-                        <button
-                          key={String(create)}
-                          className="btn ghost"
-                          disabled={busy || !mutable || !repo.trim()}
-                          onClick={() =>
-                            void work(async () => {
-                              if (
-                                await confirm({
-                                  title: create
-                                    ? "비공개 저장소 만들기"
-                                    : "저장소 연결",
-                                  message: `${repo}\n${create ? "이 비공개 저장소를 새로 만듭니다." : "비공개 HM 프로필 저장소에 연결합니다."} 프로필 전송은 미리보기 후 별도로 실행합니다.`,
-                                  confirmLabel: create ? "만들기" : "연결",
-                                })
-                              )
-                                setSync(
-                                  await call(
-                                    "profiles:github-connect",
-                                    editor.profile.id,
-                                    repo.trim(),
-                                    create,
-                                  ),
-                                );
-                            })
-                          }
-                        >
-                          {create ? "비공개 저장소 만들기" : "기존 저장소 연결"}
-                        </button>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="settings-tool-cell">전송</td>
-                  <td>
-                    <div className="pc-inline">
-                      {(["send", "receive"] as const).map((direction) => (
-                        <button
-                          key={direction}
-                          className="btn"
-                          disabled={
-                            busy ||
-                            !mutable ||
-                            hasChanges ||
-                            !sync?.connected ||
-                            !sync.available
-                          }
-                          onClick={() =>
-                            void work(() =>
-                              show("sync", () =>
-                                call(
-                                  "profiles:sync-plan",
-                                  editor.profile.id,
-                                  direction,
-                                ),
-                              ),
-                            )
-                          }
-                        >
-                          {direction === "send" ? "보내기" : "받기"} 미리보기
-                        </button>
-                      ))}
+                    GitHub 연결과 보내기·받기는 동기화 화면에서 합니다.
+                    <div className="muted">
+                      {sync?.detail ?? "연결 상태 확인 중…"}
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
-            {busy && (
-              <button
-                className="btn ghost"
-                onClick={() => void call("profiles:cancel")}
-              >
-                진행 중 작업 취소
-              </button>
-            )}
-            {logs.length > 0 && (
-              <pre className="capture-diff">{logs.join("\n")}</pre>
-            )}
           </Panel>
         </div>
       )}
@@ -942,10 +778,6 @@ export default function Profiles({ navigate }: PageContext) {
           action={action}
           busy={busy}
           error={error}
-          choices={choices}
-          onChoose={(conflict, choice) =>
-            setChoices({ ...choices, [conflict]: choice })
-          }
           onApply={() => void work(apply)}
           onClose={() => {
             setPreview(null);

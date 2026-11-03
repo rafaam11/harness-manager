@@ -36,8 +36,8 @@ export default function ProfilePreviewDialog({
   action: ProfileAction;
   busy: boolean;
   error: string;
-  choices: Record<string, "local" | "remote">;
-  onChoose(conflict: string, choice: "local" | "remote"): void;
+  choices?: Record<string, "local" | "remote">;
+  onChoose?(conflict: string, choice: "local" | "remote"): void;
   onApply(): void;
   onClose(): void;
 }) {
@@ -86,9 +86,9 @@ export default function ProfilePreviewDialog({
               {conflict} 충돌
               <select
                 aria-label={`${conflict} 충돌 선택`}
-                value={choices[conflict] ?? ""}
+                value={choices?.[conflict] ?? ""}
                 onChange={(event) =>
-                  onChoose(conflict, event.target.value as "local" | "remote")
+                  onChoose?.(conflict, event.target.value as "local" | "remote")
                 }
               >
                 <option value="">선택하세요</option>
@@ -100,11 +100,15 @@ export default function ProfilePreviewDialog({
         </div>
         <footer className="pc-footer">
           <span className="muted">
-            {action === "edit" ? "저장은 프로필만 변경합니다." : ""}
+            {action === "edit"
+              ? "저장은 프로필만 변경합니다."
+              : action === "sync"
+                ? "내 설정만 바꿉니다. 이 PC 적용은 따로 실행합니다."
+                : ""}
           </span>
           <button
             className="btn primary"
-            disabled={busy || conflicts.some((key) => !choices[key])}
+            disabled={busy || conflicts.some((key) => !choices?.[key])}
             onClick={onApply}
           >
             {busy ? "적용 중…" : APPLY_LABELS[action]}

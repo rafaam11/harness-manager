@@ -276,7 +276,7 @@ npm run dist:linux   # build + electron-builder --linux --publish never (Linux/W
   - `repoRoot`는 선택적인 개발 소스 경로(null 허용), `templateRoot`는 선택한 프로필이다. Node 보호 스크립트는 앱 번들을 사용하며 self 마켓플레이스는 일반 사용자에게 GitHub 소스를 사용한다.
   - 프로필 편집은 구조화된 입력 → main 검증·미리보기 토큰 → 지문 재확인·백업 후 저장이다. 저장·동기화와 실제 설치는 별도이다. 프로필 보관·복원은 파일을 지우지 않는다. 외부 폴더는 연결만 해제한다.
   - 파일 이동은 버전 1 `.hmprofile.json`이다. 정의와 선택한 개인 설정만 포함하고 인증 정보·PC 절대경로는 제외한다. 지원하지 않는 형식·파일·링크는 거부한다.
-  - GitHub 동기화는 프로필별 선택 기능이며 git/gh와 비공개 저장소를 쓴다. 전용 클론에서 작업하며 원격 변경·로컬 지문·공개 전환을 재확인한다. 충돌은 파일별 선택한다. force push·reset·원격 자동 적용은 하지 않는다.
+  - GitHub 동기화는 프로필별 선택 기능이며 git/gh와 비공개 저장소를 쓴다. 전용 클론에서 작업하며 원격 변경·로컬 지문·공개 전환을 재확인한다. 충돌은 파일별 선택한다. force push·reset·원격 자동 적용은 하지 않는다. 화면은 동기화(`pages/Sync.tsx`) 하나이고, 고급 프로필은 파일 이동만 맡는다. 받기는 `changes:receive`를 먼저 부르고 409일 때만 충돌을 조회한다. 충돌을 고른 결과는 프로필에만 저장되므로 PC 적용은 설치 화면으로 안내한다.
   - 기존 `legacy` 선택은 원본을 보존하여 개인 사본으로 이전한다. 기존 local/linked ID와 선택은 유지한다. 비공개 낱말 파일이 없으면 빈 목록을 자동 생성하며 가져오기 화면에서 편집한다.
 - **doctor(M5)**: `services/doctor/doctor.ts`가 manifest·템플릿·로컬 오버레이를 현재 PC와 비교해 카드 8개(`src/shared/doctor-types.ts`)를 만든다.
   - 검사 상태: ok / drift(다름, 노랑) / missing·error(빨강) / info / skipped(프로필 밖). 카드는 빨강 > 노랑 > 초록 > 회색 순으로 정한다.

@@ -167,6 +167,16 @@ it("explains read-only profiles and sends the user to the manage tab", async () 
   );
   expect(screen.getByLabelText("새 프로필 이름")).toBeTruthy();
 });
+it("leaves GitHub work to the sync page and keeps only file transfer here", async () => {
+  const navigate = vi.fn();
+  render(<Profiles navigate={navigate} />);
+  fireEvent.click(await screen.findByRole("tab", { name: "파일 이동" }));
+  expect(screen.queryByLabelText("동기화 저장소")).toBeNull();
+  expect(screen.queryByRole("button", { name: /GitHub/ })).toBeNull();
+  expect(await screen.findByText("GitHub 연결은 선택입니다")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "동기화 화면 열기" }));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith("sync"));
+});
 it("allows an empty private-terms list without asking users to create JSON files", async () => {
   const saved = vi.fn();
   render(<PrivateTerms onSaved={saved} />);

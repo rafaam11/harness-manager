@@ -1,10 +1,11 @@
 import { AlertCircle, CheckCircle2, SkipForward, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { INSTALL_EVENT_CHANNEL } from "@shared/api-types";
-import { DOCTOR_CHECK_LABELS, DOCTOR_SECTION_LABELS, type DoctorCardState } from "@shared/doctor-types";
-import { INSTALL_OUTCOME_LABELS, type InstallPlan, type InstallRunResult, type InstallStepResult } from "@shared/install-types";
+import { DOCTOR_SECTION_LABELS, type DoctorCardState } from "@shared/doctor-types";
+import type { InstallPlan, InstallRunResult, InstallStepResult } from "@shared/install-types";
 import { Banner, StateDot, StatusTag, ToolbarSpacer } from "../components/ui";
 import { ApiError, call } from "../api/client";
+import InstallStepTable from "../components/InstallStepTable";
 import RepoConnect from "../components/RepoConnect";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import { LogTerminal, type LogLine } from "../components/LogTerminal";
@@ -12,9 +13,6 @@ import { showToast } from "../components/toast";
 import RepairPanel from "../components/RepairPanel";
 
 const MAX_LOG_LINES = 2_000;
-
-const OUTCOME_TONE = { done: "ok", skipped: "muted", failed: "err", manual: "warn" } as const;
-const STATE_TONE = { ok: "ok", drift: "warn", missing: "err", error: "err", info: "muted", skipped: "muted" } as const;
 
 export default function Install() {
   const [plan, setPlan] = useState<InstallPlan | null>(null);
@@ -66,14 +64,6 @@ export default function Install() {
     ...pending.filter((step) => results[step.id]?.outcome === "failed" || step.state === "error").map((step) => ({ id: step.id, title: step.title })),
     ...failedResults.map((entry) => ({ id: entry.id, title: plan?.steps.find((step) => step.id === entry.id)?.title ?? entry.id })),
   ].map((target) => [target.id, target])).values()];
-
-  const toggle = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   const run = async () => {
     if (chosen.length === 0) return;
@@ -178,58 +168,15 @@ export default function Install() {
 
       {plan && pending.length === 0 && <div className="empty">할 일이 없습니다. 모든 항목이 manifest와 같습니다.</div>}
       {pending.length > 0 && (
-        <div className="toolbar">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={actionable.length > 0 && chosen.length === actionable.length}
-              disabled={actionable.length === 0 || running}
-              onChange={() => setSelected(chosen.length === actionable.length ? new Set() : new Set(actionable.map((step) => step.id)))}
-            />
-            실행할 수 있는 step 전체
-          </label>
-          <span className="muted">
-            선택 {chosen.length} / {actionable.length}
-          </span>
-        </div>
+        <>
+          <div className="toolbar">
+            <span className="muted">
+              선택 {chosen.length} / {actionable.length}
+            </span>
+          </div>
+          <InstallStepTable steps={pending} selection={{ selected, onChange: setSelected, disabled: running }} results={results} />
+        </>
       )}
-      {pending.map((step) => {
-        const result = results[step.id];
-        return (
-          <section className="panel" key={step.id}>
-            <header className="panel-head">
-              <input
-                type="checkbox"
-                aria-label={`${step.title} 선택`}
-                checked={selected.has(step.id)}
-                disabled={!step.actionable || running}
-                onChange={() => toggle(step.id)}
-              />
-              <span className="panel-title">{step.title}</span>
-              <StatusTag tone={STATE_TONE[step.state]}>{step.manual ? "직접 해야 함" : DOCTOR_CHECK_LABELS[step.state]}</StatusTag>
-              {result && <StatusTag tone={OUTCOME_TONE[result.outcome]}>{INSTALL_OUTCOME_LABELS[result.outcome]}</StatusTag>}
-              <span className="mono muted panel-aside">{step.id}</span>
-            </header>
-            <p className="doctor-card-summary install-detail">{result?.outcome === "failed" ? result.detail : step.detail}</p>
-            {step.actions.map((action, index) =>
-              action.diff ? (
-                <details className="capture-file" key={index}>
-                  <summary>
-                    <StatusTag tone="muted">파일</StatusTag>
-                    <span className="mono">{action.summary}</span>
-                  </summary>
-                  <pre className="capture-diff">{action.diff}</pre>
-                </details>
-              ) : (
-                <div className="install-action mono" key={index}>
-                  {action.kind === "command" ? "$ " : "· "}
-                  {action.summary}
-                </div>
-              ),
-            )}
-          </section>
-        );
-      })}
 
       <LogTerminal lines={lines} onClear={running ? undefined : () => setLines([])} />
       <div ref={repairRef}>
