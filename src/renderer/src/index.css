@@ -1522,18 +1522,73 @@ select:focus-visible { outline: none; border-color: var(--primary); }
   -webkit-app-region: no-drag;
 }
 
-.profiles-page { display: grid; gap: 16px; max-width: 1200px; margin: 0 auto; }
-.profiles-fields { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
-.profiles-entry { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+/* 바깥 스크롤 없이 표만 내부에서 스크롤한다. 화면별 분기를 App.tsx에 두지 않으려고 CSS로 맞춘다. */
+main:has(> .profiles-page) { display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
+.profiles-page > .tabs { margin: 0; flex-shrink: 0; }
+.profiles-page > .banner { margin: 0; }
+.profiles-fields { display: grid; gap: 8px; min-width: 0; }
 .profiles-input { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 3fr); align-items: center; gap: 12px; }
-.profiles-page textarea, .capture-page textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px; font: var(--type-ui); }
-.profiles-page input:not([type="checkbox"]), .profiles-page textarea, .capture-page textarea {
-  border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); padding: 8px 10px; min-width: 0;
+.profiles-page textarea, .capture-page textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px; }
+.capture-page textarea { min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--bg); color: var(--text); font: var(--type-ui); }
+.profiles-page .profiles-text { flex: 1; min-height: 160px; resize: none; }
+.profiles-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.profiles-table thead { position: sticky; top: 0; z-index: 1; background: var(--surface-raised); }
+.profiles-table .profiles-table thead { position: static; }
+.profiles-table th { padding: 5px 6px; vertical-align: bottom; }
+.profiles-table td { padding: 3px 6px; vertical-align: middle; }
+.profiles-col-key { width: 34%; }
+.profiles-col-short { width: 13%; }
+.profiles-col-select { width: 88px; }
+.profiles-col-select-wide { width: 148px; }
+.profiles-col-check { width: 52px; }
+.profiles-col-action { width: 44px; }
+.data-table .profiles-check-head, .profiles-check-cell { text-align: center; }
+/* 행마다 테두리가 있으면 값보다 칸이 먼저 보이므로 평소에는 숨기고 hover·focus에서 보여 준다. */
+.profiles-page .profiles-table input:not([type="checkbox"]), .profiles-page .profiles-table select, .profiles-page .profiles-table textarea { width: 100%; box-sizing: border-box; padding: 4px 6px; border-color: transparent; background: transparent; }
+.profiles-page .profiles-table input:not([type="checkbox"]):not(:disabled):hover, .profiles-page .profiles-table select:not(:disabled):hover, .profiles-page .profiles-table textarea:not(:disabled):hover { border-color: var(--line); background: var(--surface-raised); }
+.profiles-page .profiles-table input:not([type="checkbox"]):focus, .profiles-page .profiles-table select:focus, .profiles-page .profiles-table textarea:focus { border-color: var(--primary); background: var(--surface-raised); }
+/* 상세는 열 머리 없이 라벨 옆에 칸이 하나씩 놓여, 테두리가 없으면 비어 있는 입력란을 알아볼 수 없다. */
+.profiles-page .profiles-row-detail input:not([type="checkbox"]), .profiles-page .profiles-row-detail select, .profiles-page .profiles-row-detail textarea { border-color: var(--line); }
+.profiles-page .profiles-table-actions input:not([type="checkbox"]), .profiles-page .profiles-table-actions select { width: auto; border-color: var(--line); background: var(--surface-raised); }
+.profiles-table-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.profiles-table-actions input:not([type="checkbox"]) { flex: 1 1 200px; max-width: 360px; }
+.profiles-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
+.profiles-icon-button:hover:not(:disabled) { border-color: var(--line); background: var(--surface-hover); color: var(--text); }
+.profiles-icon-button:disabled { opacity: 0.45; cursor: default; }
+.profiles-row-detail > td { padding: 8px 8px 12px 20px; background: var(--surface-raised); }
+.profiles-detail { display: grid; gap: 10px; min-width: 0; }
+.profiles-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+.profiles-sections { display: grid; gap: 14px; min-width: 0; }
+.profiles-section { display: grid; gap: 4px; min-width: 0; }
+.profiles-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.profiles-section-head .section-label { margin: 0; }
+.profiles-editor { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
+.profiles-file-list { flex: 1; min-height: 0; overflow: auto; }
+.profiles-file-note { flex-shrink: 0; margin: 0; padding: 8px 10px; border-top: 1px solid var(--line); font: var(--type-secondary); }
+.profiles-file-table thead { position: sticky; top: 0; z-index: 2; background: var(--surface-raised); }
+.profiles-file-table tbody tr { position: relative; }
+.profiles-file-table tbody tr:hover td { background: var(--surface-hover); }
+.profiles-file-table tr.selected td { background: var(--surface-accent); }
+.profiles-file-table tr.selected td:first-child { box-shadow: inset 2px 0 var(--primary); }
+/* 행 전체를 눌러도 파일을 고르게 하되 이동 체크박스는 그대로 누를 수 있게 한다. */
+.profiles-file-button { display: block; width: 100%; padding: 2px 0; border: 0; background: transparent; color: var(--text); text-align: left; font: var(--type-secondary); cursor: pointer; overflow-wrap: anywhere; }
+.profiles-file-button::after { content: ""; position: absolute; inset: 0; }
+.profiles-file-table input { position: relative; z-index: 1; }
+.profiles-file-count { white-space: nowrap; color: var(--muted); font: var(--type-secondary); }
+.profiles-file-count .status-tag { margin-left: 6px; }
+.profiles-pane-head { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-raised); }
+.profiles-pane-body { display: flex; flex-direction: column; gap: 8px; }
+.profiles-tab-body .banner { margin: 0 0 12px; }
+.profiles-tab-body summary { cursor: pointer; padding: 6px 0; font: var(--type-ui-semibold); }
+.profiles-save { justify-content: flex-start; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.profiles-save-note { flex: 1; min-width: 0; }
+.data-table .settings-tool-cell { width: 1%; white-space: nowrap; }
+.data-table .settings-tool-cell, .data-table .settings-tool-cell + td { vertical-align: middle; }
+/* 위아래로 쌓이면 표 높이가 가장 빠듯하다. 머리를 한 줄로 줄이고 파일 목록은 스크롤로 넘긴다. */
+@media (max-width: 1099px) {
+  .profiles-page > .page-head .page-head-meta { display: none; }
+  .profiles-editor { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 28%) minmax(0, 1fr); }
 }
-.profiles-field-row { display: flex; gap: 8px; align-items: start; }
-.profiles-field-row > :first-child { flex: 1; min-width: 0; }
-.profiles-entry > summary { cursor: pointer; padding: 6px 0; font: var(--type-ui-semibold); }
-.profiles-entry > .profiles-fields { margin: 8px 0; }
 
 
 .doctor-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }

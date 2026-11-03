@@ -97,6 +97,40 @@ test("first edit → one review → both CLIs → conflict → compact layout �
     await page.getByRole("tab", { name: "고급", exact: true }).click();
     await page.getByRole("button", { name: "고급 프로필 관리", exact: true }).click();
     await expect(page.getByRole("combobox", { name: "사용할 프로필", exact: true })).toHaveValue(activeId);
+    // Real table edit through preview and apply; only the saved profile may change, not the outer layout.
+    const noOuterScroll = () => page.evaluate(() => {
+      const main = document.querySelector("main")!;
+      return main.scrollHeight <= main.clientHeight + 1 && main.scrollWidth <= main.clientWidth + 1;
+    });
+    const savePreview = page.getByRole("button", { name: "저장 미리보기", exact: true });
+    await expect.poll(noOuterScroll).toBe(true);
+    await expect(savePreview).toBeInViewport();
+    await expect(savePreview).toBeDisabled();
+    await page.getByRole("tab", { name: "설치 항목", exact: true }).click();
+    await page.getByRole("button", { name: "툴체인 패키지", exact: true }).click();
+    await page.getByRole("button", { name: "항목 추가", exact: true }).click();
+    const packageId = page.getByRole("textbox", { name: "new-package 식별자", exact: true });
+    await packageId.fill("e2e-package");
+    await expect(page.getByRole("textbox", { name: "e2e-package 식별자", exact: true })).toBeFocused();
+    await expect(page.getByRole("combobox", { name: "사용할 프로필", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "이 PC", exact: true }).click();
+    const leave = page.getByRole("dialog", { name: "프로필 편집을 마칠까요?" });
+    await expect(leave).toBeVisible();
+    await leave.getByRole("button", { name: "취소", exact: true }).click();
+    await savePreview.click();
+    const saveDialog = page.getByRole("dialog", { name: "저장 미리보기" });
+    await expect(saveDialog).toContainText("e2e-package");
+    await saveDialog.getByRole("button", { name: "변경 적용", exact: true }).click();
+    await expect(saveDialog).toHaveCount(0);
+    await expect(page.getByText("변경 없음", { exact: true })).toBeVisible();
+    const savedPackages = JSON.parse((await invoke("profiles:editor", activeId)).document.files["manifest/packages.json"]);
+    expect(savedPackages.packages.map((entry: { id: string }) => entry.id)).toContain("e2e-package");
+    await expect.poll(noOuterScroll).toBe(true);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 600));
+    await expect.poll(noOuterScroll).toBe(true);
+    await expect(savePreview).toBeInViewport();
+    await page.screenshot({ path: info.outputPath("profiles-900.png"), fullPage: true });
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1280, 800));
     await page.getByRole("button", { name: "이 PC", exact: true }).click();
     // Enough real entries to require pagination at the minimum size.
     for (let index = 0; index < 12; index++) {
