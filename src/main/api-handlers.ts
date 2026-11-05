@@ -1,4 +1,7 @@
 import { getVisibleCodexSkills } from "./services/codex-skills.js";
+import { validateRecognitionRequest } from "./services/workbench/recognition.js";
+import { PcStatusService } from "./services/workbench/pc-status.js";
+import { ProfileSync } from "./services/profile-sync.js";
 import { WorkbenchService, defaultWorkbenchDependencies } from "./services/workbench/service.js";
 import { hookDiagnostics, compareProject } from "./services/workbench/diagnostics.js";
 import type { ApiChannel, ApiReturn, CleanupExecuteResult, ManifestEntry } from "@shared/api-types";
@@ -96,10 +99,31 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     const root = await resolveRepoRoot({ startDirs: deps.repoStartDirs() });
     return new SetupProfileStore(APP_STATE_DIR, root);
   };
+  const pcStatus = new PcStatusService(APP_STATE_DIR, () => workbench.recognizedSnapshot("global", false, new AbortController().signal));
+  let reportSync: ProfileSync | undefined;
+  const pcSync = async () => reportSync ??= new ProfileSync(await profileStore());
   // 레포를 알면 플러그인으로 옮겨진 스킬의 낡은 사본도 정리 후보가 된다.
   const scanWithRepo = async () => scanCandidates({ repoRoot: await resolveRepoRoot({ startDirs: deps.repoStartDirs() }) });
   return {
     "workbench:snapshot": () => workbench.snapshot(),
+    "pc-status:identity": () => pcStatus.identity(),
+    "pc-status:current": () => pcStatus.current(),
+    "pc-status:preview": alias => deps.install.session.run(async signal => { const preview = await pcStatus.preview(nonEmptyString(alias, "alias")); return (await pcSync()).prepareStatus((await (await profileStore()).active()).id, preview, signal); }),
+    "pc-status:send": token => deps.install.session.run(async signal => { const value = nonEmptyString(token, "token"); await pcStatus.reviewed(value); await (await pcSync()).sendStatus((await (await profileStore()).active()).id, value, signal); await pcStatus.sent(value); }),
+    "pc-status:list": () => deps.install.session.run(async signal => (await pcSync()).statusReports((await (await profileStore()).active()).id, signal)),
+    "examples:generate": request => deps.install.session.run(signal => workbench.examples.generate(request, signal)),
+    "examples:execute": token => deps.install.session.run(signal => workbench.examples.execute(nonEmptyString(token, "token"), signal)),
+    "examples:records": (itemId, scopeId) => workbench.examples.records(nonEmptyString(itemId, "itemId"), nonEmptyString(scopeId, "scopeId")),
+    "recognition:scope": async project => {
+      if (!booleanValue(project, "project")) return workbench.globalScope();
+      const folder = await deps.chooseDirectory("CLI 검사 범위 선택 · 프로젝트 읽기 전용");
+      return folder ? workbench.projectScope(folder) : null;
+    },
+    "recognition:list": async raw => {
+      const request = validateRecognitionRequest(raw);
+      // Metadata is lower priority than a user's apply/restore operation.
+      return deps.install.session.runDiagnostic(signal => workbench.recognizedSnapshot(request.scopeId, request.refresh, signal, request.provider));
+    },
     "cli-settings:list": provider => workbench.cliSettings.snapshot(provider),
     "cli-settings:extensions": provider => workbench.cliSettings.extensions(provider),
     "cli-settings:prepare": (edits, extension) => workbench.prepareSettings(edits as never, extension as never),
@@ -128,7 +152,7 @@ export function createApiHandlers(deps: ApiDependencies): ApiHandlers {
     "workbench:hooks": async () => hookDiagnostics(getProviders(), (await getAllPlugins()).plugins),
     "workbench:probe": id => workbench.probePreview(nonEmptyString(id, "id")),
     "workbench:project": async () => { const folder = await deps.chooseDirectory("프로젝트 설정 비교 · 읽기 전용"); return folder ? compareProject(folder, getProviders()) : null; },
-    ...profileHandlers(deps, profileStore),
+    ...profileHandlers(deps, profileStore, workbench),
     "app:version": () => deps.appVersion(),
     "app:open-releases": () => deps.openReleases(),
     "app:open-external": (url) => deps.openExternal(externalUrl(url)),

@@ -12,6 +12,8 @@ export interface ComponentObservation {
   comparison?: "match" | "different" | "missing" | "outside" | "unknown";
   recognition: "confirmed" | "unverified"; execution: "confirmed" | "unverified";
   compatibility: Compatibility; detail: string; checkedAt: string; cwd?: string; version?: string;
+  recognitionDetail?: string; stale?: boolean; identityPath?: string; pluginId?: string; system?: boolean; cliVersion?: string; contentDigest?: string;
+  scopeKind?: "global" | "project";
 }
 export interface ManagedComponent {
   id: string; name: string; description: string; kind: ComponentKind; source: string;
@@ -21,6 +23,14 @@ export interface ManagedComponent {
 export interface WorkbenchSnapshot {
   profile: { id: string; name: string; kind: string }; migrated: boolean; automatic: boolean;
   components: ManagedComponent[]; warnings: string[]; checkedAt: string;
+  recognition?: RecognitionReport[];
+}
+export interface RecognitionScope { id: string; kind: "global" | "project"; cwd: string }
+export interface RecognizedSkill { name: string; description: string; path: string; enabled: boolean; scope: string; pluginId?: string }
+export interface RecognitionReport {
+  provider: ProviderId; scope: RecognitionScope; version: string; checkedAt: string;
+  status: "success" | "unsupported" | "error" | "cancelled"; detail: string;
+  skills: RecognizedSkill[]; fingerprint: string; stale: boolean; lastSuccessAt?: string;
 }
 export interface ChangeFile { path: string; diff: string }
 export interface WorkbenchPlan { token: string; title: string; files: ChangeFile[]; commands: string[]; notes: string[]; automatic: boolean; targets?: ProviderId[]; scope?: "settings-and-pc" | "pc" | "settings" | "diagnostic" }

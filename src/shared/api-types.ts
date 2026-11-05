@@ -2,7 +2,9 @@
 // preload(노출)·main(핸들러 등록)·renderer(호출)가 모두 이 맵에서 파생한다 — 채널 문자열을 손으로 반복하지 않는다.
 import type { DoctorReport } from "./doctor-types";
 import type { WorkbenchSnapshot, WorkbenchPlan, ComponentDefinition, ChangeRecord, UpdateCandidate, AutomationStatus, HookDiagnostic, ProjectComparison } from "./workbench-types";
-import type { VersionLock } from "./workbench-types";
+import type { VersionLock, RecognitionScope } from "./workbench-types";
+import type { ExamplePreview, ExampleResult, ExampleRequest, ExampleRecord } from "./example-types";
+import type { PcStatusPreview, PcStatusReport } from "./pc-status-types";
 import type { SettingsSnapshot, SettingsEdit, ExtensionDescriptor, ExtensionEdit } from "./cli-settings-types";
 import type { ExternalApiSnapshot, ExternalLinkCheck } from "./external-api/types";
 import type { InstallEvent, InstallPlan, InstallRunResult } from "./install-types";
@@ -115,11 +117,22 @@ export interface ApiChannels {
   "cli-settings:extensions": (provider: ProviderId) => ExtensionDescriptor[];
   "cli-settings:prepare": (edits: SettingsEdit[], extension?: ExtensionEdit) => WorkbenchPlan;
   "workbench:snapshot": () => WorkbenchSnapshot;
+  "recognition:scope": (project: boolean) => RecognitionScope | null;
+  "examples:generate": (request: ExampleRequest) => ExamplePreview;
+  "examples:execute": (token: string) => ExampleResult;
+  "examples:records": (itemId: string, scopeId: string) => ExampleRecord[];
+  "pc-status:identity": () => { id: string; alias: string };
+  "pc-status:preview": (alias: string) => PcStatusPreview;
+  "pc-status:send": (token: string) => void;
+  "pc-status:list": () => PcStatusReport[];
+  "pc-status:current": () => PcStatusReport;
+  "recognition:list": (request: { provider: ProviderId; scopeId: string; refresh: boolean }) => WorkbenchSnapshot;
   "changes:prepare": (definition: ComponentDefinition) => WorkbenchPlan;
   "changes:adopt": (id: string) => WorkbenchPlan;
   "changes:import": (repository: string, directory: string) => WorkbenchPlan;
   "changes:update": (id: string) => WorkbenchPlan;
   "changes:receive": () => WorkbenchPlan;
+  "changes:resolved-receive": (id: string, token: string, choices: Record<string, "local" | "remote">) => WorkbenchPlan;
   "changes:discard": (token: string) => void;
   "workbench:definition": (id: string) => ComponentDefinition | null;
   "workbench:lock": () => VersionLock;
@@ -237,6 +250,12 @@ export const API_CHANNELS = [
   "cli-settings:list", "cli-settings:extensions", "cli-settings:prepare",
   "changes:prepare", "changes:adopt", "changes:import", "changes:update", "changes:receive", "changes:discard",
   "workbench:lock",
+  "recognition:scope", "recognition:list",
+  "examples:generate", "examples:execute",
+  "examples:records",
+  "pc-status:identity", "pc-status:preview", "pc-status:send", "pc-status:list",
+  "pc-status:current",
+  "changes:resolved-receive",
   "workbench:probe",
   "workbench:snapshot", "workbench:definition", "workbench:preview", "workbench:save", "workbench:adopt", "workbench:migrate", "workbench:apply", "workbench:history", "workbench:restore", "workbench:discover", "workbench:import", "workbench:updates", "workbench:update", "workbench:automation", "workbench:check", "workbench:poll", "workbench:hooks", "workbench:project",
   "app:version",

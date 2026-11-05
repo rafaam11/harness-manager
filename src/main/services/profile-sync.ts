@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import { parseDefinition, ordinaryFiles } from "./workbench/definition.js";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import type { PcStatusPreview, PcStatusReport } from "@shared/pc-status-types";
+import { parsePcStatus } from "./workbench/pc-status.js";
 import type {
   ProfileBundle,
   ProfileDocument,
@@ -82,6 +84,46 @@ const unflatten = (
 
 /** 사용자 Git 폴더 대신 매번 독립 사본을 준비한다. fetch/reset으로 사용자의 작업을 덮지 않는다. */
 export class ProfileSync {
+  private statusPlans = new Map<string, { id: string; preview: PcStatusPreview; link: Link; remote: Snapshot }>();
+  async statusReports(id: string, signal: AbortSignal): Promise<PcStatusReport[]> {
+    const link = await this.link(id); if (!link) return [];
+    const remote = await this.snapshot(link, signal), folder = path.join(remote.cwd, "pc-status", "v1");
+    const reports: PcStatusReport[] = [];
+    for (const name of (await fs.readdir(folder).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return []; throw error; })).slice(0, 100)) {
+      if (!/^[a-f0-9-]{36}\.json$/.test(name)) continue;
+      const raw = await readProfileFile(remote.cwd, `pc-status/v1/${name}`, 2 * 1024 * 1024);
+      if (raw === null) continue;
+      const report = parsePcStatus(JSON.parse(raw));
+      if (`${report.pcId}.json` !== name) throw new RequestError(422, "PC 보고 파일의 식별자가 다릅니다");
+      reports.push(report);
+    }
+    return reports;
+  }
+  async prepareStatus(id: string, preview: PcStatusPreview, signal: AbortSignal): Promise<PcStatusPreview> {
+    const link = await this.link(id); if (!link) throw new RequestError(409, "비공개 저장소를 먼저 연결하세요");
+    const remote = await this.snapshot(link, signal);
+    if (!remote.bundle) throw new RequestError(409, "공유 기준을 먼저 보내 비공개 프로필 저장소를 준비하세요");
+    const checked = { ...preview, report: parsePcStatus(preview.report) };
+    if (this.statusPlans.size >= 20) this.statusPlans.delete(this.statusPlans.keys().next().value!);
+    this.statusPlans.set(checked.token, { id, preview: checked, link, remote }); return checked;
+  }
+  async sendStatus(id: string, token: string, signal: AbortSignal) {
+    const plan = this.statusPlans.get(token);
+    if (!plan || plan.id !== id) throw new RequestError(409, "PC 상태 전송 내용을 다시 검토하세요");
+    this.statusPlans.delete(token);
+    if (stringify(await this.link(id)) !== stringify(plan.link)) throw new RequestError(409, "저장소 연결이 변경되었습니다");
+    await this.info(plan.link.repository, signal);
+    const refs = await this.git(["ls-remote", "origin", `refs/heads/${plan.remote.branch}`], plan.remote.cwd, signal);
+    if ((refs.split(/\s+/)[0] || null) !== plan.remote.head) throw new RequestError(409, "원격이 변경되었습니다. 전송 내용을 다시 검토하세요");
+    if (!plan.remote.bundle) throw new RequestError(409, "공유 기준을 먼저 보내 비공개 프로필 저장소를 준비하세요");
+    const file = `pc-status/v1/${plan.preview.report.pcId}.json`;
+    await writeProfileFile(plan.remote.cwd, file, stringify(parsePcStatus(plan.preview.report)));
+    await this.git(["add", "--", file], plan.remote.cwd, signal);
+    const user = JSON.parse(await this.run("gh", ["api", "user"], signal));
+    await this.git(["-c", `user.name=${user.login}`, "-c", `user.email=${user.id}+${user.login}@users.noreply.github.com`, "commit", "-m", "chore: report PC environment status"], plan.remote.cwd, signal);
+    await this.info(plan.link.repository, signal);
+    await this.git(["push", "origin", `HEAD:refs/heads/${plan.remote.branch}`], plan.remote.cwd, signal);
+  }
   private plans = new Map<string, SyncPlan>();
   async receiveAutomatic(id: string, signal: AbortSignal): Promise<string> {
     if (!await this.link(id)) return "원격 프로필 연결 없음";
@@ -610,11 +652,17 @@ export class ProfileSync {
     return this.status(id, signal);
   }
   /** 전송은 이 서비스가 맡고, 수신 파일과 PC 적용은 작업대의 같은 저널로 넘긴다. */
-  async prepareReceive(id: string, signal: AbortSignal) {
-    const preview = await this.preview(id, "receive", signal);
+  async prepareReceive(id: string, signal: AbortSignal, token?: string, choices: Record<string, "local" | "remote"> = {}) {
+    const preview = token ? this.plans.get(token)?.preview : await this.preview(id, "receive", signal);
+    if (!preview || preview.direction !== "receive" || this.plans.get(preview.token)?.id !== id) throw new RequestError(409, "받기 미리보기를 다시 만드세요");
     const plan = this.plans.get(preview.token)!;
+    if (preview.conflicts.some(file => choices[file] !== "local" && choices[file] !== "remote") || Object.keys(choices).some(file => !preview.conflicts.includes(file))) throw new RequestError(409, `같은 파일이 양쪽에서 바뀌었습니다: ${preview.conflicts.join(", ")}. 동기화 화면에서 파일별로 고르세요.`);
+    if (preview.conflicts.length) {
+      const flat = flatten(plan.merged), remote = flatten(plan.remote.bundle);
+      for (const file of preview.conflicts) if (choices[file] === "remote") { if (remote[file] === undefined) delete flat[file]; else flat[file] = remote[file]; }
+      plan.merged = unflatten(plan.merged.name, flat);
+    }
     this.plans.delete(preview.token);
-    if (preview.conflicts.length) throw new RequestError(409, `같은 파일이 양쪽에서 바뀌었습니다: ${preview.conflicts.join(", ")}. 동기화 화면에서 파일별로 고르세요.`);
     const profile = await this.store.get(id);
     const merged = parseBundle(stringify(plan.merged));
     const personal = { ...plan.document.personal, ...merged.personal };

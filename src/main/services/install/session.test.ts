@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { InstallSession, installProgress } from "./session.js";
 
 describe("InstallSession", () => {
+  it("metadata replaces a background poll and yields to a manual apply", async () => {
+    const session = new InstallSession(), order: string[] = [];
+    const background = session.runAutomatic(signal => new Promise<void>(resolve => signal.addEventListener("abort", () => { order.push("poll-cancelled"); resolve(); })));
+    let started!: () => void; const ready = new Promise<void>(resolve => { started = resolve; });
+    const diagnostic = session.runDiagnostic(signal => new Promise<void>(resolve => { order.push("metadata"); started(); signal.addEventListener("abort", () => { order.push("metadata-cancelled"); resolve(); }); }));
+    await ready; await session.run(async () => { order.push("apply"); }); await Promise.all([background, diagnostic]);
+    expect(order).toEqual(["poll-cancelled", "metadata", "metadata-cancelled", "apply"]);
+  });
   it("수동 작업은 자동 확인을 취소하고 정리가 끝난 뒤 실행한다", async () => {
     const session = new InstallSession(); const order: string[] = [];
     const background = session.runAutomatic(signal => new Promise<void>(resolve => signal.addEventListener("abort", () => { order.push("cancel"); setTimeout(() => { order.push("cleaned"); resolve(); }, 10); })));

@@ -8,6 +8,8 @@ import { ProfileSync } from "./profile-sync.js";
 import { readDocument, writeDocument } from "./profile-document.js";
 import { processRunner, type CommandRunner } from "./install/exec.js";
 import { WorkbenchService } from "./workbench/service.js";
+import { randomUUID } from "node:crypto";
+import type { PcStatusPreview } from "@shared/pc-status-types";
 import type { InstallContext } from "./install/engine.js";
 import type { NodeRuntimeState } from "./node-runtime.js";
 vi.mock("./repo-sync/cloud.js", () => ({
@@ -91,6 +93,35 @@ async function send() {
   const p = await sync.preview(id, "send", signal);
   await sync.apply(id, p.token, {}, signal);
 }
+it("shares separate PC reports, rejects stale or public sends and leaves profile definitions untouched", async () => {
+  await send();
+  const document = await readDocument(await store.get(id));
+  const preview = (alias: string): PcStatusPreview => ({ token: randomUUID(), report: { format: "harness-manager-pc-status", version: 1, pcId: randomUUID(), alias, reportedAt: new Date().toISOString(), cliVersions: { codex: "0.166.0" }, items: [] } });
+  const first = preview("A"), second = preview("B");
+  await sync.prepareStatus(id, first, signal); await sync.prepareStatus(id, second, signal);
+  await sync.sendStatus(id, first.token, signal);
+  await expect(sync.sendStatus(id, second.token, signal)).rejects.toMatchObject({ statusCode: 409 });
+  const fresh = { ...second, token: randomUUID() }; await sync.prepareStatus(id, fresh, signal); await sync.sendStatus(id, fresh.token, signal);
+  expect((await sync.statusReports(id, signal)).map(report => report.alias).sort()).toEqual(["A", "B"]);
+  expect(await readDocument(await store.get(id))).toEqual(document);
+  expect(git(["--git-dir", bare, "show", "main:profile.hmprofile.json"])).not.toContain("pc-status");
+  const next = preview("C"); await sync.prepareStatus(id, next, signal); privateRepo = false;
+  await expect(sync.sendStatus(id, next.token, signal)).rejects.toMatchObject({ statusCode: 409 });
+});
+it("returns resolved conflicts as a pending PC review with original local and remote checks", async () => {
+  await model("base"); await send(); const original = id;
+  await store.create("second", "default"); id = (await store.active()).id;
+  await sync.connect(id, "test/profile", false, signal);
+  const receive = await sync.preview(id, "receive", signal); await sync.apply(id, receive.token, {}, signal);
+  await model("remote"); await send(); id = original; await model("local");
+  const conflict = await sync.preview(id, "receive", signal);
+  const choices = Object.fromEntries(conflict.conflicts.map(file => [file, "remote" as const]));
+  const packet = await sync.prepareReceive(id, signal, conflict.token, choices);
+  expect(JSON.parse(packet.document.files["home/claude/settings.managed.json"]!).model).toBe("remote");
+  expect(JSON.parse((await readDocument(await store.get(id))).files["home/claude/settings.managed.json"]!).model).toBe("local");
+  await packet.verify(signal); await model("changed-after-review");
+  await expect(packet.checkLocal()).rejects.toMatchObject({ statusCode: 409 });
+});
 it("sends the first profile when GitHub reports an empty default branch name", async () => {
   sync = new ProfileSync(store, {
     run: async (spec, log, abort) => {

@@ -25,6 +25,48 @@ beforeEach(async () => {
 afterEach(async () => { vi.restoreAllMocks(); await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 async function save(value = component()) { await service.apply((await service.save(value)).token); }
 async function migrate() { await service.apply((await service.migrate(true)).token); }
+it("merges CLI-only plugin skills by path, retains last success and invalidates changed content", async () => {
+  ctx.findExecutable = async name => name === "codex" ? "codex" : null; ctx.readVersion = async () => "0.166.0";
+  const first = path.join(ctx.codexHome, "skills", "same", "SKILL.md"), other = path.join(root, "plugin", "skills", "same", "SKILL.md");
+  for (const file of [first, other]) { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, "Original"); }
+  service.deps.providers[1]!.listCatalog = async () => [{ name: "same", path: first, description: "local", kind: "skill", size: 8, mtime: 0 }];
+  service.deps.metadataTransport = async options => {
+    options.onMessage!({ id: 1, result: {} }, () => {}, () => {});
+    options.onMessage!({ id: 2, result: { data: [{ cwd: options.cwd, errors: [], skills: [{ name: "same", path: first, description: "local", enabled: true, scope: "user" }, { name: "same", path: other, description: "plugin", enabled: false, scope: "user", pluginId: "example@market" }] }] } }, () => {}, () => {});
+    return "";
+  };
+  const snapshot = await service.recognizedSnapshot("global", true, new AbortController().signal, "codex");
+  const rows = snapshot.components.filter(i => i.kind === "skill" && i.name === "same");
+  expect(rows).toHaveLength(2);
+  expect(rows.map(i => i.observations[0]?.recognition)).toEqual(["confirmed", "unverified"]);
+  expect(rows[1]?.observations[0]).toMatchObject({ pluginId: "example@market", enabled: false });
+  expect((await service.recognize("codex", "global", false)).stale).toBe(false);
+  await fs.writeFile(other, "Changed plugin skill");
+  expect((await service.recognize("codex", "global", false)).stale).toBe(true);
+  service.deps.metadataTransport = async () => { throw new Error("failed metadata"); };
+  const failed = await service.recognize("codex", "global", true);
+  expect(failed).toMatchObject({ status: "error", stale: true }); expect(failed.skills).toHaveLength(2); expect(failed.lastSuccessAt).toBeTruthy();
+  expect((await service.recognizedSnapshot("global", false, new AbortController().signal)).components.find(i => i.catalogPath === first)?.observations[0]?.recognition).toBe("unverified");
+});
+it("isolates global and project evidence, rejects unselected scopes and never calls Claude models", async () => {
+  ctx.findExecutable = async () => "fixture"; ctx.readVersion = async () => "1.2.3";
+  const project = path.join(root, "project"); await fs.mkdir(project);
+  const selected = await service.projectScope(project);
+  const transport = vi.fn(async () => ""); service.deps.metadataTransport = transport;
+  expect((await service.recognize("claude", selected.id, true)).status).toBe("unsupported");
+  expect((await service.recognize("claude", "global", false)).checkedAt).toBe("");
+  expect(transport).not.toHaveBeenCalled();
+  await expect(service.recognize("codex", project, true)).rejects.toMatchObject({ statusCode: 403 });
+  expect(await fs.readdir(project)).toEqual([]);
+});
+it("discovers disabled plugin packages and prevents copying system or plugin skills", async () => {
+  const installPath = path.join(root, "plugin"), file = path.join(installPath, "skills", "summary", "SKILL.md");
+  await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, "---\nname: summary\ndescription: test\n---\nSummarize");
+  service.deps.plugins = async () => ({ plugins: [{ id: "example@market", provider: "claude", enabledInSettings: false, installs: [{ installPath, version: "1.0.0", scope: "user", installedAt: "" }], blocked: false }], blocklist: [] });
+  const item = (await service.snapshot()).components.find(i => i.catalogPath === file)!;
+  expect(item.observations[0]).toMatchObject({ enabled: false, recognition: "unverified", pluginId: "example@market" });
+  await expect(service.adopt(item.id, true)).rejects.toMatchObject({ statusCode: 422 });
+});
 it("reviews and applies a first edit without separate profile creation or migration", async () => {
   await store.select("default");
   const base = await store.active();

@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { writeElectronFixture } from "./cli-fixture";
 
 test("provider settings → structured editor → mod options → compact layout → restore", async ({}, info) => {
   // Windows CI에서는 실제 파일 트랜잭션과 OS 진단을 함께 돌려 90초를 넘는다.
@@ -11,7 +12,7 @@ test("provider settings → structured editor → mod options → compact layout
   const entry = path.join(root, "main.cjs");
   // The agent running this test is itself Codex. Isolate OS process discovery, while production
   // IPC, profile persistence, filesystem writes and renderer behavior all run unchanged.
-  await fs.writeFile(entry, `const {BrowserWindow,app}=require('electron'); const cp=require('child_process'),util=require('util'),original=cp.execFile,originalAsync=util.promisify(original); const patched=(...args)=>original(...args); patched[util.promisify.custom]=async(...args)=>{if(args[0]==='tasklist')return {stdout:'',stderr:''};if(args[0]==='pgrep'){const e=new Error('none');e.code=1;throw e;}return originalAsync(...args);};cp.execFile=patched;app.getVersion=()=>${JSON.stringify(JSON.parse(await fs.readFile("package.json", "utf8")).version)}; BrowserWindow.prototype.show=function(){}; BrowserWindow.prototype.showInactive=function(){}; require(${JSON.stringify(path.resolve("out/main/index.js"))});`);
+  await writeElectronFixture(entry);
   const app = await electron.launch({ args: [entry, "--no-sandbox"], env: { ...process.env, GH_HOST: "127.0.0.1:1", GH_TOKEN: "hm-e2e-fixture", GH_ENTERPRISE_TOKEN: "hm-e2e-fixture", GH_CONFIG_DIR: path.join(root, "gh"), GIT_CONFIG_GLOBAL: path.join(root, "gitconfig"), HM_HOME: root, HM_CLAUDE_HOME: path.join(root, ".claude"), HM_CODEX_HOME: path.join(root, ".codex"), CODEX_HOME: path.join(root, ".codex"), CLAUDE_CONFIG_DIR: path.join(root, ".claude"), HARNESS_MANAGER_USER_DATA: path.join(root, "electron-data") } });
   try {
     const page = await app.firstWindow();
@@ -24,6 +25,7 @@ test("provider settings → structured editor → mod options → compact layout
     const review = page.getByRole("dialog", { name: "변경 검토" });
     const settings = page.getByRole("complementary", { name: "CLI 설정 상세" });
     const choose = async (query: string, key: string) => {
+      await page.getByRole("tablist", { name: "CLI 관리" }).getByRole("tab", { name: "설정", exact: true }).click();
       await page.getByRole("textbox", { name: "CLI 설정 검색" }).fill(query);
       await page.locator(".pc-name").filter({ hasText: key }).first().click();
       await expect(settings).toBeVisible();
@@ -60,6 +62,7 @@ test("provider settings → structured editor → mod options → compact layout
     await expect.poll(() => fs.readFile(config, "utf8")).toContain('"high"');
     await settings.getByRole("button", { name: "닫기", exact: true }).click();
     await page.getByRole("tab", { name: "Claude Code", exact: true }).click();
+    await page.getByRole("tablist", { name: "CLI 관리" }).getByRole("tab", { name: "설정", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "CLI 설정 검색" })).toHaveValue("language");
     await page.getByRole("tab", { name: "확장", exact: true }).click();
     await page.getByRole("button", { name: "입력창 상황판", exact: true }).click();
@@ -71,6 +74,7 @@ test("provider settings → structured editor → mod options → compact layout
     await page.screenshot({ path: info.outputPath("cli-mod-options-1280.png"), fullPage: true });
     await extension.getByRole("button", { name: "닫기", exact: true }).click();
     await page.getByRole("tab", { name: "Codex", exact: true }).click();
+    await page.getByRole("tab", { name: "확장", exact: true }).click();
     await expect(page.getByRole("button", { name: "Codex 상태·가드 확장", exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "설정", exact: true }).click();
     await choose("notify", "notify");

@@ -4,6 +4,7 @@ import type { WorkbenchPlan } from "@shared/workbench-types";
 import { ApiError, call } from "../api/client";
 import { Banner, Check, PageHeader, Panel, StatusTag } from "../components/ui";
 import { ChangePreview } from "../components/ChangePreview";
+import { PcReports } from "../components/PcReports";
 import ProfilePreviewDialog from "../components/ProfilePreviewDialog";
 import { useConfirmDialog } from "../components/confirm-dialog";
 import type { PageContext } from "./registry";
@@ -20,7 +21,6 @@ export default function Sync({ navigate }: PageContext) {
   const [direction, setDirection] = useState<"send" | "receive">("send");
   const [conflict, setConflict] = useState<ProfileSyncPreview | null>(null);
   const [choices, setChoices] = useState<Record<string, "local" | "remote">>({});
-  const [resolved, setResolved] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const { confirm, dialog } = useConfirmDialog();
   const load = async () => { const profiles = await call("profiles:list"); setId(profiles.activeId); setStatus(await call("profiles:github-status", profiles.activeId)); };
@@ -30,12 +30,10 @@ export default function Sync({ navigate }: PageContext) {
     return window.hm.on("profiles:log", (event) => setLogs((lines) => [...lines.slice(-100), event.text]));
   }, []);
   const reviewSend = () => void work(async () => {
-    setResolved(false);
     const preview = await call("profiles:sync-plan", id, "send"); setDirection("send");
     setPlan({ token: preview.token, title: "내 설정 보내기", files: preview.changes.map(change => ({ path: change.file, diff: change.diff })), notes: preview.notes, commands: [], automatic: false, scope: "settings" });
   });
   const reviewReceive = () => void work(async () => {
-    setResolved(false);
     setDirection("receive");
     try {
       setPlan(await call("changes:receive"));
@@ -67,7 +65,6 @@ export default function Sync({ navigate }: PageContext) {
     <PageHeader title="동기화" meta="여러 PC에서 같은 내 설정 사용"><button className="btn ghost" disabled={busy} onClick={() => void work(load)}>다시 확인</button></PageHeader>
     {/* 충돌 대화상자가 열려 있으면 오류는 대화상자 안에 보인다. */}
     {error && !conflict && <Banner tone="err">{error}</Banner>}
-    {resolved && <Banner tone="ok">고른 대로 내 설정에 저장했습니다. 이 PC에는 아직 적용하지 않았습니다. <button className="btn ghost" onClick={() => navigate("install")}>설치 화면 열기</button></Banner>}
     <div className="pc-settings-body">
       <Panel head="연결"><div className="pc-inline"><StatusTag tone={status?.connected ? "ok" : "muted"}>{status ? status.connected ? "연결됨" : "연결 안 됨" : "확인 중"}</StatusTag><strong>{status?.repository ?? "비공개 GitHub 저장소"}</strong>{status?.account && <span className="muted">{status.account}</span>}</div>
         <p>{status ? status.detail : "연결 상태 확인 중…"}</p>
@@ -84,10 +81,11 @@ export default function Sync({ navigate }: PageContext) {
       </div>
       <p className="muted">받을 때 내 설정과 PC 변경을 함께 검토합니다. 로그인 정보는 전송하지 않습니다.</p>
       <button className="btn ghost" onClick={() => navigate("workbench")}>이 PC 설정 보기</button>
+      <PcReports connected={Boolean(status?.connected && status.available)} onInspectPlugin={(provider, pluginId) => { localStorage.setItem("hm-cli-scope", provider); sessionStorage.setItem("hm-cli-entry-mode", "extensions"); sessionStorage.setItem(`extensions-selected-${provider}`, pluginId); sessionStorage.setItem(`extensions-query-${provider}`, pluginId); navigate("workbench"); }} />
     </div>
     {busy && <button className="btn ghost pc-cancel" onClick={() => void call("profiles:cancel")}>작업 취소</button>}
     {plan && <ChangePreview plan={plan} busy={busy} onClose={() => setPlan(null)} applyLabel={direction === "send" ? "내 설정 보내기" : "이 PC에 적용"} onApply={() => void work(async () => { if (direction === "send") await call("profiles:sync", id, plan.token, {}); else await call("workbench:apply", plan.token); setPlan(null); await load(); })} />}
-    {/* 충돌을 고른 결과는 프로필에만 저장된다. PC 파일은 건드리지 않으므로 적용 뒤 설치 화면을 안내한다. */}
+    {/* 충돌 선택은 쓰기 없이 병합 계획을 만들며 PC 영향까지 한 번 더 검토한다. */}
     {conflict && <ProfilePreviewDialog
       preview={conflict}
       action="sync"
@@ -95,7 +93,7 @@ export default function Sync({ navigate }: PageContext) {
       error={error}
       choices={choices}
       onChoose={(file, choice) => setChoices({ ...choices, [file]: choice })}
-      onApply={() => void work(async () => { setStatus(await call("profiles:sync", id, conflict.token, choices)); setConflict(null); setResolved(true); })}
+      onApply={() => void work(async () => { const next = await call("changes:resolved-receive", id, conflict.token, choices); setConflict(null); setDirection("receive"); setPlan(next); })}
       onClose={() => { setConflict(null); setError(""); }}
     />}
   </div>;

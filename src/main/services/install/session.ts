@@ -29,6 +29,11 @@ export class InstallSession {
     if (this.running) return undefined;
     return this.execute(work, true);
   }
+  /** Metadata can replace a background poll, and remains cancellable by a manual write. */
+  async runDiagnostic<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.backgroundController) { this.backgroundController.abort(); await this.finished; }
+    return this.execute(work, true);
+  }
   private async execute<T>(work: (signal: AbortSignal) => Promise<T>, automatic: boolean): Promise<T> {
     // 사용자가 고른 작업은 백그라운드 확인이 정리된 뒤 실행한다. 일반 설치끼리는 계속 409다.
     if (!automatic && this.backgroundController) { this.backgroundController.abort(); await this.finished; }

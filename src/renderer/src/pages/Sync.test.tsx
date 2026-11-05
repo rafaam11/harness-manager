@@ -29,6 +29,7 @@ beforeEach(() => {
     if (channel === "profiles:list") return { activeId: "mine", profiles: [] };
     if (channel === "profiles:github-status") return status;
     if (channel === "changes:receive") return receive();
+    if (channel === "changes:resolved-receive") return plan;
     if (channel === "profiles:sync-plan") return syncPlan();
     if (channel === "profiles:sync") return { ...connected, changed: false };
     return {};
@@ -58,7 +59,7 @@ it("applies a conflict-free receive to the PC through the workbench", async () =
   expect(call).not.toHaveBeenCalledWith("profiles:sync", expect.anything(), expect.anything(), expect.anything());
 });
 
-it("lets a conflict be resolved per file, saves it to the profile only and points to install", async () => {
+it("reviews PC changes after conflict resolution before writing the merged baseline", async () => {
   receive = () => { throw new ApiError(409, "같은 파일이 양쪽에서 바뀌었습니다"); };
   const navigate = vi.fn();
   renderSync(navigate);
@@ -74,13 +75,15 @@ it("lets a conflict be resolved per file, saves it to the profile only and point
   expect(apply).not.toBeDisabled();
   fireEvent.click(apply);
 
-  await waitFor(() => expect(call).toHaveBeenCalledWith("profiles:sync", "mine", "conflict-token", { "manifest/plugins.json": "remote" }));
+  await waitFor(() => expect(call).toHaveBeenCalledWith("changes:resolved-receive", "mine", "conflict-token", { "manifest/plugins.json": "remote" }));
   expect(call).not.toHaveBeenCalledWith("workbench:apply", expect.anything());
   expect(screen.queryByRole("dialog", { name: "동기화 미리보기" })).toBeNull();
 
-  expect(await screen.findByText(/이 PC에는 아직 적용하지 않았습니다/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "설치 화면 열기" }));
-  expect(navigate).toHaveBeenCalledWith("install");
+  const review = await screen.findByRole("dialog", { name: "변경 검토" });
+  expect(call).not.toHaveBeenCalledWith("profiles:sync", expect.anything(), expect.anything(), expect.anything());
+  fireEvent.click(within(review).getByRole("button", { name: "이 PC에 적용" }));
+  await waitFor(() => expect(call).toHaveBeenCalledWith("workbench:apply", "receive-token"));
+  expect(navigate).not.toHaveBeenCalled();
 });
 
 it("shows the original error when a 409 has no conflict to choose", async () => {

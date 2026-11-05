@@ -1,21 +1,27 @@
-﻿import { expect, it } from "vitest";
-import { getVisibleCodexSkills } from "./codex-skills.js";
-import type { CommandRunner } from "./install/exec.js";
-
-it("returns skill names from the developer prompt only", async () => {
-  const output = JSON.stringify([
-    { role: "developer", content: [{ text: "## Skills\n### Available skills\n- imagegen: Images (file: secret)\n- plugin:setup: Setup (file: secret)\n## Rules\n- unrelated: Text" }] },
-    { role: "user", content: [{ text: "### Available skills\n- spoof: Value" }] },
-  ]);
-  const runner: CommandRunner = { run: async (spec, log) => {
-    expect(spec.args).toEqual(["debug", "prompt-input"]);
-    log("stdout", output);
-    return { code: 0, notFound: false, timedOut: false };
-  } };
-  expect((await getVisibleCodexSkills(runner)).skills).toEqual(["imagegen", "plugin:setup"]);
+import path from "node:path";
+import { expect, it } from "vitest";
+import { codexSkillList, validateRecognitionRequest } from "./workbench/recognition.js";
+import type { MetadataTransport } from "./workbench/recognition.js";
+const scope = { id: "global", kind: "global" as const, cwd: process.cwd() };
+const transport = (result: unknown): MetadataTransport => async options => {
+  expect(options.args).toEqual(["app-server"]);
+  const sent: unknown[] = []; let failure: Error | undefined;
+  const receive = (raw: unknown) => options.onMessage!(raw, message => sent.push(message), error => { failure = error; });
+  receive({ id: 1, result: {} });
+  expect(sent).toContainEqual({ id: 2, method: "skills/list", params: { cwds: [scope.cwd], forceReload: true } });
+  receive(result); if (failure) throw failure; return "";
+};
+it("preserves path, plugin identity and disabled skills without collapsing names", async () => {
+  const skills = ["one", "two"].map((name, i) => ({ name: "same", path: path.join(scope.cwd, name, "SKILL.md"), enabled: i === 0, scope: "user", pluginId: `${name}@market` }));
+  expect(await codexSkillList("codex", scope, {}, new AbortController().signal, transport({ id: 2, result: { data: [{ cwd: scope.cwd, skills, errors: [] }] } }))).toMatchObject(skills);
 });
-
-it("reports a missing skill section rather than claiming an empty list", async () => {
-  const runner: CommandRunner = { run: async (_spec, log) => { log("stdout", "[]"); return { code: 0, notFound: false, timedOut: false }; } };
-  await expect(getVisibleCodexSkills(runner)).rejects.toThrow();
+it("distinguishes empty discovery from malformed or partial responses", async () => {
+  expect(await codexSkillList("codex", scope, {}, new AbortController().signal, transport({ id: 2, result: { data: [{ cwd: scope.cwd, skills: [], errors: [] }] } }))).toEqual([]);
+  for (const data of [[], [{ cwd: scope.cwd, skills: [], errors: [{}] }], [{ cwd: scope.cwd, skills: [{ name: "invalid" }] }]]) await expect(codexSkillList("codex", scope, {}, new AbortController().signal, transport({ id: 2, result: { data } }))).rejects.toThrow();
+});
+it("reports unsupported versions", async () => {
+  await expect(codexSkillList("codex", scope, {}, new AbortController().signal, transport({ id: 2, error: { code: -32601 } }))).rejects.toThrow("지원하지");
+});
+it("rejects arbitrary paths and command fields in IPC", () => {
+  expect(() => validateRecognitionRequest({ provider: "codex", scopeId: "global", refresh: true, cwd: "somewhere" })).toThrow();
 });

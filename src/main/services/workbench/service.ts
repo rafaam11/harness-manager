@@ -30,14 +30,125 @@ import { CliSettingsService, type CliChange } from "../cli-settings/service.js";
 import { projectCliSettings } from "../cli-settings/projection.js";
 import { CLI_SETTINGS_FILE, CLI_SETTINGS_LOCAL } from "../cli-settings/definition.js";
 import type { SettingsEdit, ExtensionEdit } from "@shared/cli-settings-types";
+import type { RecognitionScope, RecognitionReport } from "@shared/workbench-types";
+import matter from "gray-matter";
+import { ExampleService } from "./examples.js";
+import { codexSkillList, identityPath, recognitionFingerprint, RecognitionStore, type MetadataTransport } from "./recognition.js";
 
 interface Pending { profileId: string; definition: string | null; files: FileChange[]; stepIds: string[]; title: string; automatic: boolean; restore?: string; installDigest?: string; candidate?: ComponentDefinition[]; destination?: SetupProfile; verify?(signal: AbortSignal): Promise<void>; checkLocal?(): Promise<void>; stagedContext?: InstallContext; cli?: CliChange; probe?: { id: string; fingerprint: string } }
 export interface WorkbenchDependencies {
   stateDir: string; context(): Promise<InstallContext>; providers: ProviderAdapter[]; plugins(): Promise<PluginsSnapshot>;
   receiveRemote?(profileId: string, signal: AbortSignal): Promise<string>;
+  metadataTransport?: MetadataTransport;
 }
 export const defaultWorkbenchDependencies = (repoRoot: string | null): WorkbenchDependencies => ({ stateDir: APP_STATE_DIR, context: () => defaultInstallContext(repoRoot), providers: getProviders().map(p => ({ ...p, detectRunning: () => detectProcess(process.platform === "win32" ? [`${p.id}.exe`] : [p.id], true) })), plugins: getAllPlugins, receiveRemote: (id, signal) => new ProfileSync(new SetupProfileStore(APP_STATE_DIR, repoRoot)).receiveAutomatic(id, signal) });
 export class WorkbenchService {
+  private exampleService?: ExampleService;
+  get examples() {
+    return this.exampleService ??= new ExampleService(this.deps.context, this.deps.stateDir, async request => {
+      const snapshot = await this.recognizedSnapshot(request.scopeId, false, new AbortController().signal);
+      const item = snapshot.components.find(i => i.id === request.itemId && i.kind === "skill");
+      const observation = item?.observations.find(o => o.provider === request.provider);
+      if (!item || !observation?.identityPath || observation.enabled === false) throw new RequestError(422, "현재 범위에서 발견한 활성 스킬만 예제로 검사할 수 있습니다");
+      return { name: item.name, path: observation.identityPath, provider: request.provider, scopeId: request.scopeId };
+    }, this.deps.metadataTransport);
+  }
+  private scopes = new Map<string, RecognitionScope>();
+  async globalScope(): Promise<RecognitionScope> {
+    const cwd = await profileFile(this.deps.stateDir, "workbench/global-scope"); await fs.mkdir(cwd, { recursive: true });
+    const scope: RecognitionScope = { id: "global", kind: "global", cwd }; this.scopes.set(scope.id, scope); return scope;
+  }
+  async projectScope(folder: string): Promise<RecognitionScope> {
+    const cwd = await fs.realpath(folder); if (!(await fs.stat(cwd)).isDirectory()) throw new RequestError(400, "프로젝트 폴더를 선택하세요");
+    const scope: RecognitionScope = { id: sha256(cwd), kind: "project", cwd }; this.scopes.set(scope.id, scope); return scope;
+  }
+  async recognize(provider: ProviderId, scopeId: string, refresh: boolean, signal = new AbortController().signal): Promise<RecognitionReport> {
+    const scope = scopeId === "global" ? await this.globalScope() : this.scopes.get(scopeId);
+    if (!scope) throw new RequestError(403, "이 창에서 선택한 검사 범위가 아닙니다");
+    const ctx = await this.deps.context(), store = new RecognitionStore(this.deps.stateDir);
+    const previous = await store.read(provider, scope);
+    const executable = await ctx.findExecutable(provider);
+    const version = executable ? await ctx.readVersion(executable, ["--version"]) ?? "버전 확인 실패" : "CLI 없음";
+    const home = provider === "codex" ? ctx.codexHome : ctx.claudeHome;
+    const plugins = (await this.deps.plugins()).plugins.filter(p => (p.provider ?? "claude") === provider);
+    const roots = [path.join(home, "skills"), path.join(home, provider === "codex" ? "config.toml" : "settings.json"), path.join(home, "plugins", "installed_plugins.json"), ...plugins.flatMap(p => p.installs.flatMap(i => i.installPath ? [i.installPath] : [])), ...(previous?.skills.map(s => path.dirname(s.path)) ?? [])];
+    if (provider === "codex") roots.push(ctx.agentsSkillsDir);
+    if (scope.kind === "project") {
+      let current = scope.cwd;
+      while (true) {
+        roots.push(path.join(current, ".agents", "skills"), path.join(current, ".claude", "skills"), path.join(current, ".codex", "config.toml"), path.join(current, ".claude", "settings.json"), path.join(current, ".claude", "settings.local.json"));
+        const parent = path.dirname(current);
+        if (parent === current || current === path.resolve(ctx.home) || await fs.stat(path.join(current, ".git")).catch(() => null)) break;
+        current = parent;
+      }
+    }
+    const fingerprint = async () => recognitionFingerprint([...new Set(roots)], { executable, version, plugins }, signal);
+    let digest: string, fingerprintIssue = "";
+    try { digest = await fingerprint(); } catch (error) { digest = "unavailable"; fingerprintIssue = (error as Error).message; }
+    if (!refresh) return previous ? { ...previous, stale: previous.stale || digest === "unavailable" || previous.fingerprint !== digest } : { provider, scope, version, checkedAt: "", status: "unsupported", detail: "CLI 인식 미검증 · 다시 확인을 실행하세요", skills: [], fingerprint: digest, stale: true };
+    const report: RecognitionReport = { provider, scope, version, checkedAt: new Date().toISOString(), status: "unsupported", detail: "이 버전에서 모델 호출 없이 안전하게 스킬 인식을 확인하는 구조화 API를 확인하지 못했습니다. 파일·설정 관측만 제공합니다.", skills: previous?.skills ?? [], fingerprint: previous?.fingerprint ?? digest, stale: true, lastSuccessAt: previous?.lastSuccessAt };
+    try {
+      if (signal.aborted) throw new Error("검사를 취소했습니다");
+      if (!executable) throw new Error("CLI 실행 파일을 찾지 못했습니다");
+      if (provider === "codex") {
+        const skills = await codexSkillList(executable, scope, ctx.env, signal, this.deps.metadataTransport);
+        const before = await fingerprint();
+        roots.push(...skills.map(s => path.dirname(s.path)));
+        const after = await fingerprint();
+        report.skills = skills; report.status = "success"; report.fingerprint = after;
+        report.stale = digest === "unavailable" || before !== digest;
+        report.detail = "새 터미널 CLI의 skills/list 결과 · 기존 앱·MCW 세션과 실행 성공은 미검증" + (fingerprintIssue ? ` · ${fingerprintIssue}` : "");
+        report.lastSuccessAt = report.checkedAt;
+      }
+    } catch (error) {
+      report.status = signal.aborted ? "cancelled" : (error as Error).message.includes("지원하지") ? "unsupported" : "error";
+      report.detail = (error as Error).message;
+    }
+    await store.save(report); return report;
+  }
+  async recognizedSnapshot(scopeId: string, refresh: boolean, signal: AbortSignal, selectedProvider?: ProviderId): Promise<WorkbenchSnapshot> {
+    const snapshot = await this.snapshot();
+    snapshot.recognition = [];
+    for (const provider of ["codex", "claude"] as const) {
+      const report = await this.recognize(provider, scopeId, refresh && (!selectedProvider || selectedProvider === provider), signal); snapshot.recognition.push(report);
+      const ctx = await this.deps.context();
+      if (report.scope.kind === "project") {
+        const base = path.join(report.scope.cwd, provider === "claude" ? ".claude" : ".agents", "skills");
+        for (const entry of await fs.readdir(base, { withFileTypes: true }).catch(() => [])) {
+          if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+          const file = path.join(base, entry.name, "SKILL.md"), body = await readText(file);
+          if (body === null) continue;
+          let data: Record<string, unknown> = {}; try { data = matter(body).data; } catch { /* Invalid metadata remains visible. */ }
+          snapshot.components.push({ id: `project:${provider}:${sha256(file)}`, name: typeof data.name === "string" ? data.name : entry.name, description: typeof data.description === "string" ? data.description : "프로젝트 스킬 · 읽기 전용", kind: "skill", source: "프로젝트 파일 · 읽기 전용", catalogPath: file, managed: false, stepIds: [], observations: [{ provider, installed: true, enabled: null, recognition: "unverified", execution: "unverified", compatibility: "unverified", detail: "프로젝트 파일 발견 · CLI 인식 미검증", checkedAt: snapshot.checkedAt, identityPath: file, scopeKind: "project" }] });
+        }
+      }
+      const byPath = new Map<string, ManagedComponent>();
+      for (const item of snapshot.components) {
+        const observation = item.observations.find(o => o.provider === provider);
+        if (!observation) continue;
+        Object.assign(observation, { cwd: report.scope.cwd, cliVersion: report.version, recognitionDetail: report.detail });
+        if (item.kind !== "skill") continue;
+        let file = item.catalogPath;
+        if (item.definitionId) file = path.join(provider === "codex" ? ctx.codexHome : ctx.claudeHome, "skills", item.definitionId, "SKILL.md");
+        if (file) { observation.identityPath = file; byPath.set(await identityPath(file), item); }
+      }
+      for (const skill of report.skills) {
+        const key = await identityPath(skill.path);
+        const owner = snapshot.components.find(p => ["plugin", "mod"].includes(p.kind) && p.name === skill.pluginId && p.observations.some(o => o.provider === provider));
+        const candidate = byPath.get(key);
+        const candidatePlugin = candidate?.observations.find(o => o.provider === provider)?.pluginId;
+        const existing = candidatePlugin && candidatePlugin !== skill.pluginId ? undefined : candidate;
+        const item: ManagedComponent = existing ?? { id: `recognition:${provider}:${sha256(JSON.stringify([key, skill.pluginId]))}`, name: skill.name, description: skill.description, kind: "skill", source: skill.pluginId ? `플러그인: ${skill.pluginId}` : skill.scope === "system" ? "CLI 기본 시스템 스킬" : "CLI 인식 목록", managed: owner?.managed ?? false, stepIds: owner?.stepIds ?? [], catalogPath: skill.path, observations: [] };
+        const observation = item.observations.find(o => o.provider === provider) ?? { provider, installed: true, enabled: skill.enabled, recognition: "unverified" as const, execution: "unverified" as const, compatibility: "unverified" as const, checkedAt: report.checkedAt, detail: "CLI 메타데이터" };
+        const stat = await fs.stat(skill.path).catch(() => null);
+        const body = stat && stat.size <= 4 * 1024 * 1024 ? await readText(skill.path) : null;
+        Object.assign(observation, { recognition: report.status === "success" && !report.stale && skill.enabled ? "confirmed" : "unverified", enabled: skill.enabled, stale: report.stale || report.status !== "success", recognitionDetail: report.detail, identityPath: skill.path, pluginId: skill.pluginId, system: skill.scope === "system", cwd: report.scope.cwd, scopeKind: skill.scope === "repo" ? "project" : "global", cliVersion: report.version, contentDigest: body === null ? undefined : sha256(body), checkedAt: report.lastSuccessAt ?? report.checkedAt });
+        if (!item.observations.includes(observation)) item.observations.push(observation);
+        if (!existing) snapshot.components.push(item);
+      }
+    }
+    return snapshot;
+  }
   private plans = new Map<string, Pending>();
   private lastPoll = 0;
   private probes = new Map<string, { fingerprint: string; result: McpProbeResult; at: string }>();
@@ -122,7 +233,7 @@ export class WorkbenchService {
           items.push({ id: `catalog:${provider.id}:${sha256(item.path)}`, name: item.name, description: item.description, kind: item.kind, source: item.path.includes(`${path.sep}plugins${path.sep}`) ? "설치된 플러그인" : "기존 로컬 파일", managed: false, catalogPath: item.path, stepIds: [], issue: item.warn, observations: [{ provider: provider.id, installed: true, enabled: null, recognition: "unverified", execution: "unverified", compatibility: "unverified", detail: "파일 발견 · 활성·인식은 미검증", checkedAt: at }] });
         }
         for (const server of await provider.readMcpServers()) {
-          const item: ManagedComponent = { id: `mcp:${provider.id}:${sha256(JSON.stringify([server.scope, server.projectPath, server.name]))}`, name: server.name, description: `${server.transport} · ${server.scope === "user" ? "전역" : "프로젝트 (읽기 전용)"}`, kind: "mcp", source: "CLI 설정", managed: false, stepIds: [], observations: [{ provider: provider.id, installed: true, enabled: null, recognition: "unverified", execution: "unverified", compatibility: "unverified", checkedAt: at, detail: "설정 발견 · 실제 연결은 검사하지 않음" }] };
+          const item: ManagedComponent = { id: `mcp:${provider.id}:${sha256(JSON.stringify([server.scope, server.projectPath, server.name]))}`, name: server.name, description: `${server.transport} · ${server.scope === "user" ? "전역" : "프로젝트 (읽기 전용)"}`, kind: "mcp", source: "CLI 설정", managed: false, stepIds: [], observations: [{ provider: provider.id, installed: true, enabled: null, recognition: "unverified", execution: "unverified", compatibility: "unverified", checkedAt: at, scopeKind: server.scope === "user" ? "global" : "project", detail: "설정 발견 · 실제 연결은 검사하지 않음" }] };
           items.push(item); if (server.scope === "user") bindings.set(`mcp.${server.name}.${provider.id}`, item);
           const probe = this.probes.get(item.id);
           if (probe?.fingerprint === sha256(stringify(server))) { const observation = item.observations[0]!; observation.execution = probe.result.ok ? "confirmed" : "unverified"; observation.detail = probe.result.detail; observation.checkedAt = probe.at; }
@@ -137,6 +248,19 @@ export class WorkbenchService {
         const item: ManagedComponent = { id: `plugin:${p.id}`, name: p.id, description: mod ? "hook·상태·가드 확장" : "설치된 플러그인 패키지", source: p.id.split("@")[1] ?? "CLI 플러그인", kind: mod ? "mod" : "plugin", managed: false, stepIds: [], observations: [{ provider: p.provider ?? "claude", installed: p.installs.length > 0, enabled: p.enabledInSettings, recognition: "unverified", execution: "unverified", compatibility, detail: p.blocked ? "차단 목록에 있음" : compatibility === "unsupported" ? "Claude hook 형식은 Codex에서 실행되지 않음" : "hook 신뢰·실행은 별도 검토", checkedAt: at, version: p.installs[0]?.version }] };
         const existing = items.find(i => i.id === item.id); if (existing) existing.observations.push(...item.observations); else items.push(item);
         bindings.set(`plugins.${p.provider ?? "claude"}.${p.id}`, existing ?? item);
+        const visited = new Set<string>();
+        const discover = async (folder: string, depth = 0): Promise<void> => {
+          if (depth > 12 || visited.size > 2000) return;
+          const real = await fs.realpath(folder).catch(() => null); if (!real || visited.has(real)) return; visited.add(real);
+          const file = path.join(folder, "SKILL.md"), body = await readText(file);
+          if (body !== null) {
+            let data: Record<string, unknown> = {}; try { data = matter(body).data; } catch { /* Keep invalid packages visible for diagnosis. */ }
+            if (!items.some(i => i.catalogPath === file && i.observations.some(o => o.provider === (p.provider ?? "claude")))) items.push({ id: `plugin-skill:${p.provider ?? "claude"}:${sha256(`${p.id}:${file}`)}`, name: typeof data.name === "string" ? data.name : path.basename(folder), description: typeof data.description === "string" ? data.description : "", kind: "skill", source: `플러그인: ${p.id}`, managed: false, stepIds: [], catalogPath: file, observations: [{ provider: p.provider ?? "claude", installed: true, enabled: p.enabledInSettings, recognition: "unverified", execution: "unverified", compatibility: "unverified", checkedAt: at, detail: "플러그인 파일·활성 설정 관측 · CLI 인식 미검증", pluginId: p.id, identityPath: file }] });
+            return;
+          }
+          for (const entry of await fs.readdir(folder, { withFileTypes: true }).catch(() => [])) if (entry.isDirectory() || entry.isSymbolicLink()) await discover(path.join(folder, entry.name), depth + 1);
+        };
+        for (const install of p.installs) if (install.installPath && (install.scope !== "project" && install.scope !== "local")) await discover(path.join(install.installPath, "skills"));
       }
     } catch (e) { warnings.push((e as Error).message); }
     const plan = await planInstallWith(c.ctx);
@@ -147,6 +271,14 @@ export class WorkbenchService {
       const kind: ComponentKind = step.section === "mcp" ? "mcp" : step.section === "plugins" ? "plugin" : step.section === "skills" ? "skill" : /claude-md|agents-md/.test(step.id) ? "instruction" : "environment";
       const provider: ProviderId | null = /(^claude\.|\.claude\.|\.claude$)/.test(step.id) ? "claude" : /(^codex\.|\.codex\.|\.codex$)/.test(step.id) ? "codex" : null;
       items.push({ id: `step:${step.id}`, name: step.title, description: step.detail, kind, source: "내 설정의 설치 항목", managed: true, stepIds: [step.id], issue: ["ok", "info", "skipped"].includes(step.state) ? undefined : step.detail, observations: (provider ? [provider] : ["claude", "codex"] as const).map(target => ({ provider: target, installed: step.state === "missing" ? false : step.state === "ok" ? true : null, enabled: step.state === "skipped" ? false : null, comparison: step.state === "skipped" ? "outside" : "unknown", recognition: "unverified", execution: "unverified", compatibility: "unverified", detail: step.detail, checkedAt: at })) });
+    }
+    for (const item of items) for (const observation of item.observations) {
+      if (item.catalogPath) observation.identityPath ??= item.catalogPath;
+      if (item.catalogPath?.split(/[\\/]/).includes(".system")) observation.system = true;
+      if (observation.pluginId) {
+        const owner = items.find(p => ["plugin", "mod"].includes(p.kind) && p.name === observation.pluginId && p.observations.some(o => o.provider === observation.provider));
+        if (owner) { item.managed = owner.managed; item.stepIds = owner.stepIds; }
+      }
     }
     return { profile: { id: c.profile.id, name: c.profile.name, kind: c.profile.id === "default" ? "builtin" : "local" }, migrated: c.definition !== null, automatic: definition.automatic, components: items, warnings, checkedAt: at };
   }
@@ -318,7 +450,7 @@ export class WorkbenchService {
   async adopt(id: string, unified = false): Promise<WorkbenchPlan> {
     const item = (await this.snapshot()).components.find(i => i.id === id);
     if (!item?.catalogPath || !["skill", "instruction"].includes(item.kind)) throw new RequestError(422, "일반 로컬 스킬·지침만 가져올 수 있습니다");
-    if (item.source === "설치된 플러그인") throw new RequestError(422, "플러그인은 패키지 단위로 관리합니다");
+    if (item.source === "설치된 플러그인" || item.observations.some(o => o.pluginId || o.system)) throw new RequestError(422, "플러그인·시스템 스킬은 패키지 단위로 관리합니다");
     const provider = this.deps.providers.find(p => p.id === item.observations[0]?.provider)!;
     const relative = path.relative(provider.roots.home, item.catalogPath).split(path.sep).join("/");
     await profileFile(provider.roots.home, relative);

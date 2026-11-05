@@ -4,6 +4,7 @@ import type { ApiHandlers, ApiDependencies } from "./api-handlers.js";
 import type { ProfileBundle } from "@shared/setup-profile-types";
 import { SetupProfileStore } from "./services/setup-profiles.js";
 import { ProfileSync } from "./services/profile-sync.js";
+import type { WorkbenchService } from "./services/workbench/service.js";
 import {
   bundleProfile,
   parseBundle,
@@ -39,10 +40,12 @@ type Channels =
   | "profiles:github-connect"
   | "profiles:sync-plan"
   | "profiles:sync"
+  | "changes:resolved-receive"
   | "profiles:cancel";
 export function profileHandlers(
   deps: ApiDependencies,
   store: () => Promise<SetupProfileStore>,
+  workbench?: WorkbenchService,
 ): Pick<ApiHandlers, Channels> {
   const transfers = new Map<
     string,
@@ -248,6 +251,11 @@ export function profileHandlers(
           signal,
         );
       }),
+    "changes:resolved-receive": (id, token, choices) => exclusive(async signal => {
+      const value = exactObject(choices, Object.keys(choices && typeof choices === "object" ? choices : {}), "choices");
+      if (Object.values(value).some(v => v !== "local" && v !== "remote") || !workbench) throw new RequestError(400, "충돌 해결을 선택하세요");
+      return workbench.receivePreview(signal, await (await syncing()).prepareReceive(nonEmptyString(id, "id"), signal, nonEmptyString(token, "token"), value as Record<string, "local" | "remote">));
+    }),
     "profiles:sync": (id, token, choices) =>
       exclusive(async (signal) => {
         const value = exactObject(
